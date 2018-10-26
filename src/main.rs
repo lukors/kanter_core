@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
+use std::sync::mpsc;
+use std::sync::Arc;
+use std::thread;
 
 #[derive(Debug)]
 struct Dag {
-    nodes: HashMap<NodeId, Node>,
-    node_data: HashMap<NodeId, NodeData>,
+    nodes: HashMap<NodeId, Arc<Node>>,
+    node_data: HashMap<NodeId, Arc<NodeData>>,
     edges: HashMap<NodeId, Vec<NodeId>>,
     id_iterator: u32,
 }
@@ -21,7 +25,7 @@ impl Dag {
 
     pub fn add_node(&mut self, node: Node) -> NodeId {
         let id = self.new_id();
-        self.nodes.insert(id, node);
+        self.nodes.insert(id, Arc::new(node));
         self.edges.insert(id, Vec::new());
         id
     }
@@ -31,11 +35,14 @@ impl Dag {
             return;
         }
 
-        self.edges.get_mut(&id_1).map(|connections| connections.push(id_2));
+        self.edges
+            .get_mut(&id_1)
+            .map(|connections| connections.push(id_2));
     }
 
     fn reversed_edges(&self) -> HashMap<NodeId, Vec<NodeId>> {
-        let mut reversed_edges: HashMap<NodeId, Vec<NodeId>> = HashMap::with_capacity(self.edges.len());
+        let mut reversed_edges: HashMap<NodeId, Vec<NodeId>> =
+            HashMap::with_capacity(self.edges.len());
 
         for key in self.edges.keys() {
             reversed_edges.insert(*key, Vec::new());
@@ -43,33 +50,91 @@ impl Dag {
 
         for (id, target_ids) in self.edges.iter() {
             for target_id in target_ids {
-                reversed_edges.entry(*target_id)
-                    .and_modify(|e| e.push(*id));
+                reversed_edges.entry(*target_id).and_modify(|e| e.push(*id));
             }
         }
         reversed_edges
     }
 
+    // pub fn process_singlethread(&mut self) {
+    //     let reversed_edges = self.reversed_edges();
+
+    //     // TODO: Take out the root ids as part of the topological sort.
+    //     // let mut sorted_ids = self.topological_sort();
+    //     let queued_ids = self.topological_sort();
+
+    //     for id in queued_ids {
+    //         let parent_ids = reversed_edges.get(&id).unwrap();
+
+    //         let new_data: NodeData = {
+    //             let mut input_data: Vec<&NodeData> = Vec::new();
+    //             for id in parent_ids {
+    //                 input_data.push(self.node_data.get(&id).unwrap());
+    //             }
+    //             self.nodes.get_mut(&id).unwrap().process(&input_data).unwrap()
+    //         };
+
+    //         self.node_data.insert(id, Arc::new(new_data));
+    //     }
+    // }
+
     pub fn process(&mut self) {
-        let reversed_edges = self.reversed_edges();
+        #[derive(Debug)]
+        struct ThreadMessage {
+            node_id: NodeId,
+            node_data: NodeData,
+        }
 
-        // TODO: Take out the root ids as part of the topological sort.
-        // let mut sorted_ids = self.topological_sort();
-        let queued_ids = self.topological_sort();
+        let reversed_edges: HashMap<NodeId, Vec<NodeId>> = self.reversed_edges();
 
-        for id in queued_ids {
-            let parent_ids = reversed_edges.get(&id).unwrap();
+        let (send, recv) = mpsc::channel::<ThreadMessage>();
+        let mut processed_nodes: HashSet<NodeId> = HashSet::with_capacity(self.nodes.len());
+        let mut queued_ids: VecDeque<NodeId> =
+            VecDeque::from(self.get_root_ids(&self.get_leaf_ids()));
 
-            let new_data: NodeData = {
-                let mut input_data: Vec<&NodeData> = Vec::new();
-                for id in parent_ids {
-                    input_data.push(self.node_data.get(&id).unwrap());
-                }
-                self.nodes.get_mut(&id).unwrap().process(&input_data).unwrap()
+        'outer: while processed_nodes.len() < self.nodes.len() {
+            for message in recv.try_iter() {
+                println!("Inserted processed node: {:?}", message);
+                processed_nodes.insert(message.node_id);
+                self.node_data.insert(message.node_id, Arc::new(message.node_data));
+            }
+
+            let current_id = match queued_ids.pop_front() {
+                Some(id) => id,
+                None => continue,
             };
 
+            let parent_ids = reversed_edges.get(&current_id).unwrap();
 
-            self.node_data.insert(id, new_data);
+            for id in parent_ids {
+                if !processed_nodes.contains(id) {
+                    queued_ids.push_back(*id);
+                    continue 'outer;
+                }
+            }
+
+            for child_id in self.edges.get(&current_id).unwrap() {
+                queued_ids.push_back(*child_id);
+            }
+
+            println!("Node data: {:#?}", self.node_data);
+            println!("Attempting to get node data at keys: {:#?}", parent_ids);
+
+            let input_data: Vec<Arc<NodeData>> = parent_ids
+                .iter()
+                .map(|id| Arc::clone(self.node_data.get(id).unwrap()))
+                .collect();
+            let current_node = Arc::clone(self.nodes.get(&current_id).unwrap());
+            let send = send.clone();
+
+            println!("processing node: {:?}", current_id);
+            thread::spawn(move || {
+                let node_data = current_node.process(&input_data).unwrap();
+                send.send(ThreadMessage{
+                    node_id: current_id,
+                    node_data,
+                }).unwrap();
+            });
         }
     }
 
@@ -126,22 +191,24 @@ impl Dag {
         sorted_list
     }
 
-    // fn get_leaf_ids(&self) -> Vec<NodeId> {
-    //     self.edges
-    //         .iter()
-    //         .filter(|(_, edges)| edges.is_empty())
-    //         .map(|(key, _)| *key)
-    //         .collect()
+    fn get_leaf_ids(&self) -> Vec<NodeId> {
+        self.edges
+            .iter()
+            .filter(|(_, edges)| edges.is_empty())
+            .map(|(key, _)| *key)
+            .collect()
 
-    //     // self.nodes
-    //     //     .iter()
-    //     //     .filter(|(_, node)| node.edges.is_empty())
-    //     //     .map(|(key, _)| *key)
-    //     //     .collect()
-    // }
+        // self.nodes
+        //     .iter()
+        //     .filter(|(_, node)| node.edges.is_empty())
+        //     .map(|(key, _)| *key)
+        //     .collect()
+    }
 
     fn get_input_edge_ids(&self, id: NodeId) -> &Vec<NodeId> {
-        self.edges.get(&id).expect("Could not find the given `NodeId` key in the `edges` HashMap.")
+        self.edges
+            .get(&id)
+            .expect("Could not find the given `NodeId` key in the `edges` HashMap.")
     }
 
     fn get_root_ids(&self, ids: &Vec<NodeId>) -> Vec<NodeId> {
@@ -183,17 +250,17 @@ struct NodeData {
 
 impl Node {
     pub fn new(node_type: NodeType) -> Self {
-        Node {
-            node_type,
-        }
+        Node { node_type }
     }
 
-    pub fn process(&mut self, input: &[&NodeData]) -> Option<NodeData> {
-        Some(NodeData{ value: match self.node_type {
-            NodeType::Input(x) => x,
-            NodeType::Add => input[0].value + input[1].value,
-            NodeType::Multiply => input[0].value * input[1].value,
-        }})
+    pub fn process(&self, input: &[Arc<NodeData>]) -> Option<NodeData> {
+        Some(NodeData {
+            value: match self.node_type {
+                NodeType::Input(x) => x,
+                NodeType::Add => input[0].value + input[1].value,
+                NodeType::Multiply => input[0].value * input[1].value,
+            },
+        })
     }
 }
 
@@ -223,8 +290,10 @@ fn main() {
     dag.process();
 
     println!("{:?}", dag.get_output(node_2));
+    println!("{:?}", dag.get_output(node_4));
+    println!("{:?}", dag.get_output(node_5));
 
-    // TODO: 
+    // TODO:
     // - Make it so the nodes can process some calculations
     // - Make the nodes contain some struct with data to be processed instead of strings
     // - Create a function in the dag that sorts the nodes and processes them in order
