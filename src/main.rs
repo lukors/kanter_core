@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 
 #[derive(Debug)]
 struct Dag {
@@ -89,20 +90,38 @@ impl Dag {
 
         let (send, recv) = mpsc::channel::<ThreadMessage>();
         let mut processed_nodes: HashSet<NodeId> = HashSet::with_capacity(self.nodes.len());
+        let mut started_nodes: HashSet<NodeId> = HashSet::with_capacity(self.nodes.len());
         let mut queued_ids: VecDeque<NodeId> =
-            VecDeque::from(self.get_root_ids(&self.get_leaf_ids()));
+            VecDeque::from(self.get_root_ids());
+        for item in &queued_ids {
+            started_nodes.insert(*item);
+        }
 
+
+        // println!("INITIAL queued_ids: {:#?}", queued_ids);
         'outer: while processed_nodes.len() < self.nodes.len() {
+
             for message in recv.try_iter() {
                 println!("Inserted processed node: {:?}", message);
                 processed_nodes.insert(message.node_id);
                 self.node_data.insert(message.node_id, Arc::new(message.node_data));
+
+                for child_id in self.edges.get(&message.node_id).unwrap() {
+                    if !started_nodes.contains(child_id) {
+                        println!("pusing onto quque: {:?}", child_id);
+                        queued_ids.push_back(*child_id);
+                        started_nodes.insert(*child_id);
+                    }
+                }
             }
+
+            // TODO: Fix so it doesn't lock up in the graph's triangle!
 
             let current_id = match queued_ids.pop_front() {
                 Some(id) => id,
                 None => continue,
             };
+            println!("counts: {:?} ||| {:?}", processed_nodes.len(), self.nodes.len());
 
             let parent_ids = reversed_edges.get(&current_id).unwrap();
 
@@ -113,12 +132,10 @@ impl Dag {
                 }
             }
 
-            for child_id in self.edges.get(&current_id).unwrap() {
-                queued_ids.push_back(*child_id);
-            }
+            
 
-            println!("Node data: {:#?}", self.node_data);
-            println!("Attempting to get node data at keys: {:#?}", parent_ids);
+            // println!("Node data: {:#?}", self.node_data);
+            // println!("Attempting to get node data at keys: {:#?}", parent_ids);
 
             let input_data: Vec<Arc<NodeData>> = parent_ids
                 .iter()
@@ -191,7 +208,7 @@ impl Dag {
         sorted_list
     }
 
-    fn get_leaf_ids(&self) -> Vec<NodeId> {
+    pub fn get_leaf_ids(&self) -> Vec<NodeId> {
         self.edges
             .iter()
             .filter(|(_, edges)| edges.is_empty())
@@ -211,23 +228,14 @@ impl Dag {
             .expect("Could not find the given `NodeId` key in the `edges` HashMap.")
     }
 
-    fn get_root_ids(&self, ids: &Vec<NodeId>) -> Vec<NodeId> {
-        let mut root_ids: Vec<NodeId> = Vec::new();
+    fn get_root_ids(&self) -> Vec<NodeId> {
+        // let mut root_ids: Vec<NodeId> = Vec::new();
 
-        for id in ids {
-            let input_edge_ids = self.get_input_edge_ids(*id);
+        
 
-            if input_edge_ids.is_empty() {
-                root_ids.push(*id);
-            } else {
-                root_ids.append(&mut self.get_root_ids(&input_edge_ids));
-            }
-        }
+        // root_ids
 
-        root_ids.sort_unstable();
-        root_ids.dedup();
-
-        root_ids
+        self.reversed_edges().iter().filter(|(_, v)| v.is_empty()).map(|(k, _)| *k).collect()
     }
 }
 
@@ -254,6 +262,7 @@ impl Node {
     }
 
     pub fn process(&self, input: &[Arc<NodeData>]) -> Option<NodeData> {
+        thread::sleep(Duration::from_secs(1));
         Some(NodeData {
             value: match self.node_type {
                 NodeType::Input(x) => x,
@@ -270,32 +279,40 @@ struct NodeId(u32);
 fn main() {
     let mut dag: Dag = Dag::new();
 
-    let node_0 = dag.add_node(Node::new(NodeType::Input(0.)));
-    let node_1 = dag.add_node(Node::new(NodeType::Add));
-    let node_2 = dag.add_node(Node::new(NodeType::Multiply));
-    let node_3 = dag.add_node(Node::new(NodeType::Input(3.)));
+    let node_0 = dag.add_node(Node::new(NodeType::Input(5.)));
+    let node_1 = dag.add_node(Node::new(NodeType::Input(2.)));
+    let node_2 = dag.add_node(Node::new(NodeType::Input(3.)));
+    let node_3 = dag.add_node(Node::new(NodeType::Input(4.)));
     let node_4 = dag.add_node(Node::new(NodeType::Add));
     let node_5 = dag.add_node(Node::new(NodeType::Add));
-    let node_6 = dag.add_node(Node::new(NodeType::Input(6.)));
+    let node_6 = dag.add_node(Node::new(NodeType::Multiply));
+    let node_7 = dag.add_node(Node::new(NodeType::Add));
 
-    dag.connect(node_0, node_1);
-    dag.connect(node_1, node_2);
-    dag.connect(node_3, node_1);
-    dag.connect(node_2, node_4);
+    dag.connect(node_0, node_4);
+    dag.connect(node_1, node_4);
+    dag.connect(node_1, node_5);
     dag.connect(node_2, node_5);
-    dag.connect(node_6, node_2);
-    dag.connect(node_3, node_4);
-    dag.connect(node_6, node_5);
+    dag.connect(node_5, node_6);
+    dag.connect(node_4, node_6);
+    dag.connect(node_6, node_7);
+    dag.connect(node_3, node_7);
+
+    // println!("leaf_ids: {:?}", dag.get_leaf_ids());
+    // println!("root_ids: {:?}", dag.get_root_ids(&dag.get_leaf_ids()));
 
     dag.process();
 
+    println!("{:?}", dag.get_output(node_0));
+    println!("{:?}", dag.get_output(node_1));
     println!("{:?}", dag.get_output(node_2));
+    println!("{:?}", dag.get_output(node_3));
     println!("{:?}", dag.get_output(node_4));
     println!("{:?}", dag.get_output(node_5));
+    println!("{:?}", dag.get_output(node_6));
 
     // TODO:
-    // - Make it so the nodes can process some calculations
-    // - Make the nodes contain some struct with data to be processed instead of strings
-    // - Create a function in the dag that sorts the nodes and processes them in order
-    // - Multithread that algorhitm using that multithread crate
+    // Try using a DynamicImage
+    // Turn into lib
+    // Clean up the code, add error handling and so on
+    // Add same features as ChannelShuffle 2 has
 }
