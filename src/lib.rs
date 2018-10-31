@@ -10,7 +10,7 @@
 extern crate image;
 extern crate rand;
 
-use image::{ImageBuffer, RgbaImage};
+use image::{GenericImageView, DynamicImage, ImageBuffer};
 use rand::prelude;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -24,6 +24,8 @@ struct TextureProcessor {
     node_data: HashMap<NodeId, Arc<NodeData>>,
     edges: HashMap<NodeId, Vec<NodeId>>,
 }
+
+type ChannelPixel = f64;
 
 impl TextureProcessor {
     pub fn new() -> Self {
@@ -41,11 +43,36 @@ impl TextureProcessor {
         self.add_node_internal(node_type)
     }
 
-    pub fn add_input(&mut self, input: RgbaImage) -> NodeId {
-        let id = self.add_node_internal(NodeType::Input);
-        self.node_data.insert(id, Arc::new(NodeData { value: input }));
+    pub fn add_inputs(&mut self, input: DynamicImage) -> Vec<NodeId> {
+        let node_data_vec = Self::deconstruct_image(input);
+        let ids = Vec::new();
 
-        id
+        for node_data in node_data_vec {
+            let id = self.add_node_internal(NodeType::Input);
+            self.node_data.insert(id, Arc::new(node_data));
+            ids.push(id);
+        }
+
+        ids
+    }
+
+    fn deconstruct_image(image: DynamicImage) -> Vec<NodeData> {
+        let mut raw_pixels = image.raw_pixels();
+        let channel_count = raw_pixels.len() / (image.width() as usize * image.height() as usize);
+        let mut node_data_vec = Vec::with_capacity(channel_count);
+
+        for channel in 0..channel_count {
+            node_data_vec.push(NodeData::new());
+        }
+
+        let mut current_channel = 0;
+
+        for component in raw_pixels.into_iter() {
+            node_data_vec[current_channel].value.push(component);
+            current_channel = current_channel % channel_count;
+        }
+
+        node_data_vec
     }
 
     fn add_node_internal(&mut self, node_type: NodeType) -> NodeId {
@@ -210,7 +237,28 @@ struct Node {
 }
 
 struct NodeData {
-    value: RgbaImage,
+    width: u32,
+    height: u32,
+    value: Vec<ChannelPixel>,
+}
+
+impl NodeData {
+    // fn new(width: u32, height: u32, value: &[ChannelPixel]) -> Self {
+    fn new() -> Self {
+        Self {
+            width: 0,
+            height: 0,
+            value: Vec::new(),
+        }
+    }
+
+    fn with_content(width: u32, height: u32, value: &[ChannelPixel]) -> Self {
+        Self {
+            width,
+            height,
+            value: value.to_vec(),
+        }
+    }
 }
 
 impl Node {
@@ -227,35 +275,13 @@ impl Node {
     }
 
     fn add(input_0: &NodeData, input_1: &NodeData) -> Option<NodeData> {
-        Some(NodeData {
-            value: ImageBuffer::from_fn(256, 256, |x, y| {
-                let mut channels: [u8; 4] = [0, 0, 0, 255];
-
-                for i in 0..4 {
-                    channels[i] = input_0.value.get_pixel(x, y)[i]
-                        .saturating_add(input_1.value.get_pixel(x, y)[i]);
-                }
-
-                image::Rgba(channels)
-            }),
-        })
+        let data: Vec<ChannelPixel> = input_0.value.iter().zip(input_1.value).map(|(x, y)| x + y).collect();
+        Some( NodeData::with_content(input_0.width, input_0.height, &data) )
     }
 
     fn multiply(input_0: &NodeData, input_1: &NodeData) -> Option<NodeData> {
-        Some(NodeData {
-            value: ImageBuffer::from_fn(256, 256, |x, y| {
-                let mut channels: [u8; 4] = [0, 0, 0, 255];
-
-                for i in 0..4 {
-                    channels[i] = ((input_0.value.get_pixel(x, y)[i] as f64 / 255.
-                        * input_1.value.get_pixel(x, y)[i] as f64
-                        / 255.)
-                        * 255.) as u8;
-                }
-
-                image::Rgba(channels)
-            }),
-        })
+        let data: Vec<ChannelPixel> = input_0.value.iter().zip(input_1.value).map(|(x, y)| x * y).collect();
+        Some( NodeData::with_content(input_0.width, input_0.height, &data) )
     }
 }
 
@@ -271,22 +297,18 @@ mod tests {
         let mut tex_pro = TextureProcessor::new();
 
         let image_0 = image::open(&Path::new(&"data/image_1.png"))
-            .unwrap()
-            .to_rgba();
+            .unwrap();
         let image_1 = image::open(&Path::new(&"data/image_2.png"))
-            .unwrap()
-            .to_rgba();
+            .unwrap();
         let image_2 = image::open(&Path::new(&"data/heart_256.png"))
-            .unwrap()
-            .to_rgba();
+            .unwrap();
         let image_3 = image::open(&Path::new(&"data/heart_256.png"))
-            .unwrap()
-            .to_rgba();
+            .unwrap();
 
-        let node_0 = tex_pro.add_input(image_0);
-        let node_1 = tex_pro.add_input(image_1);
-        let node_2 = tex_pro.add_input(image_2);
-        let node_3 = tex_pro.add_input(image_3);
+        let node_0 = tex_pro.add_inputs(image_0)[0];
+        let node_1 = tex_pro.add_inputs(image_1)[0];
+        let node_2 = tex_pro.add_inputs(image_2)[0];
+        let node_3 = tex_pro.add_inputs(image_3)[0];
         let node_4 = tex_pro.add_node(NodeType::Add);
         let node_5 = tex_pro.add_node(NodeType::Add);
         let node_6 = tex_pro.add_node(NodeType::Multiply);
