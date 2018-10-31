@@ -1,11 +1,19 @@
-use std::{
-    collections::{ HashMap, HashSet, VecDeque },
-    sync::{ Arc, mpsc },
-    thread,
-    time::Duration,
+extern crate image;
+
+use image::{
+    ImageBuffer,
+    RgbaImage,
 };
 
-#[derive(Debug)]
+use std::{
+    collections::{ HashMap, HashSet, VecDeque },
+    num::Wrapping,
+    path::Path,
+    sync::{ Arc, mpsc },
+    thread,
+    // time::Duration,
+};
+
 struct Dag {
     nodes: HashMap<NodeId, Arc<Node>>,
     node_data: HashMap<NodeId, Arc<NodeData>>,
@@ -57,7 +65,6 @@ impl Dag {
     }
 
     pub fn process(&mut self) {
-        #[derive(Debug)]
         struct ThreadMessage {
             node_id: NodeId,
             node_data: NodeData,
@@ -179,12 +186,6 @@ impl Dag {
             .filter(|(_, edges)| edges.is_empty())
             .map(|(key, _)| *key)
             .collect()
-
-        // self.nodes
-        //     .iter()
-        //     .filter(|(_, node)| node.edges.is_empty())
-        //     .map(|(key, _)| *key)
-        //     .collect()
     }
 
     fn get_input_edge_ids(&self, id: NodeId) -> &Vec<NodeId> {
@@ -194,31 +195,22 @@ impl Dag {
     }
 
     fn get_root_ids(&self) -> Vec<NodeId> {
-        // let mut root_ids: Vec<NodeId> = Vec::new();
-
-        
-
-        // root_ids
-
         self.reversed_edges().iter().filter(|(_, v)| v.is_empty()).map(|(k, _)| *k).collect()
     }
 }
 
-#[derive(Debug)]
 pub enum NodeType {
-    Input(f64),
+    Input(RgbaImage),
     Add,
     Multiply,
 }
 
-#[derive(Debug)]
 struct Node {
     node_type: NodeType,
 }
 
-#[derive(Debug)]
 struct NodeData {
-    value: f64,
+    value: RgbaImage,
 }
 
 impl Node {
@@ -227,14 +219,42 @@ impl Node {
     }
 
     pub fn process(&self, input: &[Arc<NodeData>]) -> Option<NodeData> {
-        thread::sleep(Duration::from_secs(1));
+        // thread::sleep(Duration::from_secs(1));
         Some(NodeData {
             value: match self.node_type {
-                NodeType::Input(x) => x,
-                NodeType::Add => input[0].value + input[1].value,
-                NodeType::Multiply => input[0].value * input[1].value,
+                NodeType::Input(ref x) => x.clone(),
+                NodeType::Add => Self::add(&input[0], &input[1]),
+                NodeType::Multiply => Self::multiply(&input[0], &input[1]),
             },
         })
+    }
+
+    fn add(input_0: &NodeData, input_1: &NodeData) -> RgbaImage {
+        let img_out: image::RgbaImage = ImageBuffer::from_fn(256, 256, |x, y| {
+            let mut channels: [u8; 4] = [0, 0, 0, 255];
+
+            for i in 0..4 {
+                channels[i] = input_0.value.get_pixel(x, y)[i].saturating_add(input_1.value.get_pixel(x, y)[i]);
+            }
+
+            image::Rgba(channels)
+        });
+
+        img_out
+    }
+
+    fn multiply(input_0: &NodeData, input_1: &NodeData) -> RgbaImage {
+        let img_out: image::RgbaImage = ImageBuffer::from_fn(256, 256, |x, y| {
+            let mut channels: [u8; 4] = [0, 0, 0, 255];
+
+            for i in 0..4 {
+                channels[i] = ((input_0.value.get_pixel(x, y)[i] as f64 / 255. * input_1.value.get_pixel(x, y)[i] as f64 / 255.) * 255.) as u8;
+            }
+
+            image::Rgba(channels)
+        });
+
+        img_out
     }
 }
 
@@ -244,10 +264,15 @@ struct NodeId(u32);
 fn main() {
     let mut dag: Dag = Dag::new();
 
-    let node_0 = dag.add_node(Node::new(NodeType::Input(5.)));
-    let node_1 = dag.add_node(Node::new(NodeType::Input(2.)));
-    let node_2 = dag.add_node(Node::new(NodeType::Input(3.)));
-    let node_3 = dag.add_node(Node::new(NodeType::Input(4.)));
+    let image_0 = image::open(&Path::new(&"data/image_1.png")).unwrap().to_rgba();
+    let image_1 = image::open(&Path::new(&"data/image_2.png")).unwrap().to_rgba();
+    let image_2 = image::open(&Path::new(&"data/heart_256.png")).unwrap().to_rgba();
+    let image_3 = image::open(&Path::new(&"data/heart_256.png")).unwrap().to_rgba();
+
+    let node_0 = dag.add_node(Node::new(NodeType::Input(image_0)));
+    let node_1 = dag.add_node(Node::new(NodeType::Input(image_1)));
+    let node_2 = dag.add_node(Node::new(NodeType::Input(image_2)));
+    let node_3 = dag.add_node(Node::new(NodeType::Input(image_3)));
     let node_4 = dag.add_node(Node::new(NodeType::Add));
     let node_5 = dag.add_node(Node::new(NodeType::Add));
     let node_6 = dag.add_node(Node::new(NodeType::Multiply));
@@ -267,13 +292,70 @@ fn main() {
 
     dag.process();
 
-    println!("{:?}", dag.get_output(node_0));
-    println!("{:?}", dag.get_output(node_1));
-    println!("{:?}", dag.get_output(node_2));
-    println!("{:?}", dag.get_output(node_3));
-    println!("{:?}", dag.get_output(node_4));
-    println!("{:?}", dag.get_output(node_5));
-    println!("{:?}", dag.get_output(node_6));
+    // println!("{:?}", dag.get_output(node_0));
+    // println!("{:?}", dag.get_output(node_1));
+    // println!("{:?}", dag.get_output(node_2));
+    // println!("{:?}", dag.get_output(node_3));
+    // println!("{:?}", dag.get_output(node_4));
+    // println!("{:?}", dag.get_output(node_5));
+    // println!("{:?}", dag.get_output(node_6));
+
+    image::save_buffer(
+            &Path::new(&"out/node_0.png"),
+            &dag.get_output(node_0).value,
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+    image::save_buffer(
+            &Path::new(&"out/node_1.png"),
+            &dag.get_output(node_1).value,
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+    image::save_buffer(
+            &Path::new(&"out/node_2.png"),
+            &dag.get_output(node_2).value,
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+    image::save_buffer(
+            &Path::new(&"out/node_3.png"),
+            &dag.get_output(node_3).value,
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+    image::save_buffer(
+            &Path::new(&"out/node_4.png"),
+            &dag.get_output(node_4).value,
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+    image::save_buffer(
+            &Path::new(&"out/node_5.png"),
+            &dag.get_output(node_5).value,
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+    image::save_buffer(
+            &Path::new(&"out/node_6.png"),
+            &dag.get_output(node_6).value,
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+    image::save_buffer(
+            &Path::new(&"out/node_7.png"),
+            &dag.get_output(node_7).value,
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
 
     // TODO:
     // Try using a DynamicImage
