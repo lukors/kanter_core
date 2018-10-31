@@ -45,7 +45,7 @@ impl TextureProcessor {
 
     pub fn add_inputs(&mut self, input: DynamicImage) -> Vec<NodeId> {
         let node_data_vec = Self::deconstruct_image(input);
-        let ids = Vec::new();
+        let mut ids = Vec::new();
 
         for node_data in node_data_vec {
             let id = self.add_node_internal(NodeType::Input);
@@ -67,8 +67,8 @@ impl TextureProcessor {
 
         let mut current_channel = 0;
 
-        for component in raw_pixels.into_iter() {
-            node_data_vec[current_channel].value.push(component);
+        for component in raw_pixels.into_iter().rev() {
+            node_data_vec[current_channel].value.push(component as f64 / 255.);
             current_channel = current_channel % channel_count;
         }
 
@@ -172,10 +172,13 @@ impl TextureProcessor {
 
             thread::spawn(move || {
                 let node_data = current_node.process(&input_data).unwrap();
-                send.send(ThreadMessage {
+                match send.send(ThreadMessage {
                     node_id: current_id,
                     node_data,
-                }).unwrap();
+                }) {
+                    Ok(_) => (),
+                    Err(e) => println!("{:?}", e),
+                };
             });
         }
     }
@@ -205,6 +208,10 @@ impl TextureProcessor {
 
     pub fn get_output(&self, id: NodeId) -> &NodeData {
         &self.node_data.get(&id).unwrap()
+    }
+
+    pub fn get_output_u8(&self, id: NodeId) -> Vec<u8> {
+        self.node_data.get(&id).unwrap().value.iter().map(|x| (x * 255.) as u8).collect()
     }
 
     fn new_id(&mut self) -> NodeId {
@@ -275,12 +282,12 @@ impl Node {
     }
 
     fn add(input_0: &NodeData, input_1: &NodeData) -> Option<NodeData> {
-        let data: Vec<ChannelPixel> = input_0.value.iter().zip(input_1.value).map(|(x, y)| x + y).collect();
+        let data: Vec<ChannelPixel> = input_0.value.iter().zip(&input_1.value).map(|(x, y)| x + y).collect();
         Some( NodeData::with_content(input_0.width, input_0.height, &data) )
     }
 
     fn multiply(input_0: &NodeData, input_1: &NodeData) -> Option<NodeData> {
-        let data: Vec<ChannelPixel> = input_0.value.iter().zip(input_1.value).map(|(x, y)| x * y).collect();
+        let data: Vec<ChannelPixel> = input_0.value.iter().zip(&input_1.value).map(|(x, y)| x * y).collect();
         Some( NodeData::with_content(input_0.width, input_0.height, &data) )
     }
 }
@@ -296,90 +303,112 @@ mod tests {
     fn integration_test() {
         let mut tex_pro = TextureProcessor::new();
 
-        let image_0 = image::open(&Path::new(&"data/image_1.png"))
-            .unwrap();
-        let image_1 = image::open(&Path::new(&"data/image_2.png"))
-            .unwrap();
-        let image_2 = image::open(&Path::new(&"data/heart_256.png"))
-            .unwrap();
-        let image_3 = image::open(&Path::new(&"data/heart_256.png"))
-            .unwrap();
+        let image_0 = image::open(&Path::new(&"data/image_1.png")).unwrap();
+        // let image_1 = image::open(&Path::new(&"data/image_2.png"))
+        //     .unwrap();
+        // let image_2 = image::open(&Path::new(&"data/heart_256.png"))
+        //     .unwrap();
+        // let image_3 = image::open(&Path::new(&"data/heart_256.png"))
+        //     .unwrap();
 
-        let node_0 = tex_pro.add_inputs(image_0)[0];
-        let node_1 = tex_pro.add_inputs(image_1)[0];
-        let node_2 = tex_pro.add_inputs(image_2)[0];
-        let node_3 = tex_pro.add_inputs(image_3)[0];
-        let node_4 = tex_pro.add_node(NodeType::Add);
-        let node_5 = tex_pro.add_node(NodeType::Add);
-        let node_6 = tex_pro.add_node(NodeType::Multiply);
-        let node_7 = tex_pro.add_node(NodeType::Add);
+        let nodes = tex_pro.add_inputs(image_0);
+        // tex_pro.process();
 
-        tex_pro.connect(node_0, node_4);
-        tex_pro.connect(node_1, node_4);
-        tex_pro.connect(node_1, node_5);
-        tex_pro.connect(node_2, node_5);
-        tex_pro.connect(node_5, node_6);
-        tex_pro.connect(node_4, node_6);
-        tex_pro.connect(node_6, node_7);
-        tex_pro.connect(node_3, node_7);
+        println!("IDS: {:?}", nodes);
+        let keys: Vec<&NodeId> = tex_pro.nodes.keys().collect();
+        println!("IDS in tex_pro: {:?}", keys);
+        let keys: Vec<&NodeId> = tex_pro.node_data.keys().collect();
+        println!("IDS for DATA in tex_pro: {:?}", keys);
 
-        tex_pro.process();
+        for id in nodes {
+            println!("Attempting ID: {:?}", id);
 
-        image::save_buffer(
-            &Path::new(&"out/node_0.png"),
-            &tex_pro.get_output(node_0).value,
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
-        image::save_buffer(
-            &Path::new(&"out/node_1.png"),
-            &tex_pro.get_output(node_1).value,
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
-        image::save_buffer(
-            &Path::new(&"out/node_2.png"),
-            &tex_pro.get_output(node_2).value,
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
-        image::save_buffer(
-            &Path::new(&"out/node_3.png"),
-            &tex_pro.get_output(node_3).value,
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
-        image::save_buffer(
-            &Path::new(&"out/node_4.png"),
-            &tex_pro.get_output(node_4).value,
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
-        image::save_buffer(
-            &Path::new(&"out/node_5.png"),
-            &tex_pro.get_output(node_5).value,
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
-        image::save_buffer(
-            &Path::new(&"out/node_6.png"),
-            &tex_pro.get_output(node_6).value,
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
-        image::save_buffer(
-            &Path::new(&"out/node_7.png"),
-            &tex_pro.get_output(node_7).value,
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
+            match image::save_buffer(
+                &Path::new(&format!("out/node_0_{:?}.png", id)),
+                &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(id)).unwrap(), // TODO: This unwrap gets None back sometimes, have to figure out why. Also, images that are outputted look bugged.
+                256,
+                256,
+                image::ColorType::Gray(8),
+            ) {
+                Ok(_) => println!("OK"),
+                Err(e) => println!("ERR: {:?}", e),
+            };
+        }
+
+        // let node_1 = tex_pro.add_inputs(image_1)[0];
+        // let node_2 = tex_pro.add_inputs(image_2)[0];
+        // let node_3 = tex_pro.add_inputs(image_3)[0];
+        // let node_4 = tex_pro.add_node(NodeType::Add);
+        // let node_5 = tex_pro.add_node(NodeType::Add);
+        // let node_6 = tex_pro.add_node(NodeType::Multiply);
+        // let node_7 = tex_pro.add_node(NodeType::Add);
+
+        // tex_pro.connect(node_0, node_4);
+        // tex_pro.connect(node_1, node_4);
+        // tex_pro.connect(node_1, node_5);
+        // tex_pro.connect(node_2, node_5);
+        // tex_pro.connect(node_5, node_6);
+        // tex_pro.connect(node_4, node_6);
+        // tex_pro.connect(node_6, node_7);
+        // tex_pro.connect(node_3, node_7);
+
+        // tex_pro.process();
+
+        // image::save_buffer(
+        //     &Path::new(&"out/node_0.png"),
+        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_0)).unwrap(),
+        //     256,
+        //     256,
+        //     image::ColorType::Gray(8),
+        // ).unwrap();
+        // image::save_buffer(
+        //     &Path::new(&"out/node_1.png"),
+        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_1)).unwrap(),
+        //     256,
+        //     256,
+        //     image::ColorType::Gray(8),
+        // ).unwrap();
+        // image::save_buffer(
+        //     &Path::new(&"out/node_2.png"),
+        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_2)).unwrap(),
+        //     256,
+        //     256,
+        //     image::ColorType::Gray(8),
+        // ).unwrap();
+        // image::save_buffer(
+        //     &Path::new(&"out/node_3.png"),
+        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_3)).unwrap(),
+        //     256,
+        //     256,
+        //     image::ColorType::Gray(8),
+        // ).unwrap();
+        // image::save_buffer(
+        //     &Path::new(&"out/node_4.png"),
+        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_4)).unwrap(),
+        //     256,
+        //     256,
+        //     image::ColorType::Gray(8),
+        // ).unwrap();
+        // image::save_buffer(
+        //     &Path::new(&"out/node_5.png"),
+        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_5)).unwrap(),
+        //     256,
+        //     256,
+        //     image::ColorType::Gray(8),
+        // ).unwrap();
+        // image::save_buffer(
+        //     &Path::new(&"out/node_6.png"),
+        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_6)).unwrap(),
+        //     256,
+        //     256,
+        //     image::ColorType::Gray(8),
+        // ).unwrap();
+        // image::save_buffer(
+        //     &Path::new(&"out/node_7.png"),
+        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_7)).unwrap(),
+        //     256,
+        //     256,
+        //     image::ColorType::Gray(8),
+        // ).unwrap();
     }
 }
