@@ -1,6 +1,4 @@
 // TODO:
-// Improve adding input nodes
-// Random node ids
 // Break inputs down into channels and process only channels
 // Use only the simplest nodes possible that operate only on for instance two channels
 // Panic when input/output rules are not followed
@@ -10,9 +8,10 @@
 // Implement GUI
 
 extern crate image;
+extern crate rand;
 
 use image::{ImageBuffer, RgbaImage};
-
+use rand::prelude;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     path::Path,
@@ -24,7 +23,6 @@ struct Dag {
     nodes: HashMap<NodeId, Arc<Node>>,
     node_data: HashMap<NodeId, Arc<NodeData>>,
     edges: HashMap<NodeId, Vec<NodeId>>,
-    id_iterator: u32,
 }
 
 impl Dag {
@@ -33,7 +31,6 @@ impl Dag {
             nodes: HashMap::new(),
             node_data: HashMap::new(),
             edges: HashMap::new(),
-            id_iterator: 0,
         }
     }
 
@@ -184,9 +181,12 @@ impl Dag {
     }
 
     fn new_id(&mut self) -> NodeId {
-        let id = NodeId(self.id_iterator);
-        self.id_iterator += 1;
-        id
+        loop {
+            let id: NodeId = NodeId(rand::random());
+            if !self.nodes.contains_key(&id) {
+                return id
+            }
+        }
     }
 
     fn get_root_ids(&self) -> Vec<NodeId> {
