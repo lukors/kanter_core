@@ -358,8 +358,12 @@ fn main() {
         ).unwrap();
 
     // TODO:
-    // Try using a DynamicImage
     // Turn into lib
     // Clean up the code, add error handling and so on
-    // Add same features as ChannelShuffle 2 has
+    // Break inputs down into channels and process only channels
+    // Use only the simplest nodes possible that operate only on for instance two channels
+    // Panic when input/output rules are not followed
+    // Implement read and write nodes
+    // Implement tests
+    // Implement GUI
 }
