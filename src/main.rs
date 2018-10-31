@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::collections::VecDeque;
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
+use std::{
+    collections::{ HashMap, HashSet, VecDeque },
+    sync::{ Arc, mpsc },
+    thread,
+    time::Duration,
+};
 
 #[derive(Debug)]
 struct Dag {
@@ -57,28 +56,6 @@ impl Dag {
         reversed_edges
     }
 
-    // pub fn process_singlethread(&mut self) {
-    //     let reversed_edges = self.reversed_edges();
-
-    //     // TODO: Take out the root ids as part of the topological sort.
-    //     // let mut sorted_ids = self.topological_sort();
-    //     let queued_ids = self.topological_sort();
-
-    //     for id in queued_ids {
-    //         let parent_ids = reversed_edges.get(&id).unwrap();
-
-    //         let new_data: NodeData = {
-    //             let mut input_data: Vec<&NodeData> = Vec::new();
-    //             for id in parent_ids {
-    //                 input_data.push(self.node_data.get(&id).unwrap());
-    //             }
-    //             self.nodes.get_mut(&id).unwrap().process(&input_data).unwrap()
-    //         };
-
-    //         self.node_data.insert(id, Arc::new(new_data));
-    //     }
-    // }
-
     pub fn process(&mut self) {
         #[derive(Debug)]
         struct ThreadMessage {
@@ -100,13 +77,12 @@ impl Dag {
         'outer: while finished_nodes.len() < self.nodes.len() {
 
             for message in recv.try_iter() {
-                println!("Inserting processed node data: {:?}", message);
+                println!("Finished node: {:?}", message.node_id);
                 finished_nodes.insert(message.node_id);
                 self.node_data.insert(message.node_id, Arc::new(message.node_data));
 
                 for child_id in self.edges.get(&message.node_id).unwrap() {
                     if !started_nodes.contains(child_id) {
-                        println!("pusing onto quque: {:?}", child_id);
                         queued_ids.push_back(*child_id);
                         started_nodes.insert(*child_id);
                     }
@@ -125,6 +101,7 @@ impl Dag {
                     continue 'outer;
                 }
             }
+            println!("Started node: {:?}", current_id);
 
             let input_data: Vec<Arc<NodeData>> = parent_ids
                 .iter()
