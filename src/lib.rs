@@ -19,15 +19,15 @@ use std::{
     thread,
 };
 
-struct Dag {
+struct TextureProcessor {
     nodes: HashMap<NodeId, Arc<Node>>,
     node_data: HashMap<NodeId, Arc<NodeData>>,
     edges: HashMap<NodeId, Vec<NodeId>>,
 }
 
-impl Dag {
+impl TextureProcessor {
     pub fn new() -> Self {
-        Dag {
+        Self {
             nodes: HashMap::new(),
             node_data: HashMap::new(),
             edges: HashMap::new(),
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn integration_test() {
-        let mut dag: Dag = Dag::new();
+        let mut tex_pro = TextureProcessor::new();
 
         let image_0 = image::open(&Path::new(&"data/image_1.png"))
             .unwrap()
@@ -283,78 +283,78 @@ mod tests {
             .unwrap()
             .to_rgba();
 
-        let node_0 = dag.add_input(image_0);
-        let node_1 = dag.add_input(image_1);
-        let node_2 = dag.add_input(image_2);
-        let node_3 = dag.add_input(image_3);
-        let node_4 = dag.add_node(NodeType::Add);
-        let node_5 = dag.add_node(NodeType::Add);
-        let node_6 = dag.add_node(NodeType::Multiply);
-        let node_7 = dag.add_node(NodeType::Add);
+        let node_0 = tex_pro.add_input(image_0);
+        let node_1 = tex_pro.add_input(image_1);
+        let node_2 = tex_pro.add_input(image_2);
+        let node_3 = tex_pro.add_input(image_3);
+        let node_4 = tex_pro.add_node(NodeType::Add);
+        let node_5 = tex_pro.add_node(NodeType::Add);
+        let node_6 = tex_pro.add_node(NodeType::Multiply);
+        let node_7 = tex_pro.add_node(NodeType::Add);
 
-        dag.connect(node_0, node_4);
-        dag.connect(node_1, node_4);
-        dag.connect(node_1, node_5);
-        dag.connect(node_2, node_5);
-        dag.connect(node_5, node_6);
-        dag.connect(node_4, node_6);
-        dag.connect(node_6, node_7);
-        dag.connect(node_3, node_7);
+        tex_pro.connect(node_0, node_4);
+        tex_pro.connect(node_1, node_4);
+        tex_pro.connect(node_1, node_5);
+        tex_pro.connect(node_2, node_5);
+        tex_pro.connect(node_5, node_6);
+        tex_pro.connect(node_4, node_6);
+        tex_pro.connect(node_6, node_7);
+        tex_pro.connect(node_3, node_7);
 
-        dag.process();
+        tex_pro.process();
 
         image::save_buffer(
             &Path::new(&"out/node_0.png"),
-            &dag.get_output(node_0).value,
+            &tex_pro.get_output(node_0).value,
             256,
             256,
             image::ColorType::RGBA(8),
         ).unwrap();
         image::save_buffer(
             &Path::new(&"out/node_1.png"),
-            &dag.get_output(node_1).value,
+            &tex_pro.get_output(node_1).value,
             256,
             256,
             image::ColorType::RGBA(8),
         ).unwrap();
         image::save_buffer(
             &Path::new(&"out/node_2.png"),
-            &dag.get_output(node_2).value,
+            &tex_pro.get_output(node_2).value,
             256,
             256,
             image::ColorType::RGBA(8),
         ).unwrap();
         image::save_buffer(
             &Path::new(&"out/node_3.png"),
-            &dag.get_output(node_3).value,
+            &tex_pro.get_output(node_3).value,
             256,
             256,
             image::ColorType::RGBA(8),
         ).unwrap();
         image::save_buffer(
             &Path::new(&"out/node_4.png"),
-            &dag.get_output(node_4).value,
+            &tex_pro.get_output(node_4).value,
             256,
             256,
             image::ColorType::RGBA(8),
         ).unwrap();
         image::save_buffer(
             &Path::new(&"out/node_5.png"),
-            &dag.get_output(node_5).value,
+            &tex_pro.get_output(node_5).value,
             256,
             256,
             image::ColorType::RGBA(8),
         ).unwrap();
         image::save_buffer(
             &Path::new(&"out/node_6.png"),
-            &dag.get_output(node_6).value,
+            &tex_pro.get_output(node_6).value,
             256,
             256,
             image::ColorType::RGBA(8),
         ).unwrap();
         image::save_buffer(
             &Path::new(&"out/node_7.png"),
-            &dag.get_output(node_7).value,
+            &tex_pro.get_output(node_7).value,
             256,
             256,
             image::ColorType::RGBA(8),
