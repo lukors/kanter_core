@@ -89,21 +89,19 @@ impl Dag {
         let reversed_edges: HashMap<NodeId, Vec<NodeId>> = self.reversed_edges();
 
         let (send, recv) = mpsc::channel::<ThreadMessage>();
-        let mut processed_nodes: HashSet<NodeId> = HashSet::with_capacity(self.nodes.len());
+        let mut finished_nodes: HashSet<NodeId> = HashSet::with_capacity(self.nodes.len());
         let mut started_nodes: HashSet<NodeId> = HashSet::with_capacity(self.nodes.len());
-        let mut queued_ids: VecDeque<NodeId> =
-            VecDeque::from(self.get_root_ids());
+
+        let mut queued_ids: VecDeque<NodeId> = VecDeque::from(self.get_root_ids());
         for item in &queued_ids {
             started_nodes.insert(*item);
         }
 
-
-        // println!("INITIAL queued_ids: {:#?}", queued_ids);
-        'outer: while processed_nodes.len() < self.nodes.len() {
+        'outer: while finished_nodes.len() < self.nodes.len() {
 
             for message in recv.try_iter() {
-                println!("Inserted processed node: {:?}", message);
-                processed_nodes.insert(message.node_id);
+                println!("Inserting processed node data: {:?}", message);
+                finished_nodes.insert(message.node_id);
                 self.node_data.insert(message.node_id, Arc::new(message.node_data));
 
                 for child_id in self.edges.get(&message.node_id).unwrap() {
@@ -115,27 +113,18 @@ impl Dag {
                 }
             }
 
-            // TODO: Fix so it doesn't lock up in the graph's triangle!
-
             let current_id = match queued_ids.pop_front() {
                 Some(id) => id,
                 None => continue,
             };
-            println!("counts: {:?} ||| {:?}", processed_nodes.len(), self.nodes.len());
 
             let parent_ids = reversed_edges.get(&current_id).unwrap();
-
             for id in parent_ids {
-                if !processed_nodes.contains(id) {
-                    queued_ids.push_back(*id);
+                if !finished_nodes.contains(id) {
+                    queued_ids.push_back(current_id);
                     continue 'outer;
                 }
             }
-
-            
-
-            // println!("Node data: {:#?}", self.node_data);
-            // println!("Attempting to get node data at keys: {:#?}", parent_ids);
 
             let input_data: Vec<Arc<NodeData>> = parent_ids
                 .iter()
@@ -144,7 +133,6 @@ impl Dag {
             let current_node = Arc::clone(self.nodes.get(&current_id).unwrap());
             let send = send.clone();
 
-            println!("processing node: {:?}", current_id);
             thread::spawn(move || {
                 let node_data = current_node.process(&input_data).unwrap();
                 send.send(ThreadMessage{
