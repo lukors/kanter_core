@@ -1,8 +1,10 @@
 // TODO:
-// Clean up the code, add error handling and so on
+// Improve adding input nodes
+// Random node ids
 // Break inputs down into channels and process only channels
 // Use only the simplest nodes possible that operate only on for instance two channels
 // Panic when input/output rules are not followed
+// Clean up the code, add error handling and so on
 // Implement read and write nodes
 // Implement tests
 // Implement GUI
@@ -35,7 +37,23 @@ impl Dag {
         }
     }
 
-    pub fn add_node(&mut self, node: Node) -> NodeId {
+    pub fn add_node(&mut self, node_type: NodeType) -> NodeId {
+        if node_type == NodeType::Input {
+            panic!("Use the `add_input` function when adding an input node");
+        }
+        self.add_node_internal(node_type)
+    }
+
+    pub fn add_input(&mut self, input: RgbaImage) -> NodeId {
+        let id = self.add_node_internal(NodeType::Input);
+        self.node_data.insert(id, Arc::new(NodeData { value: input }));
+
+        id
+    }
+
+    fn add_node_internal(&mut self, node_type: NodeType) -> NodeId {
+        let node = Node{ node_type };
+
         let id = self.new_id();
         self.nodes.insert(id, Arc::new(node));
         self.edges.insert(id, Vec::new());
@@ -87,23 +105,30 @@ impl Dag {
 
         'outer: while finished_nodes.len() < self.nodes.len() {
             for message in recv.try_iter() {
-                println!("Finished node: {:?}", message.node_id);
-                finished_nodes.insert(message.node_id);
-                self.node_data
-                    .insert(message.node_id, Arc::new(message.node_data));
-
-                for child_id in self.edges.get(&message.node_id).unwrap() {
-                    if !started_nodes.contains(child_id) {
-                        queued_ids.push_back(*child_id);
-                        started_nodes.insert(*child_id);
-                    }
-                }
+                self.set_node_finished(
+                    message.node_id,
+                    Some(message.node_data),
+                    &mut started_nodes,
+                    &mut finished_nodes,
+                    &mut queued_ids,
+                );
             }
 
             let current_id = match queued_ids.pop_front() {
                 Some(id) => id,
                 None => continue,
             };
+
+            if self.node_data.contains_key(&current_id) {
+                self.set_node_finished(
+                    current_id,
+                    None,
+                    &mut started_nodes,
+                    &mut finished_nodes,
+                    &mut queued_ids,
+                );
+                continue;
+            }
 
             let parent_ids = reversed_edges.get(&current_id).unwrap();
             for id in parent_ids {
@@ -131,6 +156,29 @@ impl Dag {
         }
     }
 
+    fn set_node_finished(
+        &mut self,
+        id: NodeId,
+        data: Option<NodeData>,
+        started_nodes: &mut HashSet<NodeId>,
+        finished_nodes: &mut HashSet<NodeId>,
+        queued_ids: &mut VecDeque<NodeId>,
+    ) {
+        println!("Finished node: {:?}", id);
+        finished_nodes.insert(id);
+
+        if let Some(x) = data {
+            self.node_data.insert(id, Arc::new(x));
+        }
+
+        for child_id in self.edges.get(&id).unwrap() {
+            if !started_nodes.contains(child_id) {
+                queued_ids.push_back(*child_id);
+                started_nodes.insert(*child_id);
+            }
+        }
+    }
+
     pub fn get_output(&self, id: NodeId) -> &NodeData {
         &self.node_data.get(&id).unwrap()
     }
@@ -150,6 +198,7 @@ impl Dag {
     }
 }
 
+#[derive(PartialEq)]
 pub enum NodeType {
     Input,
     Add,
@@ -170,40 +219,42 @@ impl Node {
     }
 
     pub fn process(&self, input: &[Arc<NodeData>]) -> Option<NodeData> {
+        match self.node_type {
+            NodeType::Input => None,
+            NodeType::Add => Self::add(&input[0], &input[1]),
+            NodeType::Multiply => Self::multiply(&input[0], &input[1]),
+        }
+    }
+
+    fn add(input_0: &NodeData, input_1: &NodeData) -> Option<NodeData> {
         Some(NodeData {
-            value: match self.node_type {
-                NodeType::Input(ref x) => x.clone(),
-                NodeType::Add => Self::add(&input[0], &input[1]),
-                NodeType::Multiply => Self::multiply(&input[0], &input[1]),
-            },
+            value: ImageBuffer::from_fn(256, 256, |x, y| {
+                let mut channels: [u8; 4] = [0, 0, 0, 255];
+
+                for i in 0..4 {
+                    channels[i] = input_0.value.get_pixel(x, y)[i]
+                        .saturating_add(input_1.value.get_pixel(x, y)[i]);
+                }
+
+                image::Rgba(channels)
+            }),
         })
     }
 
-    fn add(input_0: &NodeData, input_1: &NodeData) -> RgbaImage {
-        ImageBuffer::from_fn(256, 256, |x, y| {
-            let mut channels: [u8; 4] = [0, 0, 0, 255];
+    fn multiply(input_0: &NodeData, input_1: &NodeData) -> Option<NodeData> {
+        Some(NodeData {
+            value: ImageBuffer::from_fn(256, 256, |x, y| {
+                let mut channels: [u8; 4] = [0, 0, 0, 255];
 
-            for i in 0..4 {
-                channels[i] = input_0.value.get_pixel(x, y)[i]
-                    .saturating_add(input_1.value.get_pixel(x, y)[i]);
-            }
+                for i in 0..4 {
+                    channels[i] = ((input_0.value.get_pixel(x, y)[i] as f64 / 255.
+                        * input_1.value.get_pixel(x, y)[i] as f64
+                        / 255.)
+                        * 255.) as u8;
+                }
 
-            image::Rgba(channels)
-        })
-    }
-
-    fn multiply(input_0: &NodeData, input_1: &NodeData) -> RgbaImage {
-        ImageBuffer::from_fn(256, 256, |x, y| {
-            let mut channels: [u8; 4] = [0, 0, 0, 255];
-
-            for i in 0..4 {
-                channels[i] = ((input_0.value.get_pixel(x, y)[i] as f64 / 255.
-                    * input_1.value.get_pixel(x, y)[i] as f64
-                    / 255.)
-                    * 255.) as u8;
-            }
-
-            image::Rgba(channels)
+                image::Rgba(channels)
+            }),
         })
     }
 }
@@ -232,14 +283,14 @@ mod tests {
             .unwrap()
             .to_rgba();
 
-        let node_0 = dag.add_node(Node::new(NodeType::Input(image_0)));
-        let node_1 = dag.add_node(Node::new(NodeType::Input(image_1)));
-        let node_2 = dag.add_node(Node::new(NodeType::Input(image_2)));
-        let node_3 = dag.add_node(Node::new(NodeType::Input(image_3)));
-        let node_4 = dag.add_node(Node::new(NodeType::Add));
-        let node_5 = dag.add_node(Node::new(NodeType::Add));
-        let node_6 = dag.add_node(Node::new(NodeType::Multiply));
-        let node_7 = dag.add_node(Node::new(NodeType::Add));
+        let node_0 = dag.add_input(image_0);
+        let node_1 = dag.add_input(image_1);
+        let node_2 = dag.add_input(image_2);
+        let node_3 = dag.add_input(image_3);
+        let node_4 = dag.add_node(NodeType::Add);
+        let node_5 = dag.add_node(NodeType::Add);
+        let node_6 = dag.add_node(NodeType::Multiply);
+        let node_7 = dag.add_node(NodeType::Add);
 
         dag.connect(node_0, node_4);
         dag.connect(node_1, node_4);
