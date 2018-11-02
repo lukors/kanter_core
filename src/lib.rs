@@ -9,7 +9,7 @@
 extern crate image;
 extern crate rand;
 
-use image::{GenericImageView, DynamicImage, ImageBuffer};
+use image::{DynamicImage, GenericImageView, ImageBuffer};
 use rand::prelude;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -66,8 +66,10 @@ impl TextureProcessor {
 
         let mut current_channel = 0;
 
-        for component in raw_pixels.into_iter().rev() {
-            node_data_vec[current_channel].value.push(component as f64 / 255.);
+        for component in raw_pixels.into_iter() {
+            node_data_vec[current_channel]
+                .value
+                .push(component as f64 / 255.);
             current_channel = (current_channel + 1) % channel_count;
         }
 
@@ -75,7 +77,7 @@ impl TextureProcessor {
     }
 
     fn add_node_internal(&mut self, node_type: NodeType) -> NodeId {
-        let node = Node{ node_type };
+        let node = Node { node_type };
 
         let id = self.new_id();
         self.nodes.insert(id, Arc::new(node));
@@ -210,14 +212,20 @@ impl TextureProcessor {
     }
 
     pub fn get_output_u8(&self, id: NodeId) -> Vec<u8> {
-        self.node_data.get(&id).unwrap().value.iter().map(|x| (x * 255.) as u8).collect()
+        self.node_data
+            .get(&id)
+            .unwrap()
+            .value
+            .iter()
+            .map(|x| (x * 255.) as u8)
+            .collect()
     }
 
     fn new_id(&mut self) -> NodeId {
         loop {
             let id: NodeId = NodeId(rand::random());
             if !self.nodes.contains_key(&id) {
-                return id
+                return id;
             }
         }
     }
@@ -280,13 +288,23 @@ impl Node {
     }
 
     fn add(input_0: &NodeData, input_1: &NodeData) -> Option<NodeData> {
-        let data: Vec<ChannelPixel> = input_0.value.iter().zip(&input_1.value).map(|(x, y)| x + y).collect();
-        Some( NodeData::with_content(input_0.width, input_0.height, &data) )
+        let data: Vec<ChannelPixel> = input_0
+            .value
+            .iter()
+            .zip(&input_1.value)
+            .map(|(x, y)| x + y)
+            .collect();
+        Some(NodeData::with_content(input_0.width, input_0.height, &data))
     }
 
     fn multiply(input_0: &NodeData, input_1: &NodeData) -> Option<NodeData> {
-        let data: Vec<ChannelPixel> = input_0.value.iter().zip(&input_1.value).map(|(x, y)| x * y).collect();
-        Some( NodeData::with_content(input_0.width, input_0.height, &data) )
+        let data: Vec<ChannelPixel> = input_0
+            .value
+            .iter()
+            .zip(&input_1.value)
+            .map(|(x, y)| x * y)
+            .collect();
+        Some(NodeData::with_content(input_0.width, input_0.height, &data))
     }
 }
 
@@ -302,34 +320,26 @@ mod tests {
         let mut tex_pro = TextureProcessor::new();
 
         let image_0 = image::open(&Path::new(&"data/image_1.png")).unwrap();
-        // let image_1 = image::open(&Path::new(&"data/image_2.png"))
-        //     .unwrap();
+        let image_1 = image::open(&Path::new(&"data/image_2.png")).unwrap();
         // let image_2 = image::open(&Path::new(&"data/heart_256.png"))
         //     .unwrap();
         // let image_3 = image::open(&Path::new(&"data/heart_256.png"))
         //     .unwrap();
 
-        let nodes = tex_pro.add_inputs(image_0);
+        let mut nodes = tex_pro.add_inputs(image_0);
+        nodes.append(&mut tex_pro.add_inputs(image_1));
         // tex_pro.process();
 
-        println!("IDS: {:?}", nodes);
-        let keys: Vec<&NodeId> = tex_pro.nodes.keys().collect();
-        println!("IDS in tex_pro: {:?}", keys);
-        let keys: Vec<&NodeId> = tex_pro.node_data.keys().collect();
-        println!("IDS for DATA in tex_pro: {:?}", keys);
-
         for id in nodes {
-            println!("Attempting ID: {:?}", id);
-            println!("Length of channel: {:?}", tex_pro.get_output_u8(id).len());
             match image::save_buffer(
-                &Path::new(&format!("out/node_0_{:?}.png", id)),
-                &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(id)).unwrap(), 
+                &Path::new(&format!("out/{:?}.png", id)),
+                &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(id)).unwrap(),
                 256,
                 256,
                 image::ColorType::Gray(8),
             ) {
-                Ok(_) => println!("OK"),
-                Err(e) => println!("ERR: {:?}", e),
+                Ok(_) => (),
+                Err(e) => println!("Error when writing buffer: {:?}", e),
             };
         }
 
