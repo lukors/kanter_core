@@ -77,7 +77,7 @@ impl TextureProcessor {
     }
 
     fn add_node_internal(&mut self, node_type: NodeType) -> NodeId {
-        let node = Node { node_type };
+        let node = Node(node_type);
 
         let id = self.new_id();
         self.nodes.insert(id, Arc::new(node));
@@ -217,7 +217,7 @@ impl TextureProcessor {
             .unwrap()
             .value
             .iter()
-            .map(|x| (x * 255.) as u8)
+            .map(|x| (x * 255.).min(255.) as u8)
             .collect()
     }
 
@@ -246,10 +246,6 @@ pub enum NodeType {
     Multiply,
 }
 
-struct Node {
-    node_type: NodeType,
-}
-
 struct NodeData {
     width: u32,
     height: u32,
@@ -274,13 +270,11 @@ impl NodeData {
     }
 }
 
-impl Node {
-    pub fn new(node_type: NodeType) -> Self {
-        Node { node_type }
-    }
+struct Node(NodeType);
 
+impl Node {
     pub fn process(&self, input: &[Arc<NodeData>]) -> Option<NodeData> {
-        match self.node_type {
+        match self.0 {
             NodeType::Input => None,
             NodeType::Add => Self::add(&input[0], &input[1]),
             NodeType::Multiply => Self::multiply(&input[0], &input[1]),
@@ -326,32 +320,29 @@ mod tests {
         // let image_3 = image::open(&Path::new(&"data/heart_256.png"))
         //     .unwrap();
 
-        let mut nodes = tex_pro.add_inputs(image_0);
-        nodes.append(&mut tex_pro.add_inputs(image_1));
-        // tex_pro.process();
+        // for id in nodes {
+        //     match image::save_buffer(
+        //         &Path::new(&format!("out/{:?}.png", id)),
+        //         &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(id)).unwrap(),
+        //         256,
+        //         256,
+        //         image::ColorType::Gray(8),
+        //     ) {
+        //         Ok(_) => (),
+        //         Err(e) => println!("Error when writing buffer: {:?}", e),
+        //     };
+        // }
 
-        for id in nodes {
-            match image::save_buffer(
-                &Path::new(&format!("out/{:?}.png", id)),
-                &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(id)).unwrap(),
-                256,
-                256,
-                image::ColorType::Gray(8),
-            ) {
-                Ok(_) => (),
-                Err(e) => println!("Error when writing buffer: {:?}", e),
-            };
-        }
 
-        // let node_1 = tex_pro.add_inputs(image_1)[0];
-        // let node_2 = tex_pro.add_inputs(image_2)[0];
-        // let node_3 = tex_pro.add_inputs(image_3)[0];
-        // let node_4 = tex_pro.add_node(NodeType::Add);
+        let mut input_nodes = tex_pro.add_inputs(image_0);
+        // input_nodes.append(&mut tex_pro.add_inputs(image_1));
+        let node_4 = tex_pro.add_node(NodeType::Add);
         // let node_5 = tex_pro.add_node(NodeType::Add);
         // let node_6 = tex_pro.add_node(NodeType::Multiply);
         // let node_7 = tex_pro.add_node(NodeType::Add);
 
-        // tex_pro.connect(node_0, node_4);
+        tex_pro.connect(input_nodes[0], node_4);
+        tex_pro.connect(input_nodes[3], node_4);
         // tex_pro.connect(node_1, node_4);
         // tex_pro.connect(node_1, node_5);
         // tex_pro.connect(node_2, node_5);
@@ -360,7 +351,29 @@ mod tests {
         // tex_pro.connect(node_6, node_7);
         // tex_pro.connect(node_3, node_7);
 
-        // tex_pro.process();
+        tex_pro.process();
+
+        image::save_buffer(
+            &Path::new(&"out/node_4.png"),
+            &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_4)).unwrap(),
+            256,
+            256,
+            image::ColorType::Gray(8),
+        ).unwrap();
+        image::save_buffer(
+            &Path::new(&"out/chan_r.png"),
+            &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(input_nodes[0])).unwrap(),
+            256,
+            256,
+            image::ColorType::Gray(8),
+        ).unwrap();
+        image::save_buffer(
+            &Path::new(&"out/chan_a.png"),
+            &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(input_nodes[3])).unwrap(),
+            256,
+            256,
+            image::ColorType::Gray(8),
+        ).unwrap();
 
         // image::save_buffer(
         //     &Path::new(&"out/node_0.png"),
