@@ -1,5 +1,4 @@
 // TODO:
-// Break inputs down into channels and process only channels
 // Use only the simplest nodes possible that operate only on for instance two channels
 // Panic when input/output rules are not followed
 // Clean up the code, add error handling and so on
@@ -69,7 +68,7 @@ impl TextureProcessor {
 
         for component in raw_pixels.into_iter().rev() {
             node_data_vec[current_channel].value.push(component as f64 / 255.);
-            current_channel = current_channel % channel_count;
+            current_channel = (current_channel + 1) % channel_count;
         }
 
         node_data_vec
@@ -250,7 +249,6 @@ struct NodeData {
 }
 
 impl NodeData {
-    // fn new(width: u32, height: u32, value: &[ChannelPixel]) -> Self {
     fn new() -> Self {
         Self {
             width: 0,
@@ -322,10 +320,10 @@ mod tests {
 
         for id in nodes {
             println!("Attempting ID: {:?}", id);
-
+            println!("Length of channel: {:?}", tex_pro.get_output_u8(id).len());
             match image::save_buffer(
                 &Path::new(&format!("out/node_0_{:?}.png", id)),
-                &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(id)).unwrap(), // TODO: This unwrap gets None back sometimes, have to figure out why. Also, images that are outputted look bugged.
+                &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(id)).unwrap(), 
                 256,
                 256,
                 image::ColorType::Gray(8),
