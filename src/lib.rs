@@ -21,7 +21,23 @@ use std::{
 struct TextureProcessor {
     nodes: HashMap<NodeId, Arc<Node>>,
     node_data: HashMap<NodeId, Arc<NodeData>>,
-    edges: HashMap<NodeId, Vec<NodeId>>,
+    edges: HashMap<NodeId, Vec<Edge>>,
+}
+
+struct Edge {
+    source_slot: Slot,
+    destination_id: NodeId,
+    destination_slot: Slot,
+}
+
+impl Edge {
+    fn new(source_slot: Slot, destination_id: NodeId, destination_slot: Slot) -> Self {
+        Self {
+            source_slot,
+            destination_id,
+            destination_slot,
+        }
+    }
 }
 
 type ChannelPixel = f64;
@@ -35,11 +51,24 @@ impl TextureProcessor {
         }
     }
 
+    fn add_node_internal(&mut self, node_type: NodeType, id: NodeId) -> NodeId {
+        let node = Node(node_type);
+
+        self.nodes.insert(id, Arc::new(node));
+        self.edges.insert(id, Vec::new());
+        id
+    }
+
     pub fn add_node(&mut self, node_type: NodeType) -> NodeId {
         if node_type == NodeType::Input {
             panic!("Use the `add_input` function when adding an input node");
         }
-        self.add_node_internal(node_type)
+        let id = self.new_id();
+        self.add_node_internal(node_type, id)
+    }
+
+    pub fn add_node_with_id(&mut self, node_type: NodeType, id: NodeId) -> NodeId {
+        self.add_node_internal(node_type, id)
     }
 
     pub fn add_inputs(&mut self, input: DynamicImage) -> Vec<NodeId> {
@@ -47,7 +76,8 @@ impl TextureProcessor {
         let mut ids = Vec::new();
 
         for node_data in node_data_vec {
-            let id = self.add_node_internal(NodeType::Input);
+            let id = self.new_id();
+            self.add_node_internal(NodeType::Input, id);
             self.node_data.insert(id, Arc::new(node_data));
             ids.push(id);
         }
@@ -56,11 +86,11 @@ impl TextureProcessor {
     }
 
     fn deconstruct_image(image: DynamicImage) -> Vec<NodeData> {
-        let mut raw_pixels = image.raw_pixels();
+        let raw_pixels = image.raw_pixels();
         let channel_count = raw_pixels.len() / (image.width() as usize * image.height() as usize);
         let mut node_data_vec = Vec::with_capacity(channel_count);
 
-        for channel in 0..channel_count {
+        for _ in 0..channel_count {
             node_data_vec.push(NodeData::new());
         }
 
@@ -76,38 +106,57 @@ impl TextureProcessor {
         node_data_vec
     }
 
-    fn add_node_internal(&mut self, node_type: NodeType) -> NodeId {
-        let node = Node(node_type);
-
-        let id = self.new_id();
-        self.nodes.insert(id, Arc::new(node));
-        self.edges.insert(id, Vec::new());
-        id
-    }
-
-    pub fn connect(&mut self, id_1: NodeId, id_2: NodeId) {
-        if !self.nodes.contains_key(&id_1) || !self.nodes.contains_key(&id_2) {
+    pub fn connect(&mut self, id_1: NodeId, id_2: NodeId, slot_1: Slot, slot_2: Slot) {
+        if !self.nodes.contains_key(&id_1)
+        || !self.nodes.contains_key(&id_2) {
             return;
         }
 
-        self.edges
-            .get_mut(&id_1)
-            .map(|connections| connections.push(id_2));
+        if self.slot_vacant(id_1, Side::Output, slot_1)
+        && self.slot_vacant(id_2, Side::Input, slot_2) {
+            self.edges
+                .get_mut(&id_1)
+                .map(|edge_vec| edge_vec.push(Edge::new(slot_1, id_2, slot_2)));
+        }
     }
 
-    fn reversed_edges(&self) -> HashMap<NodeId, Vec<NodeId>> {
-        let mut reversed_edges: HashMap<NodeId, Vec<NodeId>> =
+    pub fn slot_vacant(&self, id: NodeId, side: Side, slot: Slot) -> bool {
+        !self.slot_occupied(id, side, slot)
+    }
+
+    pub fn slot_occupied(&self, id: NodeId, side: Side, slot: Slot) -> bool {
+        match side {
+            Side::Input => {
+                self.edges
+                    .iter()
+                    .map(|(_, edge_vec)| edge_vec)
+                    .flatten()
+                    .any(|edge| edge.destination_id == id && edge.destination_slot == slot)
+                },
+            Side::Output => {
+                self.edges
+                 .get(&id).unwrap()
+                 .iter()
+                 .any(|edge| edge.source_slot == slot)
+            }
+        }
+    }
+
+    fn reversed_edges(&self) -> HashMap<NodeId, Vec<Edge>> {
+        let mut reversed_edges: HashMap<NodeId, Vec<Edge>> =
             HashMap::with_capacity(self.edges.len());
 
         for key in self.edges.keys() {
             reversed_edges.insert(*key, Vec::new());
         }
 
-        for (id, target_ids) in self.edges.iter() {
-            for target_id in target_ids {
-                reversed_edges.entry(*target_id).and_modify(|e| e.push(*id));
+        for (id, edges) in self.edges.iter() {
+            for edge in edges {
+                let reversed_edge = Edge::new(edge.destination_slot, *id, edge.source_slot);
+                reversed_edges.entry(edge.destination_id).and_modify(|e| e.push(reversed_edge));
             }
         }
+
         reversed_edges
     }
 
@@ -117,7 +166,6 @@ impl TextureProcessor {
             node_data: NodeData,
         }
 
-        let reversed_edges: HashMap<NodeId, Vec<NodeId>> = self.reversed_edges();
 
         let (send, recv) = mpsc::channel::<ThreadMessage>();
         let mut finished_nodes: HashSet<NodeId> = HashSet::with_capacity(self.nodes.len());
@@ -129,6 +177,8 @@ impl TextureProcessor {
         }
 
         'outer: while finished_nodes.len() < self.nodes.len() {
+            println!("finished_nodes.len(): {:?}\nself.nodes.len(): {:?}", finished_nodes.len(), self.nodes.len());
+
             for message in recv.try_iter() {
                 self.set_node_finished(
                     message.node_id,
@@ -139,10 +189,12 @@ impl TextureProcessor {
                 );
             }
 
+            println!("queued_ids: {:?}", queued_ids);
             let current_id = match queued_ids.pop_front() {
                 Some(id) => id,
                 None => continue,
             };
+            println!("popped id: {:?}", current_id);
 
             if self.node_data.contains_key(&current_id) {
                 self.set_node_finished(
@@ -155,7 +207,12 @@ impl TextureProcessor {
                 continue;
             }
 
+            // println!("Came so far");
+
+            let reversed_edges = Self::id_hashmap_from_edge_hashmap( &self.reversed_edges() );
+            println!("reversed_edges: {:?}", reversed_edges);
             let parent_ids = reversed_edges.get(&current_id).unwrap();
+            println!("parent_ids: {:?}", parent_ids);
             for id in parent_ids {
                 if !finished_nodes.contains(id) {
                     queued_ids.push_back(current_id);
@@ -184,6 +241,16 @@ impl TextureProcessor {
         }
     }
 
+    pub fn id_hashmap_from_edge_hashmap(edges: &HashMap<NodeId, Vec<Edge>>) -> HashMap<NodeId, Vec<NodeId>> {
+        let mut output = HashMap::with_capacity(edges.len());
+
+        for (id, edge) in edges {
+            output.insert(*id, edge.iter().map(|edge| edge.destination_id).collect());
+        }
+
+        output
+    }
+
     fn set_node_finished(
         &mut self,
         id: NodeId,
@@ -200,9 +267,9 @@ impl TextureProcessor {
         }
 
         for child_id in self.edges.get(&id).unwrap() {
-            if !started_nodes.contains(child_id) {
-                queued_ids.push_back(*child_id);
-                started_nodes.insert(*child_id);
+            if !started_nodes.contains(&child_id.destination_id) {
+                queued_ids.push_back(*&child_id.destination_id);
+                started_nodes.insert(*&child_id.destination_id);
             }
         }
     }
@@ -239,13 +306,14 @@ impl TextureProcessor {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum NodeType {
     Input,
     Add,
     Multiply,
 }
 
+#[derive(Debug)]
 struct NodeData {
     width: u32,
     height: u32,
@@ -270,6 +338,21 @@ impl NodeData {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Slot(usize);
+
+impl Slot {
+    fn as_usize(&self) -> usize {
+        self.0
+    }
+}
+
+enum Side {
+    Input,
+    Output,
+}
+
+#[derive(Debug)]
 struct Node(NodeType);
 
 impl Node {
@@ -278,6 +361,25 @@ impl Node {
             NodeType::Input => None,
             NodeType::Add => Self::add(&input[0], &input[1]),
             NodeType::Multiply => Self::multiply(&input[0], &input[1]),
+        }
+    }
+
+    pub fn capacity(&self, side: Side) -> usize {
+        match side {
+            Input => {
+                match self.0 {
+                    NodeType::Input => 0,
+                    NodeType::Add => 2,
+                    NodeType::Multiply => 2,
+                }
+            },
+            Output => {
+                match self.0 {
+                    NodeType::Input => 1,
+                    NodeType::Add => 1,
+                    NodeType::Multiply => 1,
+                }
+            },
         }
     }
 
@@ -314,7 +416,7 @@ mod tests {
         let mut tex_pro = TextureProcessor::new();
 
         let image_0 = image::open(&Path::new(&"data/image_1.png")).unwrap();
-        let image_1 = image::open(&Path::new(&"data/image_2.png")).unwrap();
+        // let image_1 = image::open(&Path::new(&"data/image_2.png")).unwrap();
         // let image_2 = image::open(&Path::new(&"data/heart_256.png"))
         //     .unwrap();
         // let image_3 = image::open(&Path::new(&"data/heart_256.png"))
@@ -334,15 +436,16 @@ mod tests {
         // }
 
 
-        let mut input_nodes = tex_pro.add_inputs(image_0);
+        let input_nodes = tex_pro.add_inputs(image_0);
         // input_nodes.append(&mut tex_pro.add_inputs(image_1));
-        let node_4 = tex_pro.add_node(NodeType::Add);
+        let node_4 = tex_pro.add_node_with_id(NodeType::Add, NodeId(4));
         // let node_5 = tex_pro.add_node(NodeType::Add);
         // let node_6 = tex_pro.add_node(NodeType::Multiply);
         // let node_7 = tex_pro.add_node(NodeType::Add);
 
-        tex_pro.connect(input_nodes[0], node_4);
-        tex_pro.connect(input_nodes[3], node_4);
+        tex_pro.connect(input_nodes[0], node_4, Slot(0), Slot(0));
+        tex_pro.connect(input_nodes[3], node_4, Slot(0), Slot(1));
+        // tex_pro.connect(input_nodes[3], node_4, Slot(0), Slot(0));
         // tex_pro.connect(node_1, node_4);
         // tex_pro.connect(node_1, node_5);
         // tex_pro.connect(node_2, node_5);
