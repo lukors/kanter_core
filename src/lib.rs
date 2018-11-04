@@ -43,7 +43,7 @@ impl Edge {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct NodeData {
     slot: Slot,
     width: u32,
@@ -102,7 +102,7 @@ impl TextureProcessor {
     }
 
     pub fn add_input_node(&mut self, input: DynamicImage) -> NodeId {
-        let mut id = self.new_id();
+        let id = self.new_id();
 
         self.add_node_internal(NodeType::Input, id);
         self.node_data.insert(id, Self::deconstruct_image(input));
@@ -216,8 +216,8 @@ impl TextureProcessor {
                 None => continue,
             };
 
-            println!("self.node_data.keys(): {:?}", self.node_data.keys());
-            println!("current_id: {:?}", current_id);
+            // TODO: I can't make it output the right channel data in the right channel when writing out the image.
+
             if self.node_data.contains_key(&current_id) {
                 self.set_node_finished(
                     current_id,
@@ -229,7 +229,6 @@ impl TextureProcessor {
                 continue;
             }
 
-            println!("started_nodes: {:?}", started_nodes);
             let parent_ids = self
                 .edges
                 .iter()
@@ -237,8 +236,6 @@ impl TextureProcessor {
                 .map(|edge| edge.output_id);
 
             for id in parent_ids {
-                // println!("id: {:?}", id);
-                // println!("finished_nodes: {:?}", finished_nodes);
                 if !finished_nodes.contains(&id) {
                     queued_ids.push_back(current_id);
                     continue 'outer;
@@ -246,39 +243,6 @@ impl TextureProcessor {
             }
             // panic!("yes");
             println!("Started node: {:?}", current_id);
-
-            // let input_data: Vec<Arc<NodeData>> = reversed_edges
-            //     .iter()
-            //     .map(|id| self.node_data.get(id).unwrap())
-            //     .flatten()
-            //     .map(|node_data| Arc::clone(node_data))
-            //     .collect();
-
-            // let input_data: Vec<Arc<NodeData>> =
-            //     reversed_edges.get(current_id).unwrap()
-            //     .iter()
-            //     .map(|edge| self.node_data.get(edge.input_id).unwrap())
-
-            // let input_data: Vec<Arc<NodeData>> =
-            //     self.edges
-            //     .iter()
-            //     .filter(|edge| edge.input_id == current_id)
-            //     .map(|edge| self.node_data.get(edge.input_id))
-            //     .filter(|node_id| {
-            //         self.edges.iter().any(|edge| edge.output_slot == node_id.slot)
-            //     }
-
-            // let mut input_data: Vec<Arc<NodeData>>;
-            // let input_data: Vec<Arc<NodeData>> = self.edges.iter()
-            //     .filter(|edge| edge.input_id == current_id)
-            //     .map(|edge| {
-            //         // let node_data_vec = self.node_data.get(&edge.input_id).unwrap();
-            //         self.node_data.get(&edge.input_id).unwrap().iter()
-            //             .filter(|node_data| node_data.slot == edge.output_slot)
-            //             .map(|node_data| Arc::clone(node_data))
-            //     })
-            //     .flatten()
-            //     .collect();
 
             let mut relevant_ids: Vec<NodeId> = Vec::new();
             for id in self.node_data.keys() {
@@ -296,7 +260,6 @@ impl TextureProcessor {
                 if !relevant_ids.contains(&id) {
                     continue;
                 }
-                // let slots = data_vec.iter().map(|data| data.slot);
                 for edge in &self.edges {
                     for data in data_vec.iter() {
                         if data.slot == edge.output_slot {
@@ -305,13 +268,6 @@ impl TextureProcessor {
                     }
                 }
             }
-
-            // let input_data: Vec<Arc<NodeData>> = parent_ids
-            //     .iter()
-            //     .map(|id| self.node_data.get(id).unwrap())
-            //     .flatten()
-            //     .map(|node_data| Arc::clone(node_data))
-            //     .collect();
 
             println!("input_data: {:?}", input_data.len());
 
@@ -331,17 +287,17 @@ impl TextureProcessor {
         }
     }
 
-    pub fn id_hashmap_from_edge_hashmap(
-        edges: &HashMap<NodeId, Vec<Edge>>,
-    ) -> HashMap<NodeId, Vec<NodeId>> {
-        let mut output = HashMap::with_capacity(edges.len());
+    // pub fn id_hashmap_from_edge_hashmap(
+    //     edges: &HashMap<NodeId, Vec<Edge>>,
+    // ) -> HashMap<NodeId, Vec<NodeId>> {
+    //     let mut output = HashMap::with_capacity(edges.len());
 
-        for (id, edge) in edges {
-            output.insert(*id, edge.iter().map(|edge| edge.input_id).collect());
-        }
+    //     for (id, edge) in edges {
+    //         output.insert(*id, edge.iter().map(|edge| edge.input_id).collect());
+    //     }
 
-        output
-    }
+    //     output
+    // }
 
     fn set_node_finished(
         &mut self,
@@ -376,6 +332,41 @@ impl TextureProcessor {
             .unwrap()
             .iter()
             .map(|node_data| &node_data.value)
+            .flatten()
+            .map(|x| (x * 255.).min(255.) as u8)
+            .collect()
+    }
+
+    pub fn get_output_rgba(&self, id: NodeId) -> Vec<u8> {
+        let node_data_vec = self.node_data
+            .get(&id)
+            .unwrap();
+
+        let empty_vec = Vec::new();
+        let mut sorted_value_vecs: Vec<&Vec<f64>> = Vec::with_capacity(4);
+        sorted_value_vecs.push(&empty_vec);
+        sorted_value_vecs.push(&empty_vec);
+        sorted_value_vecs.push(&empty_vec);
+        sorted_value_vecs.push(&empty_vec);
+
+        for node_data in node_data_vec {
+            match node_data.slot {
+                Slot(0) => sorted_value_vecs[0] = &node_data.value,
+                Slot(1) => sorted_value_vecs[1] = &node_data.value,
+                Slot(2) => sorted_value_vecs[2] = &node_data.value,
+                Slot(3) => sorted_value_vecs[3] = &node_data.value,
+                _ => continue,
+            }
+        }
+
+        for value_vec in &sorted_value_vecs {
+            if value_vec.is_empty() {
+                panic!("Too few channels when trying to output rgba image");
+            }
+        }
+
+        sorted_value_vecs[0].iter().zip(sorted_value_vecs[1]).zip(sorted_value_vecs[2]).zip(sorted_value_vecs[3])
+            .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
             .flatten()
             .map(|x| (x * 255.).min(255.) as u8)
             .collect()
@@ -475,8 +466,13 @@ impl Node {
     fn output(inputs: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
         let mut outputs: Vec<Arc<NodeData>> = Vec::with_capacity(inputs.len());
 
+        let mut slot = 0;
         for input in inputs {
-            outputs.push(Arc::clone(input));
+            println!("slot: {:?}", slot);
+            let mut node_data = (**input).clone();
+            node_data.slot = Slot(slot);
+            outputs.push(Arc::new(node_data));
+            slot += 1;
         }
 
         outputs
@@ -552,10 +548,10 @@ mod tests {
         // let node_6 = tex_pro.add_node(NodeType::Multiply);
         // let node_7 = tex_pro.add_node(NodeType::Add);
 
-        tex_pro.connect(input_node, output_node, Slot(0), Slot(0));
+        tex_pro.connect(input_node, output_node, Slot(0), Slot(3));
         tex_pro.connect(input_node, output_node, Slot(1), Slot(1));
         tex_pro.connect(input_node, output_node, Slot(2), Slot(2));
-        tex_pro.connect(input_node, output_node, Slot(3), Slot(3));
+        tex_pro.connect(input_node, output_node, Slot(3), Slot(0));
 
         // tex_pro.connect(input_node, node_4, Slot(0), Slot(0));
         // tex_pro.connect(input_node, node_4, Slot(0), Slot(1));
@@ -572,10 +568,10 @@ mod tests {
 
         image::save_buffer(
             &Path::new(&"out/output.png"),
-            &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(output_node)).unwrap(),
+            &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node)).unwrap(),
             256,
             256,
-            image::ColorType::Gray(8),
+            image::ColorType::RGBA(8),
         ).unwrap();
         // image::save_buffer(
         //     &Path::new(&"out/chan_r.png"),
