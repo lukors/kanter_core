@@ -21,7 +21,7 @@ use std::{
 
 struct TextureProcessor {
     nodes: HashMap<NodeId, Arc<Node>>,
-    node_data: HashMap< NodeId, Vec<Arc<NodeData>>>,
+    node_data: HashMap<NodeId, Vec<Arc<NodeData>>>,
     edges: Vec<Edge>,
 }
 
@@ -128,12 +128,14 @@ impl TextureProcessor {
             current_channel = (current_channel + 1) % channel_count;
         }
 
-        node_data_vec.into_iter().map(|node_data| Arc::new(node_data)).collect()
+        node_data_vec
+            .into_iter()
+            .map(|node_data| Arc::new(node_data))
+            .collect()
     }
 
     pub fn connect(&mut self, id_1: NodeId, id_2: NodeId, slot_1: Slot, slot_2: Slot) {
-        if !self.nodes.contains_key(&id_1)
-        || !self.nodes.contains_key(&id_2) {
+        if !self.nodes.contains_key(&id_1) || !self.nodes.contains_key(&id_2) {
             panic!("Tried connecting to a node that doesn't exist");
         }
 
@@ -150,16 +152,14 @@ impl TextureProcessor {
 
     pub fn slot_occupied(&self, id: NodeId, side: Side, slot: Slot) -> bool {
         match side {
-            Side::Input => {
-                self.edges
-                    .iter()
-                    .any(|edge| edge.input_id == id && edge.input_slot == slot)
-                },
-            Side::Output => {
-                self.edges
-                 .iter()
-                 .any(|edge| edge.output_id == id && edge.output_slot == slot)
-            }
+            Side::Input => self
+                .edges
+                .iter()
+                .any(|edge| edge.input_id == id && edge.input_slot == slot),
+            Side::Output => self
+                .edges
+                .iter()
+                .any(|edge| edge.output_id == id && edge.output_slot == slot),
         }
     }
 
@@ -230,7 +230,8 @@ impl TextureProcessor {
             }
 
             println!("started_nodes: {:?}", started_nodes);
-            let parent_ids = self.edges
+            let parent_ids = self
+                .edges
                 .iter()
                 .filter(|edge| edge.input_id == current_id)
                 .map(|edge| edge.output_id);
@@ -253,11 +254,11 @@ impl TextureProcessor {
             //     .map(|node_data| Arc::clone(node_data))
             //     .collect();
 
-            // let input_data: Vec<Arc<NodeData>> = 
+            // let input_data: Vec<Arc<NodeData>> =
             //     reversed_edges.get(current_id).unwrap()
             //     .iter()
             //     .map(|edge| self.node_data.get(edge.input_id).unwrap())
-            
+
             // let input_data: Vec<Arc<NodeData>> =
             //     self.edges
             //     .iter()
@@ -312,7 +313,6 @@ impl TextureProcessor {
             //     .map(|node_data| Arc::clone(node_data))
             //     .collect();
 
-
             println!("input_data: {:?}", input_data.len());
 
             let current_node = Arc::clone(self.nodes.get(&current_id).unwrap());
@@ -331,7 +331,9 @@ impl TextureProcessor {
         }
     }
 
-    pub fn id_hashmap_from_edge_hashmap(edges: &HashMap<NodeId, Vec<Edge>>) -> HashMap<NodeId, Vec<NodeId>> {
+    pub fn id_hashmap_from_edge_hashmap(
+        edges: &HashMap<NodeId, Vec<Edge>>,
+    ) -> HashMap<NodeId, Vec<NodeId>> {
         let mut output = HashMap::with_capacity(edges.len());
 
         for (id, edge) in edges {
@@ -369,7 +371,9 @@ impl TextureProcessor {
     // }
 
     pub fn get_output_u8(&self, id: NodeId) -> Vec<u8> {
-        self.node_data.get(&id).unwrap()
+        self.node_data
+            .get(&id)
+            .unwrap()
             .iter()
             .map(|node_data| &node_data.value)
             .flatten()
@@ -393,15 +397,15 @@ impl TextureProcessor {
         //     .map(|(k, _)| *k)
         //     .collect()
 
-        self.nodes.keys()
+        self.nodes
+            .keys()
             .filter(|node_id| {
                 self.edges
                     .iter()
                     .map(|edge| edge.output_id)
                     .collect::<Vec<NodeId>>()
                     .contains(node_id)
-            })
-            .map(|node_id| *node_id )
+            }).map(|node_id| *node_id)
             .collect::<Vec<NodeId>>()
     }
 }
@@ -433,7 +437,10 @@ struct Node(NodeType);
 
 impl Node {
     pub fn process(&self, input: &[Arc<NodeData>]) -> Option<Vec<Arc<NodeData>>> {
-        println!("self.capacity(Side::Input): {:?}", self.capacity(Side::Input));
+        println!(
+            "self.capacity(Side::Input): {:?}",
+            self.capacity(Side::Input)
+        );
         println!("input.len(): {:?}", input.len());
         assert!(input.len() <= self.capacity(Side::Input));
 
@@ -450,21 +457,17 @@ impl Node {
 
     pub fn capacity(&self, side: Side) -> usize {
         match side {
-            Input => {
-                match self.0 {
-                    NodeType::Input => 0,
-                    NodeType::Output => 4,
-                    NodeType::Add => 2,
-                    NodeType::Multiply => 2,
-                }
+            Input => match self.0 {
+                NodeType::Input => 0,
+                NodeType::Output => 4,
+                NodeType::Add => 2,
+                NodeType::Multiply => 2,
             },
-            Output => {
-                match self.0 {
-                    NodeType::Input => 1,
-                    NodeType::Output => 4,
-                    NodeType::Add => 1,
-                    NodeType::Multiply => 1,
-                }
+            Output => match self.0 {
+                NodeType::Input => 1,
+                NodeType::Output => 4,
+                NodeType::Add => 1,
+                NodeType::Multiply => 1,
             },
         }
     }
@@ -486,7 +489,12 @@ impl Node {
             .zip(&input_1.value)
             .map(|(x, y)| x + y)
             .collect();
-        vec!( Arc::new(NodeData::with_content(Slot(0), input_0.width, input_0.height, &data)) )
+        vec![Arc::new(NodeData::with_content(
+            Slot(0),
+            input_0.width,
+            input_0.height,
+            &data,
+        ))]
     }
 
     fn multiply(input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
@@ -496,7 +504,12 @@ impl Node {
             .zip(&input_1.value)
             .map(|(x, y)| x * y)
             .collect();
-        vec!( Arc::new(NodeData::with_content(Slot(0), input_0.width, input_0.height, &data)) )
+        vec![Arc::new(NodeData::with_content(
+            Slot(0),
+            input_0.width,
+            input_0.height,
+            &data,
+        ))]
     }
 }
 
@@ -530,7 +543,6 @@ mod tests {
         //         Err(e) => println!("Error when writing buffer: {:?}", e),
         //     };
         // }
-
 
         let input_node = tex_pro.add_input_node(image_0);
         let output_node = tex_pro.add_node_with_id(NodeType::Output, NodeId(12));
