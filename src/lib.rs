@@ -64,7 +64,13 @@ impl NodeData {
         }
     }
 
-    fn with_content(id: NodeId, slot: Slot, width: u32, height: u32, value: &[ChannelPixel]) -> Self {
+    fn with_content(
+        id: NodeId,
+        slot: Slot,
+        width: u32,
+        height: u32,
+        value: &[ChannelPixel],
+    ) -> Self {
         Self {
             id,
             slot,
@@ -109,7 +115,8 @@ impl TextureProcessor {
         let id = self.new_id();
 
         self.add_node_internal(NodeType::Input, id);
-        self.node_data.insert(id, Self::deconstruct_image(id, input));
+        self.node_data
+            .insert(id, Self::deconstruct_image(id, input));
 
         id
     }
@@ -168,31 +175,13 @@ impl TextureProcessor {
         }
     }
 
-    // fn reversed_edges(&self) -> HashMap<NodeId, Vec<Edge>> {
-    //     let mut reversed_edges: HashMap<NodeId, Vec<Edge>> =
-    //         HashMap::with_capacity(self.edges.len());
-
-    //     for key in self.edges.keys() {
-    //         reversed_edges.insert(*key, Vec::new());
-    //     }
-
-    //     for (id, edges) in self.edges.iter() {
-    //         for edge in edges {
-    //             let reversed_edge = Edge::new(edge.input_slot, *id, edge.output_slot);
-    //             reversed_edges.entry(edge.input_id).and_modify(|e| e.push(reversed_edge));
-    //         }
-    //     }
-
-    //     reversed_edges
-    // }
-
     pub fn get_edges(&self, id: NodeId, side: Side) -> Vec<&Edge> {
-        self.edges.iter().filter(|edge| {
-            match side {
+        self.edges
+            .iter()
+            .filter(|edge| match side {
                 Side::Input => edge.input_id == id,
                 Side::Output => edge.output_id == id,
-            }
-        }).collect()
+            }).collect()
     }
 
     pub fn process(&mut self) {
@@ -223,14 +212,10 @@ impl TextureProcessor {
                 );
             }
 
-            // println!("queued_ids: {:?}", queued_ids);
-
             let current_id = match queued_ids.pop_front() {
                 Some(id) => id,
                 None => continue,
             };
-
-            // TODO: I can't make it output the right channel data in the right channel when writing out the image.
 
             if self.node_data.contains_key(&current_id) {
                 self.set_node_finished(
@@ -255,7 +240,6 @@ impl TextureProcessor {
                     continue 'outer;
                 }
             }
-            // panic!("yes");
             println!("Started node: {:?}", current_id);
 
             let mut relevant_ids: Vec<NodeId> = Vec::new();
@@ -269,6 +253,7 @@ impl TextureProcessor {
                 }
             }
 
+            let mut relevant_edges: Vec<Edge> = Vec::new();
             let mut input_data: Vec<Arc<NodeData>> = Vec::new();
             for (id, data_vec) in self.node_data.iter() {
                 if !relevant_ids.contains(&id) {
@@ -276,22 +261,24 @@ impl TextureProcessor {
                 }
                 for edge in &self.edges {
                     for data in data_vec.iter() {
-                        if data.slot == edge.output_slot {
+                        if data.slot == edge.output_slot
+                            && data.id == edge.output_id
+                            && current_id == edge.input_id
+                        {
                             input_data.push(Arc::clone(data));
+                            relevant_edges.push(edge.clone());
                         }
                     }
                 }
             }
 
-            // TODO: Sort input_data based on the input slots the data should go into
-
-
             let current_node = Arc::clone(self.nodes.get(&current_id).unwrap());
             let send = send.clone();
-            let edges = self.edges.clone();
 
             thread::spawn(move || {
-                let node_data = current_node.process(current_id, &input_data, &edges).unwrap();
+                let node_data = current_node
+                    .process(current_id, &input_data, &relevant_edges)
+                    .unwrap();
                 match send.send(ThreadMessage {
                     node_id: current_id,
                     node_data,
@@ -302,24 +289,6 @@ impl TextureProcessor {
             });
         }
     }
-
-    // fn sort_data_for_input(&self, id: NodeId, node_data: Vec<Arc<NodeData>>) -> Vec<Arc<NodeData>> {
-    //     let new_order = self.get_edges(id, Side::Input)
-    //         .iter()
-    //         .map(|edge| edge.
-    // }
-
-    // pub fn id_hashmap_from_edge_hashmap(
-    //     edges: &HashMap<NodeId, Vec<Edge>>,
-    // ) -> HashMap<NodeId, Vec<NodeId>> {
-    //     let mut output = HashMap::with_capacity(edges.len());
-
-    //     for (id, edge) in edges {
-    //         output.insert(*id, edge.iter().map(|edge| edge.input_id).collect());
-    //     }
-
-    //     output
-    // }
 
     fn set_node_finished(
         &mut self,
@@ -344,10 +313,6 @@ impl TextureProcessor {
         }
     }
 
-    // pub fn get_output(&self, id: NodeId) -> &NodeData {
-    //     &self.node_data.get(&id).unwrap()
-    // }
-
     pub fn get_output_u8(&self, id: NodeId) -> Vec<u8> {
         self.node_data
             .get(&id)
@@ -360,9 +325,7 @@ impl TextureProcessor {
     }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Vec<u8> {
-        let node_data_vec = self.node_data
-            .get(&id)
-            .unwrap();
+        let node_data_vec = self.node_data.get(&id).unwrap();
 
         let empty_vec = Vec::new();
         let mut sorted_value_vecs: Vec<&Vec<f64>> = Vec::with_capacity(4);
@@ -387,7 +350,11 @@ impl TextureProcessor {
             }
         }
 
-        sorted_value_vecs[0].iter().zip(sorted_value_vecs[1]).zip(sorted_value_vecs[2]).zip(sorted_value_vecs[3])
+        sorted_value_vecs[0]
+            .iter()
+            .zip(sorted_value_vecs[1])
+            .zip(sorted_value_vecs[2])
+            .zip(sorted_value_vecs[3])
             .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
             .flatten()
             .map(|x| (x * 255.).min(255.) as u8)
@@ -404,12 +371,6 @@ impl TextureProcessor {
     }
 
     fn get_root_ids(&self) -> Vec<NodeId> {
-        // self.reversed_edges()
-        //     .iter()
-        //     .filter(|(_, v)| v.is_empty())
-        //     .map(|(k, _)| *k)
-        //     .collect()
-
         self.nodes
             .keys()
             .filter(|node_id| {
@@ -449,22 +410,29 @@ pub enum NodeType {
 struct Node(NodeType);
 
 impl Node {
-    pub fn process(&self, id: NodeId, input: &[Arc<NodeData>], edges: &[Edge]) -> Option<Vec<Arc<NodeData>>> {
+    pub fn process(
+        &self,
+        id: NodeId,
+        input: &[Arc<NodeData>],
+        edges: &[Edge],
+    ) -> Option<Vec<Arc<NodeData>>> {
+        println!("input.len(): {:?}", input.len());
         assert!(input.len() <= self.capacity(Side::Input));
-        assert!(edges.len() == input.len());
+        assert_eq!(edges.len(), input.len());
 
-        let mut sorted_input: Vec<Option<Arc<NodeData>>> = vec!(None; input.len());
+        let mut sorted_input: Vec<Option<Arc<NodeData>>> = vec![None; input.len()];
         'outer: for node_data in input {
             for edge in edges.iter() {
-                if node_data.id == edge.output_id
-                && node_data.slot == edge.output_slot {
+                if node_data.id == edge.output_id && node_data.slot == edge.output_slot {
                     sorted_input[edge.input_slot.as_usize()] = Some(Arc::clone(node_data));
-                    continue 'outer;
                 }
             }
         }
 
-        let sorted_input: Vec<Arc<NodeData>> = sorted_input.into_iter().map(|node_data| node_data.expect("No NodeData found when expected.")).collect();
+        let sorted_input: Vec<Arc<NodeData>> = sorted_input
+            .into_iter()
+            .map(|node_data| node_data.expect("No NodeData found when expected."))
+            .collect();
 
         let output: Vec<Arc<NodeData>> = match self.0 {
             NodeType::Input => return None,
@@ -557,6 +525,8 @@ mod tests {
         let mut tex_pro = TextureProcessor::new();
 
         let image_0 = image::open(&Path::new(&"data/image_1.png")).unwrap();
+        let heart_256 = image::open(&Path::new(&"data/heart_256.png")).unwrap();
+        let white = image::open(&Path::new(&"data/white.png")).unwrap();
         // let image_1 = image::open(&Path::new(&"data/image_2.png")).unwrap();
         // let image_2 = image::open(&Path::new(&"data/heart_256.png"))
         //     .unwrap();
@@ -576,18 +546,22 @@ mod tests {
         //     };
         // }
 
-        let input_node = tex_pro.add_input_node(image_0);
+        let input_image_0 = tex_pro.add_input_node(image_0);
+        let input_heart_256 = tex_pro.add_input_node(heart_256);
+        let input_white = tex_pro.add_input_node(white);
         let output_node = tex_pro.add_node_with_id(NodeType::Output, NodeId(12));
+        let node_5 = tex_pro.add_node_with_id(NodeType::Multiply, NodeId(5));
         // input_nodes.append(&mut tex_pro.add_input_node(image_1));
-        // let node_4 = tex_pro.add_node_with_id(NodeType::Add, NodeId(4));
-        // let node_5 = tex_pro.add_node(NodeType::Add);
         // let node_6 = tex_pro.add_node(NodeType::Multiply);
         // let node_7 = tex_pro.add_node(NodeType::Add);
 
-        tex_pro.connect(input_node, output_node, Slot(0), Slot(3));
-        tex_pro.connect(input_node, output_node, Slot(1), Slot(1));
-        tex_pro.connect(input_node, output_node, Slot(2), Slot(2));
-        tex_pro.connect(input_node, output_node, Slot(3), Slot(0));
+        tex_pro.connect(input_heart_256, node_5, Slot(0), Slot(0));
+        tex_pro.connect(input_image_0, node_5, Slot(3), Slot(1));
+
+        tex_pro.connect(node_5, output_node, Slot(0), Slot(0));
+        tex_pro.connect(node_5, output_node, Slot(0), Slot(1));
+        tex_pro.connect(node_5, output_node, Slot(0), Slot(2));
+        tex_pro.connect(input_white, output_node, Slot(0), Slot(3));
 
         // tex_pro.connect(input_node, node_4, Slot(0), Slot(0));
         // tex_pro.connect(input_node, node_4, Slot(0), Slot(1));
@@ -609,76 +583,5 @@ mod tests {
             256,
             image::ColorType::RGBA(8),
         ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/chan_r.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(input_node)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/chan_a.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(input_node)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-
-        // image::save_buffer(
-        //     &Path::new(&"out/node_0.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_0)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/node_1.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_1)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/node_2.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_2)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/node_3.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_3)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/node_4.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_4)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/node_5.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_5)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/node_6.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_6)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
-        // image::save_buffer(
-        //     &Path::new(&"out/node_7.png"),
-        //     &image::GrayImage::from_vec(256, 256, tex_pro.get_output_u8(node_7)).unwrap(),
-        //     256,
-        //     256,
-        //     image::ColorType::Gray(8),
-        // ).unwrap();
     }
 }
