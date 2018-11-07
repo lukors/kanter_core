@@ -25,6 +25,7 @@ struct TextureProcessor {
     edges: Vec<Edge>,
 }
 
+#[derive(Debug, Clone)]
 struct Edge {
     output_id: NodeId,
     input_id: NodeId,
@@ -45,6 +46,7 @@ impl Edge {
 
 #[derive(Debug, Clone)]
 struct NodeData {
+    id: NodeId,
     slot: Slot,
     width: u32,
     height: u32,
@@ -52,17 +54,19 @@ struct NodeData {
 }
 
 impl NodeData {
-    fn new(slot: Slot) -> Self {
+    fn new(id: NodeId, slot: Slot, width: u32, height: u32) -> Self {
         Self {
+            id,
             slot,
-            width: 0,
-            height: 0,
+            width,
+            height,
             value: Vec::new(),
         }
     }
 
-    fn with_content(slot: Slot, width: u32, height: u32, value: &[ChannelPixel]) -> Self {
+    fn with_content(id: NodeId, slot: Slot, width: u32, height: u32, value: &[ChannelPixel]) -> Self {
         Self {
+            id,
             slot,
             width,
             height,
@@ -105,18 +109,19 @@ impl TextureProcessor {
         let id = self.new_id();
 
         self.add_node_internal(NodeType::Input, id);
-        self.node_data.insert(id, Self::deconstruct_image(input));
+        self.node_data.insert(id, Self::deconstruct_image(id, input));
 
         id
     }
 
-    fn deconstruct_image(image: DynamicImage) -> Vec<Arc<NodeData>> {
+    fn deconstruct_image(id: NodeId, image: DynamicImage) -> Vec<Arc<NodeData>> {
         let raw_pixels = image.raw_pixels();
-        let channel_count = raw_pixels.len() / (image.width() as usize * image.height() as usize);
+        let (width, height) = (image.width(), image.height());
+        let channel_count = raw_pixels.len() / (width as usize * height as usize);
         let mut node_data_vec = Vec::with_capacity(channel_count);
 
         for x in 0..channel_count {
-            node_data_vec.push(NodeData::new(Slot(x)));
+            node_data_vec.push(NodeData::new(id, Slot(x), width, height));
         }
 
         let mut current_channel = 0;
@@ -180,6 +185,15 @@ impl TextureProcessor {
 
     //     reversed_edges
     // }
+
+    pub fn get_edges(&self, id: NodeId, side: Side) -> Vec<&Edge> {
+        self.edges.iter().filter(|edge| {
+            match side {
+                Side::Input => edge.input_id == id,
+                Side::Output => edge.output_id == id,
+            }
+        }).collect()
+    }
 
     pub fn process(&mut self) {
         struct ThreadMessage {
@@ -269,13 +283,15 @@ impl TextureProcessor {
                 }
             }
 
-            println!("input_data: {:?}", input_data.len());
+            // TODO: Sort input_data based on the input slots the data should go into
+
 
             let current_node = Arc::clone(self.nodes.get(&current_id).unwrap());
             let send = send.clone();
+            let edges = self.edges.clone();
 
             thread::spawn(move || {
-                let node_data = current_node.process(&input_data).unwrap();
+                let node_data = current_node.process(current_id, &input_data, &edges).unwrap();
                 match send.send(ThreadMessage {
                     node_id: current_id,
                     node_data,
@@ -286,6 +302,12 @@ impl TextureProcessor {
             });
         }
     }
+
+    // fn sort_data_for_input(&self, id: NodeId, node_data: Vec<Arc<NodeData>>) -> Vec<Arc<NodeData>> {
+    //     let new_order = self.get_edges(id, Side::Input)
+    //         .iter()
+    //         .map(|edge| edge.
+    // }
 
     // pub fn id_hashmap_from_edge_hashmap(
     //     edges: &HashMap<NodeId, Vec<Edge>>,
@@ -401,7 +423,7 @@ impl TextureProcessor {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Ord, PartialOrd, Eq)]
 struct Slot(usize);
 
 impl Slot {
@@ -427,19 +449,28 @@ pub enum NodeType {
 struct Node(NodeType);
 
 impl Node {
-    pub fn process(&self, input: &[Arc<NodeData>]) -> Option<Vec<Arc<NodeData>>> {
-        println!(
-            "self.capacity(Side::Input): {:?}",
-            self.capacity(Side::Input)
-        );
-        println!("input.len(): {:?}", input.len());
+    pub fn process(&self, id: NodeId, input: &[Arc<NodeData>], edges: &[Edge]) -> Option<Vec<Arc<NodeData>>> {
         assert!(input.len() <= self.capacity(Side::Input));
+        assert!(edges.len() == input.len());
+
+        let mut sorted_input: Vec<Option<Arc<NodeData>>> = vec!(None; input.len());
+        'outer: for node_data in input {
+            for edge in edges.iter() {
+                if node_data.id == edge.output_id
+                && node_data.slot == edge.output_slot {
+                    sorted_input[edge.input_slot.as_usize()] = Some(Arc::clone(node_data));
+                    continue 'outer;
+                }
+            }
+        }
+
+        let sorted_input: Vec<Arc<NodeData>> = sorted_input.into_iter().map(|node_data| node_data.expect("No NodeData found when expected.")).collect();
 
         let output: Vec<Arc<NodeData>> = match self.0 {
             NodeType::Input => return None,
-            NodeType::Output => Self::output(input),
-            NodeType::Add => Self::add(&input[0], &input[1]),
-            NodeType::Multiply => Self::multiply(&input[0], &input[1]),
+            NodeType::Output => Self::output(id, &sorted_input),
+            NodeType::Add => Self::add(id, &sorted_input[0], &sorted_input[1]),
+            NodeType::Multiply => Self::multiply(id, &sorted_input[0], &sorted_input[1]),
         };
 
         assert!(output.len() <= self.capacity(Side::Output));
@@ -463,13 +494,14 @@ impl Node {
         }
     }
 
-    fn output(inputs: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+    fn output(id: NodeId, inputs: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
         let mut outputs: Vec<Arc<NodeData>> = Vec::with_capacity(inputs.len());
 
         let mut slot = 0;
         for input in inputs {
             println!("slot: {:?}", slot);
             let mut node_data = (**input).clone();
+            node_data.id = id;
             node_data.slot = Slot(slot);
             outputs.push(Arc::new(node_data));
             slot += 1;
@@ -478,14 +510,16 @@ impl Node {
         outputs
     }
 
-    fn add(input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
+    fn add(id: NodeId, input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
         let data: Vec<ChannelPixel> = input_0
             .value
             .iter()
             .zip(&input_1.value)
             .map(|(x, y)| x + y)
             .collect();
+
         vec![Arc::new(NodeData::with_content(
+            id,
             Slot(0),
             input_0.width,
             input_0.height,
@@ -493,14 +527,16 @@ impl Node {
         ))]
     }
 
-    fn multiply(input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
+    fn multiply(id: NodeId, input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
         let data: Vec<ChannelPixel> = input_0
             .value
             .iter()
             .zip(&input_1.value)
             .map(|(x, y)| x * y)
             .collect();
+
         vec![Arc::new(NodeData::with_content(
+            id,
             Slot(0),
             input_0.width,
             input_0.height,
