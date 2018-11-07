@@ -1,6 +1,4 @@
 // TODO:
-// Add output node
-// Panic when input/output rules are not followed
 // Clean up the code, add error handling and so on
 // Make the input node into a single node with 4 (or however many channels) outputs
 // Implement read and write nodes
@@ -10,7 +8,7 @@
 extern crate image;
 extern crate rand;
 
-use image::{DynamicImage, GenericImageView, ImageBuffer};
+use image::{DynamicImage, GenericImageView};
 use rand::prelude;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -111,17 +109,17 @@ impl TextureProcessor {
         self.add_node_internal(node_type, id)
     }
 
-    pub fn add_input_node(&mut self, input: DynamicImage) -> NodeId {
+    pub fn add_input_node(&mut self, input: &DynamicImage) -> NodeId {
         let id = self.new_id();
 
         self.add_node_internal(NodeType::Input, id);
         self.node_data
-            .insert(id, Self::deconstruct_image(id, input));
+            .insert(id, Self::deconstruct_image(id, &input));
 
         id
     }
 
-    fn deconstruct_image(id: NodeId, image: DynamicImage) -> Vec<Arc<NodeData>> {
+    fn deconstruct_image(id: NodeId, image: &DynamicImage) -> Vec<Arc<NodeData>> {
         let raw_pixels = image.raw_pixels();
         let (width, height) = (image.width(), image.height());
         let channel_count = raw_pixels.len() / (width as usize * height as usize);
@@ -136,13 +134,13 @@ impl TextureProcessor {
         for component in raw_pixels.into_iter() {
             node_data_vec[current_channel]
                 .value
-                .push(component as f64 / 255.);
+                .push(f64::from(component) / 255.); 
             current_channel = (current_channel + 1) % channel_count;
         }
 
         node_data_vec
             .into_iter()
-            .map(|node_data| Arc::new(node_data))
+            .map(Arc::new)
             .collect()
     }
 
@@ -158,10 +156,6 @@ impl TextureProcessor {
         self.edges.push(Edge::new(id_1, id_2, slot_1, slot_2));
     }
 
-    pub fn slot_vacant(&self, id: NodeId, side: Side, slot: Slot) -> bool {
-        !self.slot_occupied(id, side, slot)
-    }
-
     pub fn slot_occupied(&self, id: NodeId, side: Side, slot: Slot) -> bool {
         match side {
             Side::Input => self
@@ -173,15 +167,6 @@ impl TextureProcessor {
                 .iter()
                 .any(|edge| edge.output_id == id && edge.output_slot == slot),
         }
-    }
-
-    pub fn get_edges(&self, id: NodeId, side: Side) -> Vec<&Edge> {
-        self.edges
-            .iter()
-            .filter(|edge| match side {
-                Side::Input => edge.input_id == id,
-                Side::Output => edge.output_id == id,
-            }).collect()
     }
 
     pub fn process(&mut self) {
@@ -272,7 +257,7 @@ impl TextureProcessor {
                 }
             }
 
-            let current_node = Arc::clone(self.nodes.get(&current_id).unwrap());
+            let current_node = Arc::clone(&self.nodes[&current_id]);
             let send = send.clone();
 
             thread::spawn(move || {
@@ -314,9 +299,7 @@ impl TextureProcessor {
     }
 
     pub fn get_output_u8(&self, id: NodeId) -> Vec<u8> {
-        self.node_data
-            .get(&id)
-            .unwrap()
+        self.node_data[&id]
             .iter()
             .map(|node_data| &node_data.value)
             .flatten()
@@ -325,7 +308,7 @@ impl TextureProcessor {
     }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Vec<u8> {
-        let node_data_vec = self.node_data.get(&id).unwrap();
+        let node_data_vec = &self.node_data[&id];
 
         let empty_vec = Vec::new();
         let mut sorted_value_vecs: Vec<&Vec<f64>> = Vec::with_capacity(4);
@@ -377,9 +360,8 @@ impl TextureProcessor {
                 self.edges
                     .iter()
                     .map(|edge| edge.output_id)
-                    .collect::<Vec<NodeId>>()
-                    .contains(node_id)
-            }).map(|node_id| *node_id)
+                    .any(|x| x == **node_id)
+            }).cloned()
             .collect::<Vec<NodeId>>()
     }
 }
@@ -388,11 +370,12 @@ impl TextureProcessor {
 struct Slot(usize);
 
 impl Slot {
-    fn as_usize(&self) -> usize {
+    fn as_usize(self) -> usize {
         self.0
     }
 }
 
+#[derive(Clone, Copy)]
 enum Side {
     Input,
     Output,
@@ -421,7 +404,7 @@ impl Node {
         assert_eq!(edges.len(), input.len());
 
         let mut sorted_input: Vec<Option<Arc<NodeData>>> = vec![None; input.len()];
-        'outer: for node_data in input {
+        for node_data in input {
             for edge in edges.iter() {
                 if node_data.id == edge.output_id && node_data.slot == edge.output_slot {
                     sorted_input[edge.input_slot.as_usize()] = Some(Arc::clone(node_data));
@@ -447,13 +430,13 @@ impl Node {
 
     pub fn capacity(&self, side: Side) -> usize {
         match side {
-            Input => match self.0 {
+            Side::Input => match self.0 {
                 NodeType::Input => 0,
                 NodeType::Output => 4,
                 NodeType::Add => 2,
                 NodeType::Multiply => 2,
             },
-            Output => match self.0 {
+            Side::Output => match self.0 {
                 NodeType::Input => 1,
                 NodeType::Output => 4,
                 NodeType::Add => 1,
@@ -465,14 +448,12 @@ impl Node {
     fn output(id: NodeId, inputs: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
         let mut outputs: Vec<Arc<NodeData>> = Vec::with_capacity(inputs.len());
 
-        let mut slot = 0;
-        for input in inputs {
+        for (slot, input) in inputs.iter().enumerate() {
             println!("slot: {:?}", slot);
             let mut node_data = (**input).clone();
             node_data.id = id;
             node_data.slot = Slot(slot);
             outputs.push(Arc::new(node_data));
-            slot += 1;
         }
 
         outputs
@@ -521,12 +502,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn integration_test() {
+    fn integration_test() { 
         let mut tex_pro = TextureProcessor::new();
 
-        let image_0 = image::open(&Path::new(&"data/image_1.png")).unwrap();
-        let heart_256 = image::open(&Path::new(&"data/heart_256.png")).unwrap();
-        let white = image::open(&Path::new(&"data/white.png")).unwrap();
         // let image_1 = image::open(&Path::new(&"data/image_2.png")).unwrap();
         // let image_2 = image::open(&Path::new(&"data/heart_256.png"))
         //     .unwrap();
@@ -546,9 +524,9 @@ mod tests {
         //     };
         // }
 
-        let input_image_0 = tex_pro.add_input_node(image_0);
-        let input_heart_256 = tex_pro.add_input_node(heart_256);
-        let input_white = tex_pro.add_input_node(white);
+        let input_image_0 = tex_pro.add_input_node(&image::open(&Path::new(&"data/image_1.png")).unwrap());
+        let input_heart_256 = tex_pro.add_input_node(&image::open(&Path::new(&"data/heart_256.png")).unwrap());
+        let input_white = tex_pro.add_input_node(&image::open(&Path::new(&"data/white.png")).unwrap());
         let output_node = tex_pro.add_node_with_id(NodeType::Output, NodeId(12));
         let node_5 = tex_pro.add_node_with_id(NodeType::Multiply, NodeId(5));
         // input_nodes.append(&mut tex_pro.add_input_node(image_1));
