@@ -54,7 +54,7 @@ impl NodeData {
             slot,
             width,
             height,
-            value: Vec::new(),
+            value: Vec::with_capacity((width * height) as usize),
         }
     }
 
@@ -110,10 +110,12 @@ impl TextureProcessor {
     fn deconstruct_image(image: &DynamicImage) -> Vec<Arc<NodeData>> {
         let raw_pixels = image.raw_pixels();
         let (width, height) = (image.width(), image.height());
-        let channel_count = raw_pixels.len() / (width as usize * height as usize);
-        let mut node_data_vec = Vec::with_capacity(channel_count);
+        let pixel_count = (width * height) as usize;
+        let channel_count = raw_pixels.len() / pixel_count;
+        let max_channel_count = 4;
+        let mut node_data_vec = Vec::with_capacity(max_channel_count);
 
-        for x in 0..channel_count {
+        for x in 0..max_channel_count {
             node_data_vec.push(NodeData::new(Slot(x), width, height));
         }
 
@@ -124,6 +126,18 @@ impl TextureProcessor {
                 .value
                 .push(f64::from(component) / 255.);
             current_channel = (current_channel + 1) % channel_count;
+        }
+
+        for (channel, node_data) in node_data_vec
+            .iter_mut()
+            .enumerate()
+            .take(max_channel_count)
+            .skip(channel_count)
+        {
+            node_data.value = match channel {
+                3 => vec![1.; pixel_count],
+                _ => vec![0.; pixel_count],
+            }
         }
 
         node_data_vec.into_iter().map(Arc::new).collect()
@@ -165,8 +179,6 @@ impl TextureProcessor {
         let mut started_nodes: HashSet<NodeId> = HashSet::with_capacity(self.nodes.len());
 
         let mut queued_ids: VecDeque<NodeId> = VecDeque::from(self.get_root_ids());
-        println!("queued_ids: {:?}", queued_ids);
-        // panic!("end");
         for item in &queued_ids {
             started_nodes.insert(*item);
         }
@@ -210,7 +222,6 @@ impl TextureProcessor {
                     continue 'outer;
                 }
             }
-            println!("Started node: {:?}", current_id);
 
             let mut relevant_ids: Vec<NodeId> = Vec::new();
             for id in self.node_data.keys() {
@@ -266,7 +277,6 @@ impl TextureProcessor {
         finished_nodes: &mut HashSet<NodeId>,
         queued_ids: &mut VecDeque<NodeId>,
     ) {
-        println!("Finished node: {:?}", id);
         finished_nodes.insert(id);
 
         if let Some(x) = data {
@@ -487,10 +497,10 @@ mod tests {
             tex_pro.add_input_node(&image::open(&Path::new(&"data/heart_256.png")).unwrap());
         let output_node = tex_pro.add_node(NodeType::Output);
 
-        tex_pro.connect(input_heart_256, output_node, Slot(0), Slot(2));
-        tex_pro.connect(input_heart_256, output_node, Slot(1), Slot(0));
-        tex_pro.connect(input_heart_256, output_node, Slot(3), Slot(1));
-        tex_pro.connect(input_heart_256, output_node, Slot(0), Slot(3));
+        tex_pro.connect(input_heart_256, output_node, Slot(0), Slot(0));
+        tex_pro.connect(input_heart_256, output_node, Slot(1), Slot(1));
+        tex_pro.connect(input_heart_256, output_node, Slot(2), Slot(2));
+        tex_pro.connect(input_heart_256, output_node, Slot(3), Slot(3));
 
         tex_pro.process();
 
