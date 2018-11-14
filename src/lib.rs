@@ -1,6 +1,6 @@
 // TODO:
-// Implement tests
-// Implement GUI
+// Implement same features as Channel Shuffle 1 & 2
+// Implement CLI
 
 extern crate image;
 extern crate rand;
@@ -269,7 +269,7 @@ impl TextureProcessor {
         let node_data_vec = &self.node_data[&id];
 
         let empty_vec = Vec::new();
-        let mut sorted_value_vecs: Vec<&Vec<f64>> = Vec::with_capacity(4);
+        let mut sorted_value_vecs: Vec<&Vec<ChannelPixel>> = Vec::with_capacity(4);
         sorted_value_vecs.push(&empty_vec);
         sorted_value_vecs.push(&empty_vec);
         sorted_value_vecs.push(&empty_vec);
@@ -349,7 +349,7 @@ fn deconstruct_image(image: &DynamicImage) -> Vec<Arc<NodeData>> {
     for component in raw_pixels {
         node_data_vec[current_channel]
             .value
-            .push(f64::from(component) / 255.);
+            .push(ChannelPixel::from(component) / 255.);
         current_channel = (current_channel + 1) % channel_count;
     }
 
@@ -526,26 +526,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn shuffle() {
+    fn input_output() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_256.png".to_string()));
-        let write_node = tex_pro.add_node(NodeType::Write("out/shuffle.png".to_string()));
+        let input_node = tex_pro.add_input_node(&image::open(&Path::new(&"data/image_2.png")).unwrap());
+        let output_node = tex_pro.add_node(NodeType::Output);
 
-        tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
-        tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
-        tex_pro.connect(input_heart_256, write_node, Slot(2), Slot(0));
-        tex_pro.connect(input_heart_256, write_node, Slot(3), Slot(3));
+        tex_pro.connect(input_node, output_node, Slot(0), Slot(0));
+        tex_pro.connect(input_node, output_node, Slot(1), Slot(1));
+        tex_pro.connect(input_node, output_node, Slot(2), Slot(2));
+        tex_pro.connect(input_node, output_node, Slot(3), Slot(3));
 
         tex_pro.process();
+
+        image::save_buffer(
+            &Path::new(&"out/input_output.png"),
+            &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node)).unwrap(),
+            256,
+            256,
+            image::ColorType::RGBA(8),
+        ).unwrap();
     }
 
     #[test]
-    fn passthrough() {
+    fn read_write() {
         let mut tex_pro = TextureProcessor::new();
 
         let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
-        let write_node = tex_pro.add_node(NodeType::Write("out/passthrough.png".to_string()));
+        let write_node = tex_pro.add_node(NodeType::Write("out/read_write.png".to_string()));
 
         tex_pro.connect(input_image_1, write_node, Slot(0), Slot(0));
         tex_pro.connect(input_image_1, write_node, Slot(1), Slot(1));
@@ -556,20 +564,16 @@ mod tests {
     }
 
     #[test]
-    fn multiply() {
+    fn shuffle() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
-        let input_white = tex_pro.add_node(NodeType::Read("data/white.png".to_string()));
-        let multiply_node = tex_pro.add_node(NodeType::Multiply);
-        let write_node = tex_pro.add_node(NodeType::Write("out/multiply.png".to_string()));
+        let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_256.png".to_string()));
+        let write_node = tex_pro.add_node(NodeType::Write("out/shuffle.png".to_string()));
 
-        tex_pro.connect(input_image_1, multiply_node, Slot(0), Slot(0));
-        tex_pro.connect(input_image_1, multiply_node, Slot(3), Slot(1));
-        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(0));
-        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(1));
-        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(2));
-        tex_pro.connect(input_white, write_node, Slot(0), Slot(3));
+        tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
+        tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
+        tex_pro.connect(input_heart_256, write_node, Slot(2), Slot(0));
+        tex_pro.connect(input_heart_256, write_node, Slot(3), Slot(3));
 
         tex_pro.process();
     }
@@ -588,6 +592,25 @@ mod tests {
         tex_pro.connect(add_node, write_node, Slot(0), Slot(0));
         tex_pro.connect(add_node, write_node, Slot(0), Slot(1));
         tex_pro.connect(add_node, write_node, Slot(0), Slot(2));
+        tex_pro.connect(input_white, write_node, Slot(0), Slot(3));
+
+        tex_pro.process();
+    }
+
+    #[test]
+    fn multiply() {
+        let mut tex_pro = TextureProcessor::new();
+
+        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
+        let input_white = tex_pro.add_node(NodeType::Read("data/white.png".to_string()));
+        let multiply_node = tex_pro.add_node(NodeType::Multiply);
+        let write_node = tex_pro.add_node(NodeType::Write("out/multiply.png".to_string()));
+
+        tex_pro.connect(input_image_1, multiply_node, Slot(0), Slot(0));
+        tex_pro.connect(input_image_1, multiply_node, Slot(3), Slot(1));
+        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(0));
+        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(1));
+        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(2));
         tex_pro.connect(input_white, write_node, Slot(0), Slot(3));
 
         tex_pro.process();
