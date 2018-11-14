@@ -1,6 +1,10 @@
 // TODO:
-// Implement same features as Channel Shuffle 1 & 2
-// Implement CLI
+// Make it able to handle sizing of images.
+// Make it able to handle using specific filtering when resizing images.
+// Add a resize node, though nodes are able to output a different size than their input.
+// Implement same features as Channel Shuffle 1 & 2.
+// Implement CLI.
+// Make randomly generated test to try finding corner cases
 
 extern crate image;
 extern crate rand;
@@ -15,7 +19,7 @@ use std::{
 
 struct TextureProcessor {
     nodes: HashMap<NodeId, Arc<Node>>,
-    node_data: HashMap<NodeId, Vec<Arc<NodeData>>>,
+    node_data: HashMap<NodeId, NodeData>,
     edges: Vec<Edge>,
 }
 
@@ -38,32 +42,55 @@ impl Edge {
     }
 }
 
+// TODO: Make this into `TrackedBuffer`. Make an `UntrackedBuffer` which doesn't have an id
+// attached.
 #[derive(Debug, Clone)]
-struct NodeData {
+struct DetachedBuffer {
+    id: NodeId,
     slot: Slot,
+    size: Size,
+    buffer: Arc<Buffer>,
+}
+
+
+#[derive(Debug, Copy, Clone)]
+struct Size {
     width: u32,
     height: u32,
-    value: Vec<ChannelPixel>,
+}
+
+impl Size {
+    fn new(width: u32, height: u32) -> Self {
+        Size {
+            width,
+            height,
+        }
+    }
+}
+
+// TODO: Move width & height out a step so it's not saved for each NodeData
+#[derive(Debug)]
+struct NodeData {
+    size: Size,
+    buffers: HashMap<Slot, Arc<Buffer>>,
 }
 
 impl NodeData {
-    fn new(slot: Slot, width: u32, height: u32) -> Self {
+    fn new(size: Size) -> Self {
         Self {
-            slot,
-            width,
-            height,
-            value: Vec::with_capacity((width * height) as usize),
+            size,
+            buffers: HashMap::new(),
         }
     }
 
-    fn with_content(slot: Slot, width: u32, height: u32, value: &[ChannelPixel]) -> Self {
-        Self {
-            slot,
-            width,
-            height,
-            value: value.to_vec(),
-        }
-    }
+    // fn with_content(slot: Slot, width: u32, height: u32, value: &[ChannelPixel]) -> Self {
+    //     Self {
+    //         slot,
+    //         width,
+    //         height,
+    //         value: value.to_vec(),
+    //     }
+    // }
 }
 
 type ChannelPixel = f64;
@@ -96,11 +123,21 @@ impl TextureProcessor {
         self.add_node_internal(node_type, id)
     }
 
-    pub fn add_input_node(&mut self, input: &DynamicImage) -> NodeId {
+    pub fn add_input_node(&mut self, image: &DynamicImage) -> NodeId {
         let id = self.new_id();
 
         self.add_node_internal(NodeType::Input, id);
-        self.node_data.insert(id, deconstruct_image(&input));
+
+        let mut wrapped_buffers = HashMap::new();
+        for (id, buffer) in deconstruct_image(&image).into_iter().enumerate() {
+            wrapped_buffers.insert(Slot(id), Arc::new(buffer));
+        }
+
+
+        self.node_data.insert(id, NodeData {
+            size: Size::new(image.width(), image.height()),
+            buffers: wrapped_buffers,
+        });
 
         id
     }
@@ -132,8 +169,8 @@ impl TextureProcessor {
 
     pub fn process(&mut self) {
         struct ThreadMessage {
-            node_id: NodeId,
-            node_data: Vec<Arc<NodeData>>,
+            id: NodeId,
+            buffers: Vec<DetachedBuffer>,
         }
 
         let (send, recv) = mpsc::channel::<ThreadMessage>();
@@ -148,8 +185,8 @@ impl TextureProcessor {
         'outer: while finished_nodes.len() < self.nodes.len() {
             for message in recv.try_iter() {
                 self.set_node_finished(
-                    message.node_id,
-                    Some(message.node_data),
+                    message.id,
+                    Some(message.buffers),
                     &mut started_nodes,
                     &mut finished_nodes,
                     &mut queued_ids,
@@ -197,18 +234,24 @@ impl TextureProcessor {
             }
 
             let mut relevant_edges: Vec<Edge> = Vec::new();
-            let mut input_data: Vec<(NodeId, Arc<NodeData>)> = Vec::new();
-            for (id, data_vec) in &self.node_data {
+            let mut input_data: Vec<DetachedBuffer> = Vec::new();
+            for (id, node_data) in &self.node_data {
                 if !relevant_ids.contains(&id) {
                     continue;
                 }
                 for edge in &self.edges {
-                    for data in data_vec.iter() {
-                        if data.slot == edge.output_slot
+                    for (slot, data_vec) in node_data.buffers.iter() {
+                        if *slot == edge.output_slot
                             && *id == edge.output_id
                             && current_id == edge.input_id
                         {
-                            input_data.push((*id, Arc::clone(data)));
+                            input_data.push(
+                                DetachedBuffer{
+                                id: *id,
+                                slot: *slot,
+                                size: node_data.size,
+                                buffer: Arc::clone(data_vec),
+                            });
                             relevant_edges.push(edge.clone());
                         }
                     }
@@ -219,14 +262,12 @@ impl TextureProcessor {
             let send = send.clone();
 
             thread::spawn(move || {
-                let node_data = current_node.process(&input_data, &relevant_edges).expect(
-                    "Attempted to process an input node, but input nodes should already be\
-                     processed at this point in the algorithm.",
-                );
-                match send.send(ThreadMessage {
-                    node_id: current_id,
-                    node_data,
-                }) {
+                let buffers = current_node.process(current_id, &input_data, &relevant_edges);
+                match send.send(
+                    ThreadMessage {
+                        id: current_id,
+                        buffers,
+                    }) {
                     Ok(_) => (),
                     Err(e) => println!("{:?}", e),
                 };
@@ -234,18 +275,26 @@ impl TextureProcessor {
         }
     }
 
+    // TODO: When there are tracked and untracked buffers, this will accept untracked buffers.
     fn set_node_finished(
         &mut self,
         id: NodeId,
-        data: Option<Vec<Arc<NodeData>>>,
+        buffers: Option<Vec<DetachedBuffer>>,
         started_nodes: &mut HashSet<NodeId>,
         finished_nodes: &mut HashSet<NodeId>,
         queued_ids: &mut VecDeque<NodeId>,
     ) {
         finished_nodes.insert(id);
 
-        if let Some(x) = data {
-            self.node_data.insert(id, x);
+        if let Some(buffers) = buffers {
+            if !buffers.is_empty() {
+                let id = buffers[0].id;
+                self.node_data.insert(id, NodeData::new(buffers[0].size));
+                for buffer in buffers {
+                    self.node_data.get_mut(&id).unwrap().buffers.insert(buffer.slot, buffer.buffer);
+                }
+            }
+            // self.node_data[&id] = buffers;
         }
 
         for edge in &self.edges {
@@ -256,17 +305,17 @@ impl TextureProcessor {
         }
     }
 
-    pub fn get_output_u8(&self, id: NodeId) -> Vec<u8> {
-        self.node_data[&id]
-            .iter()
-            .map(|node_data| &node_data.value)
-            .flatten()
-            .map(|x| (x * 255.).min(255.) as u8)
-            .collect()
-    }
+    // pub fn get_output_u8(&self, id: NodeId) -> Vec<u8> {
+    //     self.node_data[&id]
+    //         .iter()
+    //         .map(|node_data| &node_data.value)
+    //         .flatten()
+    //         .map(|x| (x * 255.).min(255.) as u8)
+    //         .collect()
+    // }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Vec<u8> {
-        let node_data_vec = &self.node_data[&id];
+        let buffers = &self.node_data[&id].buffers;
 
         let empty_vec = Vec::new();
         let mut sorted_value_vecs: Vec<&Vec<ChannelPixel>> = Vec::with_capacity(4);
@@ -275,12 +324,12 @@ impl TextureProcessor {
         sorted_value_vecs.push(&empty_vec);
         sorted_value_vecs.push(&empty_vec);
 
-        for node_data in node_data_vec {
-            match node_data.slot {
-                Slot(0) => sorted_value_vecs[0] = &node_data.value,
-                Slot(1) => sorted_value_vecs[1] = &node_data.value,
-                Slot(2) => sorted_value_vecs[2] = &node_data.value,
-                Slot(3) => sorted_value_vecs[3] = &node_data.value,
+        for (slot, buffer) in buffers {
+            match slot {
+                Slot(0) => sorted_value_vecs[0] = &buffer,
+                Slot(1) => sorted_value_vecs[1] = &buffer,
+                Slot(2) => sorted_value_vecs[2] = &buffer,
+                Slot(3) => sorted_value_vecs[3] = &buffer,
                 _ => continue,
             }
         }
@@ -316,7 +365,7 @@ impl TextureProcessor {
     }
 }
 
-fn channels_to_rgba(channels: &[&Vec<ChannelPixel>]) -> Vec<u8> {
+fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
     if channels.len() != 4 {
         panic!("The number of channels when converting to an RGBA image needs to be 4");
     }
@@ -332,43 +381,48 @@ fn channels_to_rgba(channels: &[&Vec<ChannelPixel>]) -> Vec<u8> {
         .collect()
 }
 
-fn deconstruct_image(image: &DynamicImage) -> Vec<Arc<NodeData>> {
+fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
     let raw_pixels = image.raw_pixels();
     let (width, height) = (image.width(), image.height());
     let pixel_count = (width * height) as usize;
     let channel_count = raw_pixels.len() / pixel_count;
     let max_channel_count = 4;
-    let mut node_data_vec = Vec::with_capacity(max_channel_count);
+    let mut pixel_vecs: Vec<Buffer> = Vec::with_capacity(max_channel_count);
 
     for x in 0..max_channel_count {
-        node_data_vec.push(NodeData::new(Slot(x), width, height));
+        pixel_vecs.push(Vec::with_capacity(pixel_count));
     }
 
     let mut current_channel = 0;
 
     for component in raw_pixels {
-        node_data_vec[current_channel]
-            .value
-            .push(ChannelPixel::from(component) / 255.);
+        pixel_vecs[current_channel].push(ChannelPixel::from(component) / 255.);
         current_channel = (current_channel + 1) % channel_count;
     }
 
-    for (channel, node_data) in node_data_vec
-        .iter_mut()
-        .enumerate()
-        .take(max_channel_count)
-        .skip(channel_count)
-    {
-        node_data.value = match channel {
+    for i in channel_count .. max_channel_count {
+        pixel_vecs[i] = match i {
             3 => vec![1.; pixel_count],
             _ => vec![0.; pixel_count],
         }
     }
 
-    node_data_vec.into_iter().map(Arc::new).collect()
+    // for (channel, pixel_vec) in pixel_vecs
+    //     .iter_mut()
+    //     .enumerate()
+    //     .take(max_channel_count)
+    //     .skip(channel_count)
+    // {
+    //     pixel_vec = match channel {
+    //         3 => vec![1.; pixel_count],
+    //         _ => vec![0.; pixel_count],
+    //     }
+    // }
+
+    pixel_vecs
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Ord, PartialOrd, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Ord, PartialOrd, Eq, Hash)]
 struct Slot(usize);
 
 impl Slot {
@@ -397,41 +451,44 @@ pub enum NodeType {
 #[derive(Debug)]
 struct Node(NodeType);
 
+type Buffer = Vec<ChannelPixel>;
+
 impl Node {
     pub fn process(
         &self,
-        input: &[(NodeId, Arc<NodeData>)],
+        id: NodeId,
+        input: &[DetachedBuffer],
         edges: &[Edge],
-    ) -> Option<Vec<Arc<NodeData>>> {
+    ) -> Vec<DetachedBuffer> {
         assert!(input.len() <= self.capacity(Side::Input));
         assert_eq!(edges.len(), input.len());
 
-        let mut sorted_input: Vec<Option<Arc<NodeData>>> = vec![None; input.len()];
-        for (data_id, node_data) in input {
+        let mut sorted_input: Vec<Option<DetachedBuffer>> = vec![None; input.len()];
+        for detached_buffer in input {
             for edge in edges.iter() {
-                if *data_id == edge.output_id && node_data.slot == edge.output_slot {
-                    sorted_input[edge.input_slot.as_usize()] = Some(Arc::clone(node_data));
+                if detached_buffer.id == edge.output_id && detached_buffer.slot == edge.output_slot {
+                    sorted_input[edge.input_slot.as_usize()] = Some(detached_buffer.clone());
                 }
             }
         }
 
-        let sorted_input: Vec<Arc<NodeData>> = sorted_input
+        let sorted_input: Vec<DetachedBuffer> = sorted_input
             .into_iter()
             .map(|node_data| node_data.expect("No NodeData found when expected."))
             .collect();
 
-        let output: Vec<Arc<NodeData>> = match self.0 {
-            NodeType::Input => return None,
-            NodeType::Output => Self::output(&sorted_input),
-            NodeType::Read(ref path) => Self::read(path),
+        let output: Vec<DetachedBuffer> = match self.0 {
+            NodeType::Input => Vec::new(),
+            NodeType::Output => Self::output(id, &sorted_input),
+            NodeType::Read(ref path) => Self::read(id, path),
             NodeType::Write(ref path) => Self::write(&sorted_input, path),
-            NodeType::Invert => Self::invert(&sorted_input),
-            NodeType::Add => Self::add(&sorted_input[0], &sorted_input[1]), // TODO: These should take the entire vector and not two arguments
-            NodeType::Multiply => Self::multiply(&sorted_input[0], &sorted_input[1]),
+            NodeType::Invert => Self::invert(id, &sorted_input),
+            NodeType::Add => Self::add(id, &sorted_input[0], &sorted_input[1]), // TODO: These should take the entire vector and not two arguments
+            NodeType::Multiply => Self::multiply(id, &sorted_input[0], &sorted_input[1]),
         };
 
         assert!(output.len() <= self.capacity(Side::Output));
-        Some(output)
+        output
     }
 
     pub fn capacity(&self, side: Side) -> usize {
@@ -457,26 +514,45 @@ impl Node {
         }
     }
 
-    fn output(inputs: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
-        let mut outputs: Vec<Arc<NodeData>> = Vec::with_capacity(inputs.len());
+    fn output(id: NodeId, inputs: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
+        let mut outputs: Vec<DetachedBuffer> = Vec::with_capacity(inputs.len());
 
         for (slot, input) in inputs.iter().enumerate() {
-            let mut node_data = (**input).clone();
-            node_data.slot = Slot(slot);
-            outputs.push(Arc::new(node_data));
+            outputs.push(
+                DetachedBuffer {
+                id,
+                slot: Slot(slot),
+                size: inputs[slot].size,
+                buffer: Arc::clone(&inputs[slot].buffer),
+            });
         }
 
         outputs
     }
 
-    fn read(path: &str) -> Vec<Arc<NodeData>> {
+    fn read(id: NodeId, path: &str) -> Vec<DetachedBuffer> {
+        let mut output = Vec::new();
+
         let image = image::open(&Path::new(path)).unwrap();
-        deconstruct_image(&image)
+        let buffers = deconstruct_image(&image);
+
+        for (channel, buffer) in buffers.into_iter().enumerate() {
+            output.push(
+                DetachedBuffer {
+                    id,
+                    slot: Slot(channel),
+                    size: Size::new(image.width(), image.height()),
+                    buffer: Arc::new(buffer),
+                }
+            );
+        }
+
+        output
     }
 
-    fn write(inputs: &[Arc<NodeData>], path: &str) -> Vec<Arc<NodeData>> {
-        let channel_vec: Vec<&Vec<ChannelPixel>> = inputs.iter().map(|node_data| &node_data.value).collect();
-        let (width, height) = (inputs[0].width, inputs[0].height);
+    fn write(inputs: &[DetachedBuffer], path: &str) -> Vec<DetachedBuffer> {
+        let channel_vec: Vec<&Buffer> = inputs.iter().map(|node_data| &*node_data.buffer).collect();
+        let (width, height) = (inputs[0].size.width, inputs[0].size.height);
 
         image::save_buffer(
             &Path::new(path),
@@ -489,48 +565,48 @@ impl Node {
         Vec::new()
     }
 
-    fn invert(input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+    fn invert(id: NodeId, input: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
         let input = &input[0];
-        let data: Vec<ChannelPixel> = input.value.iter().map(|value| (value * -1.) + 1.).collect();
+        let buffer: Buffer = input.buffer.iter().map(|value| (value * -1.) + 1.).collect();
 
-        vec![Arc::new(NodeData::with_content(
-            Slot(0),
-            input.width,
-            input.height,
-            &data,
-        ))]
+        vec![DetachedBuffer{
+            id,
+            slot: Slot(0),
+            size: input.size,
+            buffer: Arc::new(buffer),
+        }]
     }
 
-    fn add(input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
-        let data: Vec<ChannelPixel> = input_0
-            .value
+    fn add(id: NodeId, input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
+        let buffer: Buffer = input_0
+            .buffer
             .iter()
-            .zip(&input_1.value)
+            .zip(&*input_1.buffer)
             .map(|(x, y)| x + y)
             .collect();
 
-        vec![Arc::new(NodeData::with_content(
-            Slot(0),
-            input_0.width,
-            input_0.height,
-            &data,
-        ))]
+        vec![DetachedBuffer{
+            id,
+            slot: Slot(0),
+            size: input_0.size,
+            buffer: Arc::new(buffer),
+        }]
     }
 
-    fn multiply(input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
-        let data: Vec<ChannelPixel> = input_0
-            .value
+    fn multiply(id: NodeId, input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
+        let buffer: Buffer = input_0
+            .buffer
             .iter()
-            .zip(&input_1.value)
+            .zip(&*input_1.buffer)
             .map(|(x, y)| x * y)
             .collect();
 
-        vec![Arc::new(NodeData::with_content(
-            Slot(0),
-            input_0.width,
-            input_0.height,
-            &data,
-        ))]
+        vec![DetachedBuffer {
+            id,
+            slot: Slot(0),
+            size: input_0.size,
+            buffer: Arc::new(buffer),
+        }]
     }
 }
 
@@ -593,6 +669,22 @@ mod tests {
 
         tex_pro.process();
     }
+
+    // #[test]
+    // fn combine_different_sizes() {
+    //     let mut tex_pro = TextureProcessor::new();
+
+    //     let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_128.png".to_string()));
+    //     let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
+    //     let write_node = tex_pro.add_node(NodeType::Write("out/combine_different_sizes.png".to_string()));
+
+    //     tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
+    //     tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
+    //     tex_pro.connect(input_image_1, write_node, Slot(2), Slot(0));
+    //     tex_pro.connect(input_image_1, write_node, Slot(3), Slot(3));
+
+    //     tex_pro.process();
+    // }
 
     #[test]
     fn invert() {
