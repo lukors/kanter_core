@@ -1,5 +1,4 @@
 // TODO:
-// Implement read and write nodes
 // Implement tests
 // Implement GUI
 
@@ -292,15 +291,7 @@ impl TextureProcessor {
             }
         }
 
-        sorted_value_vecs[0]
-            .iter()
-            .zip(sorted_value_vecs[1])
-            .zip(sorted_value_vecs[2])
-            .zip(sorted_value_vecs[3])
-            .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
-            .flatten()
-            .map(|x| (x * 255.).min(255.) as u8)
-            .collect()
+        channels_to_rgba(&sorted_value_vecs)
     }
 
     fn new_id(&mut self) -> NodeId {
@@ -323,6 +314,22 @@ impl TextureProcessor {
             }).cloned()
             .collect::<Vec<NodeId>>()
     }
+}
+
+fn channels_to_rgba(channels: &[&Vec<ChannelPixel>]) -> Vec<u8> {
+    if channels.len() != 4 {
+        panic!("The number of channels when converting to an RGBA image needs to be 4");
+    }
+
+    channels[0]
+        .iter()
+        .zip(channels[1])
+        .zip(channels[2])
+        .zip(channels[3])
+        .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
+        .flatten()
+        .map(|x| (x * 255.).min(255.) as u8)
+        .collect()
 }
 
 fn deconstruct_image(image: &DynamicImage) -> Vec<Arc<NodeData>> {
@@ -381,6 +388,7 @@ pub enum NodeType {
     Input,
     Output,
     Read(String),
+    Write(String),
     Add,
     Multiply,
 }
@@ -415,6 +423,7 @@ impl Node {
             NodeType::Input => return None,
             NodeType::Output => Self::output(&sorted_input),
             NodeType::Read(ref path) => Self::read(path),
+            NodeType::Write(ref path) => Self::write(&sorted_input, path),
             NodeType::Add => Self::add(&sorted_input[0], &sorted_input[1]),
             NodeType::Multiply => Self::multiply(&sorted_input[0], &sorted_input[1]),
         };
@@ -429,15 +438,15 @@ impl Node {
                 NodeType::Input => 0,
                 NodeType::Output => 4,
                 NodeType::Read(_) => 0,
+                NodeType::Write(_) => 4,
                 NodeType::Add => 2,
                 NodeType::Multiply => 2,
             },
             Side::Output => match self.0 {
-                // TODO: I'm pretty sure `NodeType::Input` should be 4, why is it working despite
-                // this?
-                NodeType::Input => 1,
+                NodeType::Input => 4,
                 NodeType::Output => 4,
                 NodeType::Read(_) => 4,
+                NodeType::Write(_) => 0,
                 NodeType::Add => 1,
                 NodeType::Multiply => 1,
             },
@@ -459,6 +468,21 @@ impl Node {
     fn read(path: &str) -> Vec<Arc<NodeData>> {
         let image = image::open(&Path::new(path)).unwrap();
         deconstruct_image(&image)
+    }
+
+    fn write(inputs: &[Arc<NodeData>], path: &str) -> Vec<Arc<NodeData>> {
+        let channel_vec: Vec<&Vec<ChannelPixel>> = inputs.iter().map(|node_data| &node_data.value).collect();
+        let (width, height) = (inputs[0].width, inputs[0].height);
+
+        image::save_buffer(
+            &Path::new(path),
+            &image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)).unwrap(),
+            width,
+            height,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+
+        Vec::new()
     }
 
     fn add(input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
@@ -506,22 +530,14 @@ mod tests {
         let mut tex_pro = TextureProcessor::new();
 
         let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_256.png".to_string()));
-        let output_node = tex_pro.add_node(NodeType::Output);
+        let write_node = tex_pro.add_node(NodeType::Write("out/shuffle.png".to_string()));
 
-        tex_pro.connect(input_heart_256, output_node, Slot(0), Slot(0));
-        tex_pro.connect(input_heart_256, output_node, Slot(1), Slot(1));
-        tex_pro.connect(input_heart_256, output_node, Slot(2), Slot(2));
-        tex_pro.connect(input_heart_256, output_node, Slot(3), Slot(3));
+        tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
+        tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
+        tex_pro.connect(input_heart_256, write_node, Slot(2), Slot(0));
+        tex_pro.connect(input_heart_256, write_node, Slot(3), Slot(3));
 
         tex_pro.process();
-
-        image::save_buffer(
-            &Path::new(&"out/shuffle.png"),
-            &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node)).unwrap(),
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
     }
 
     #[test]
@@ -529,22 +545,14 @@ mod tests {
         let mut tex_pro = TextureProcessor::new();
 
         let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
-        let output_node = tex_pro.add_node(NodeType::Output);
+        let write_node = tex_pro.add_node(NodeType::Write("out/passthrough.png".to_string()));
 
-        tex_pro.connect(input_image_1, output_node, Slot(0), Slot(0));
-        tex_pro.connect(input_image_1, output_node, Slot(1), Slot(1));
-        tex_pro.connect(input_image_1, output_node, Slot(2), Slot(2));
-        tex_pro.connect(input_image_1, output_node, Slot(3), Slot(3));
+        tex_pro.connect(input_image_1, write_node, Slot(0), Slot(0));
+        tex_pro.connect(input_image_1, write_node, Slot(1), Slot(1));
+        tex_pro.connect(input_image_1, write_node, Slot(2), Slot(2));
+        tex_pro.connect(input_image_1, write_node, Slot(3), Slot(3));
 
         tex_pro.process();
-
-        image::save_buffer(
-            &Path::new(&"out/passthrough.png"),
-            &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node)).unwrap(),
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
     }
 
     #[test]
@@ -554,24 +562,16 @@ mod tests {
         let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
         let input_white = tex_pro.add_node(NodeType::Read("data/white.png".to_string()));
         let multiply_node = tex_pro.add_node(NodeType::Multiply);
-        let output_node = tex_pro.add_node(NodeType::Output);
+        let write_node = tex_pro.add_node(NodeType::Write("out/multiply.png".to_string()));
 
         tex_pro.connect(input_image_1, multiply_node, Slot(0), Slot(0));
         tex_pro.connect(input_image_1, multiply_node, Slot(3), Slot(1));
-        tex_pro.connect(multiply_node, output_node, Slot(0), Slot(0));
-        tex_pro.connect(multiply_node, output_node, Slot(0), Slot(1));
-        tex_pro.connect(multiply_node, output_node, Slot(0), Slot(2));
-        tex_pro.connect(input_white, output_node, Slot(0), Slot(3));
+        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(0));
+        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(1));
+        tex_pro.connect(multiply_node, write_node, Slot(0), Slot(2));
+        tex_pro.connect(input_white, write_node, Slot(0), Slot(3));
 
         tex_pro.process();
-
-        image::save_buffer(
-            &Path::new(&"out/multiply.png"),
-            &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node)).unwrap(),
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
     }
 
     #[test]
@@ -581,23 +581,15 @@ mod tests {
         let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
         let input_white = tex_pro.add_node(NodeType::Read("data/white.png".to_string()));
         let add_node = tex_pro.add_node(NodeType::Add);
-        let output_node = tex_pro.add_node(NodeType::Output);
+        let write_node = tex_pro.add_node(NodeType::Write("out/add.png".to_string()));
 
         tex_pro.connect(input_image_1, add_node, Slot(0), Slot(0));
         tex_pro.connect(input_image_1, add_node, Slot(1), Slot(1));
-        tex_pro.connect(add_node, output_node, Slot(0), Slot(0));
-        tex_pro.connect(add_node, output_node, Slot(0), Slot(1));
-        tex_pro.connect(add_node, output_node, Slot(0), Slot(2));
-        tex_pro.connect(input_white, output_node, Slot(0), Slot(3));
+        tex_pro.connect(add_node, write_node, Slot(0), Slot(0));
+        tex_pro.connect(add_node, write_node, Slot(0), Slot(1));
+        tex_pro.connect(add_node, write_node, Slot(0), Slot(2));
+        tex_pro.connect(input_white, write_node, Slot(0), Slot(3));
 
         tex_pro.process();
-
-        image::save_buffer(
-            &Path::new(&"out/add.png"),
-            &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node)).unwrap(),
-            256,
-            256,
-            image::ColorType::RGBA(8),
-        ).unwrap();
     }
 }
