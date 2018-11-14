@@ -9,6 +9,7 @@ extern crate rand;
 use image::{DynamicImage, GenericImageView};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    path::Path,
     sync::{mpsc, Arc},
     thread,
 };
@@ -100,45 +101,9 @@ impl TextureProcessor {
         let id = self.new_id();
 
         self.add_node_internal(NodeType::Input, id);
-        self.node_data.insert(id, Self::deconstruct_image(&input));
+        self.node_data.insert(id, deconstruct_image(&input));
 
         id
-    }
-
-    fn deconstruct_image(image: &DynamicImage) -> Vec<Arc<NodeData>> {
-        let raw_pixels = image.raw_pixels();
-        let (width, height) = (image.width(), image.height());
-        let pixel_count = (width * height) as usize;
-        let channel_count = raw_pixels.len() / pixel_count;
-        let max_channel_count = 4;
-        let mut node_data_vec = Vec::with_capacity(max_channel_count);
-
-        for x in 0..max_channel_count {
-            node_data_vec.push(NodeData::new(Slot(x), width, height));
-        }
-
-        let mut current_channel = 0;
-
-        for component in raw_pixels {
-            node_data_vec[current_channel]
-                .value
-                .push(f64::from(component) / 255.);
-            current_channel = (current_channel + 1) % channel_count;
-        }
-
-        for (channel, node_data) in node_data_vec
-            .iter_mut()
-            .enumerate()
-            .take(max_channel_count)
-            .skip(channel_count)
-        {
-            node_data.value = match channel {
-                3 => vec![1.; pixel_count],
-                _ => vec![0.; pixel_count],
-            }
-        }
-
-        node_data_vec.into_iter().map(Arc::new).collect()
     }
 
     pub fn connect(&mut self, id_1: NodeId, id_2: NodeId, slot_1: Slot, slot_2: Slot) {
@@ -360,6 +325,42 @@ impl TextureProcessor {
     }
 }
 
+fn deconstruct_image(image: &DynamicImage) -> Vec<Arc<NodeData>> {
+    let raw_pixels = image.raw_pixels();
+    let (width, height) = (image.width(), image.height());
+    let pixel_count = (width * height) as usize;
+    let channel_count = raw_pixels.len() / pixel_count;
+    let max_channel_count = 4;
+    let mut node_data_vec = Vec::with_capacity(max_channel_count);
+
+    for x in 0..max_channel_count {
+        node_data_vec.push(NodeData::new(Slot(x), width, height));
+    }
+
+    let mut current_channel = 0;
+
+    for component in raw_pixels {
+        node_data_vec[current_channel]
+            .value
+            .push(f64::from(component) / 255.);
+        current_channel = (current_channel + 1) % channel_count;
+    }
+
+    for (channel, node_data) in node_data_vec
+        .iter_mut()
+        .enumerate()
+        .take(max_channel_count)
+        .skip(channel_count)
+    {
+        node_data.value = match channel {
+            3 => vec![1.; pixel_count],
+            _ => vec![0.; pixel_count],
+        }
+    }
+
+    node_data_vec.into_iter().map(Arc::new).collect()
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Ord, PartialOrd, Eq)]
 struct Slot(usize);
 
@@ -379,6 +380,7 @@ enum Side {
 pub enum NodeType {
     Input,
     Output,
+    Read(String),
     Add,
     Multiply,
 }
@@ -412,6 +414,7 @@ impl Node {
         let output: Vec<Arc<NodeData>> = match self.0 {
             NodeType::Input => return None,
             NodeType::Output => Self::output(&sorted_input),
+            NodeType::Read(ref path) => Self::read(path),
             NodeType::Add => Self::add(&sorted_input[0], &sorted_input[1]),
             NodeType::Multiply => Self::multiply(&sorted_input[0], &sorted_input[1]),
         };
@@ -425,12 +428,16 @@ impl Node {
             Side::Input => match self.0 {
                 NodeType::Input => 0,
                 NodeType::Output => 4,
+                NodeType::Read(_) => 0,
                 NodeType::Add => 2,
                 NodeType::Multiply => 2,
             },
             Side::Output => match self.0 {
+                // TODO: I'm pretty sure `NodeType::Input` should be 4, why is it working despite
+                // this?
                 NodeType::Input => 1,
                 NodeType::Output => 4,
+                NodeType::Read(_) => 4,
                 NodeType::Add => 1,
                 NodeType::Multiply => 1,
             },
@@ -447,6 +454,11 @@ impl Node {
         }
 
         outputs
+    }
+
+    fn read(path: &str) -> Vec<Arc<NodeData>> {
+        let image = image::open(&Path::new(path)).unwrap();
+        deconstruct_image(&image)
     }
 
     fn add(input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
@@ -488,14 +500,12 @@ struct NodeId(u32);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
 
     #[test]
     fn shuffle() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_heart_256 =
-            tex_pro.add_input_node(&image::open(&Path::new(&"data/heart_256.png")).unwrap());
+        let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_256.png".to_string()));
         let output_node = tex_pro.add_node(NodeType::Output);
 
         tex_pro.connect(input_heart_256, output_node, Slot(0), Slot(0));
@@ -518,8 +528,7 @@ mod tests {
     fn passthrough() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_image_1 =
-            tex_pro.add_input_node(&image::open(&Path::new(&"data/image_1.png")).unwrap());
+        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
         let output_node = tex_pro.add_node(NodeType::Output);
 
         tex_pro.connect(input_image_1, output_node, Slot(0), Slot(0));
@@ -542,10 +551,8 @@ mod tests {
     fn multiply() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_image_1 =
-            tex_pro.add_input_node(&image::open(&Path::new(&"data/image_1.png")).unwrap());
-        let input_white =
-            tex_pro.add_input_node(&image::open(&Path::new(&"data/white.png")).unwrap());
+        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
+        let input_white = tex_pro.add_node(NodeType::Read("data/white.png".to_string()));
         let multiply_node = tex_pro.add_node(NodeType::Multiply);
         let output_node = tex_pro.add_node(NodeType::Output);
 
@@ -571,10 +578,8 @@ mod tests {
     fn add() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_image_1 =
-            tex_pro.add_input_node(&image::open(&Path::new(&"data/image_1.png")).unwrap());
-        let input_white =
-            tex_pro.add_input_node(&image::open(&Path::new(&"data/white.png")).unwrap());
+        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
+        let input_white = tex_pro.add_node(NodeType::Read("data/white.png".to_string()));
         let add_node = tex_pro.add_node(NodeType::Add);
         let output_node = tex_pro.add_node(NodeType::Output);
 
