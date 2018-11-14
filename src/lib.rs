@@ -1,6 +1,4 @@
 // TODO:
-// Clean up the code, add error handling and so on
-// Make the input node into a single node with 4 (or however many channels) outputs
 // Implement read and write nodes
 // Implement tests
 // Implement GUI
@@ -257,7 +255,10 @@ impl TextureProcessor {
             let send = send.clone();
 
             thread::spawn(move || {
-                let node_data = current_node.process(&input_data, &relevant_edges).unwrap();
+                let node_data = current_node.process(&input_data, &relevant_edges).expect(
+                    "Attempted to process an input node, but input nodes should already be\
+                     processed at this point in the algorithm.",
+                );
                 match send.send(ThreadMessage {
                     node_id: current_id,
                     node_data,
@@ -346,7 +347,7 @@ impl TextureProcessor {
         }
     }
 
-    fn get_root_ids(&self) -> Vec<NodeId> {
+    pub fn get_root_ids(&self) -> Vec<NodeId> {
         self.nodes
             .keys()
             .filter(|node_id| {
