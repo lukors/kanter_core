@@ -389,6 +389,7 @@ pub enum NodeType {
     Output,
     Read(String),
     Write(String),
+    Invert,
     Add,
     Multiply,
 }
@@ -424,7 +425,8 @@ impl Node {
             NodeType::Output => Self::output(&sorted_input),
             NodeType::Read(ref path) => Self::read(path),
             NodeType::Write(ref path) => Self::write(&sorted_input, path),
-            NodeType::Add => Self::add(&sorted_input[0], &sorted_input[1]),
+            NodeType::Invert => Self::invert(&sorted_input),
+            NodeType::Add => Self::add(&sorted_input[0], &sorted_input[1]), // TODO: These should take the entire vector and not two arguments
             NodeType::Multiply => Self::multiply(&sorted_input[0], &sorted_input[1]),
         };
 
@@ -439,6 +441,7 @@ impl Node {
                 NodeType::Output => 4,
                 NodeType::Read(_) => 0,
                 NodeType::Write(_) => 4,
+                NodeType::Invert => 1,
                 NodeType::Add => 2,
                 NodeType::Multiply => 2,
             },
@@ -447,6 +450,7 @@ impl Node {
                 NodeType::Output => 4,
                 NodeType::Read(_) => 4,
                 NodeType::Write(_) => 0,
+                NodeType::Invert => 1,
                 NodeType::Add => 1,
                 NodeType::Multiply => 1,
             },
@@ -483,6 +487,18 @@ impl Node {
         ).unwrap();
 
         Vec::new()
+    }
+
+    fn invert(input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+        let input = &input[0];
+        let data: Vec<ChannelPixel> = input.value.iter().map(|value| (value * -1.) + 1.).collect();
+
+        vec![Arc::new(NodeData::with_content(
+            Slot(0),
+            input.width,
+            input.height,
+            &data,
+        ))]
     }
 
     fn add(input_0: &NodeData, input_1: &NodeData) -> Vec<Arc<NodeData>> {
@@ -579,6 +595,24 @@ mod tests {
     }
 
     #[test]
+    fn invert() {
+        let mut tex_pro = TextureProcessor::new();
+
+        let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_256.png".to_string()));
+        let invert_node = tex_pro.add_node(NodeType::Invert);
+        let write_node = tex_pro.add_node(NodeType::Write("out/invert.png".to_string()));
+
+        tex_pro.connect(input_heart_256, invert_node, Slot(0), Slot(0));
+
+        tex_pro.connect(invert_node, write_node, Slot(0), Slot(0));
+        tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(1));
+        tex_pro.connect(input_heart_256, write_node, Slot(2), Slot(2));
+        tex_pro.connect(input_heart_256, write_node, Slot(3), Slot(3));
+
+        tex_pro.process();
+    }
+
+    #[test]
     fn add() {
         let mut tex_pro = TextureProcessor::new();
 
@@ -589,6 +623,7 @@ mod tests {
 
         tex_pro.connect(input_image_1, add_node, Slot(0), Slot(0));
         tex_pro.connect(input_image_1, add_node, Slot(1), Slot(1));
+
         tex_pro.connect(add_node, write_node, Slot(0), Slot(0));
         tex_pro.connect(add_node, write_node, Slot(0), Slot(1));
         tex_pro.connect(add_node, write_node, Slot(0), Slot(2));
@@ -608,6 +643,7 @@ mod tests {
 
         tex_pro.connect(input_image_1, multiply_node, Slot(0), Slot(0));
         tex_pro.connect(input_image_1, multiply_node, Slot(3), Slot(1));
+
         tex_pro.connect(multiply_node, write_node, Slot(0), Slot(0));
         tex_pro.connect(multiply_node, write_node, Slot(0), Slot(1));
         tex_pro.connect(multiply_node, write_node, Slot(0), Slot(2));
