@@ -42,11 +42,9 @@ impl Edge {
     }
 }
 
-// TODO: Make this into `TrackedBuffer`. Make an `UntrackedBuffer` which doesn't have an id
-// attached.
 #[derive(Debug, Clone)]
 struct DetachedBuffer {
-    id: NodeId,
+    id: Option<NodeId>,
     slot: Slot,
     size: Size,
     buffer: Arc<Buffer>,
@@ -247,7 +245,7 @@ impl TextureProcessor {
                         {
                             input_data.push(
                                 DetachedBuffer{
-                                id: *id,
+                                id: Some(*id),
                                 slot: *slot,
                                 size: node_data.size,
                                 buffer: Arc::clone(data_vec),
@@ -262,7 +260,7 @@ impl TextureProcessor {
             let send = send.clone();
 
             thread::spawn(move || {
-                let buffers = current_node.process(current_id, &input_data, &relevant_edges);
+                let buffers = current_node.process(&input_data, &relevant_edges);
                 match send.send(
                     ThreadMessage {
                         id: current_id,
@@ -288,7 +286,7 @@ impl TextureProcessor {
 
         if let Some(buffers) = buffers {
             if !buffers.is_empty() {
-                let id = buffers[0].id;
+                // let id = buffers[0].id;
                 self.node_data.insert(id, NodeData::new(buffers[0].size));
                 for buffer in buffers {
                     self.node_data.get_mut(&id).unwrap().buffers.insert(buffer.slot, buffer.buffer);
@@ -389,7 +387,7 @@ fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
     let max_channel_count = 4;
     let mut pixel_vecs: Vec<Buffer> = Vec::with_capacity(max_channel_count);
 
-    for x in 0..max_channel_count {
+    for _ in 0..max_channel_count {
         pixel_vecs.push(Vec::with_capacity(pixel_count));
     }
 
@@ -456,7 +454,6 @@ type Buffer = Vec<ChannelPixel>;
 impl Node {
     pub fn process(
         &self,
-        id: NodeId,
         input: &[DetachedBuffer],
         edges: &[Edge],
     ) -> Vec<DetachedBuffer> {
@@ -466,7 +463,7 @@ impl Node {
         let mut sorted_input: Vec<Option<DetachedBuffer>> = vec![None; input.len()];
         for detached_buffer in input {
             for edge in edges.iter() {
-                if detached_buffer.id == edge.output_id && detached_buffer.slot == edge.output_slot {
+                if detached_buffer.id == Some(edge.output_id) && detached_buffer.slot == edge.output_slot {
                     sorted_input[edge.input_slot.as_usize()] = Some(detached_buffer.clone());
                 }
             }
@@ -479,12 +476,12 @@ impl Node {
 
         let output: Vec<DetachedBuffer> = match self.0 {
             NodeType::Input => Vec::new(),
-            NodeType::Output => Self::output(id, &sorted_input),
-            NodeType::Read(ref path) => Self::read(id, path),
+            NodeType::Output => Self::output(&sorted_input),
+            NodeType::Read(ref path) => Self::read(path),
             NodeType::Write(ref path) => Self::write(&sorted_input, path),
-            NodeType::Invert => Self::invert(id, &sorted_input),
-            NodeType::Add => Self::add(id, &sorted_input[0], &sorted_input[1]), // TODO: These should take the entire vector and not two arguments
-            NodeType::Multiply => Self::multiply(id, &sorted_input[0], &sorted_input[1]),
+            NodeType::Invert => Self::invert(&sorted_input),
+            NodeType::Add => Self::add(&sorted_input[0], &sorted_input[1]), // TODO: These should take the entire vector and not two arguments
+            NodeType::Multiply => Self::multiply(&sorted_input[0], &sorted_input[1]),
         };
 
         assert!(output.len() <= self.capacity(Side::Output));
@@ -514,13 +511,13 @@ impl Node {
         }
     }
 
-    fn output(id: NodeId, inputs: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
+    fn output(inputs: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
         let mut outputs: Vec<DetachedBuffer> = Vec::with_capacity(inputs.len());
 
-        for (slot, input) in inputs.iter().enumerate() {
+        for (slot, _input) in inputs.iter().enumerate() {
             outputs.push(
                 DetachedBuffer {
-                id,
+                id: None,
                 slot: Slot(slot),
                 size: inputs[slot].size,
                 buffer: Arc::clone(&inputs[slot].buffer),
@@ -530,7 +527,7 @@ impl Node {
         outputs
     }
 
-    fn read(id: NodeId, path: &str) -> Vec<DetachedBuffer> {
+    fn read(path: &str) -> Vec<DetachedBuffer> {
         let mut output = Vec::new();
 
         let image = image::open(&Path::new(path)).unwrap();
@@ -539,7 +536,7 @@ impl Node {
         for (channel, buffer) in buffers.into_iter().enumerate() {
             output.push(
                 DetachedBuffer {
-                    id,
+                    id: None,
                     slot: Slot(channel),
                     size: Size::new(image.width(), image.height()),
                     buffer: Arc::new(buffer),
@@ -565,19 +562,19 @@ impl Node {
         Vec::new()
     }
 
-    fn invert(id: NodeId, input: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
+    fn invert(input: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
         let input = &input[0];
         let buffer: Buffer = input.buffer.iter().map(|value| (value * -1.) + 1.).collect();
 
         vec![DetachedBuffer{
-            id,
+            id: None,
             slot: Slot(0),
             size: input.size,
             buffer: Arc::new(buffer),
         }]
     }
 
-    fn add(id: NodeId, input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
+    fn add(input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
         let buffer: Buffer = input_0
             .buffer
             .iter()
@@ -586,14 +583,14 @@ impl Node {
             .collect();
 
         vec![DetachedBuffer{
-            id,
+            id: None,
             slot: Slot(0),
             size: input_0.size,
             buffer: Arc::new(buffer),
         }]
     }
 
-    fn multiply(id: NodeId, input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
+    fn multiply(input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
         let buffer: Buffer = input_0
             .buffer
             .iter()
@@ -602,7 +599,7 @@ impl Node {
             .collect();
 
         vec![DetachedBuffer {
-            id,
+            id: None,
             slot: Slot(0),
             size: input_0.size,
             buffer: Arc::new(buffer),
