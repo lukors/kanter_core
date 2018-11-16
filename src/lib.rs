@@ -1,5 +1,5 @@
 // TODO:
-// - Check if TextureProcessor.nodes needs to be Arc, I don't think it needs that.
+// - Add support for all ResizePolicy variants
 // - Add a resize node, though nodes are able to output a different size than their input.
 // - Implement same features as Channel Shuffle 1 & 2.
 // - Implement CLI.
@@ -14,6 +14,7 @@ extern crate rand;
 
 use image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer, Luma};
 use std::{
+    cmp::max,
     collections::{HashMap, HashSet, VecDeque},
     path::Path,
     sync::{mpsc, Arc},
@@ -60,14 +61,12 @@ struct Size {
 }
 
 impl Size {
-    fn pixel_count(self) -> u32 {
-        self.width * self.height
-    }
-}
-
-impl Size {
     fn new(width: u32, height: u32) -> Self {
         Size { width, height }
+    }
+
+    fn pixel_count(self) -> u32 {
+        self.width * self.height
     }
 }
 
@@ -424,9 +423,9 @@ fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 enum ResizePolicy {
     MostPixels,
     LeastPixels,
-    LargestAxis,
-    SmallestAxis,
-    SpecificBuffer(usize),
+    LargestAxes,
+    SmallestAxes,
+    SpecificNode(NodeId),
     SpecificSize(Size),
 }
 
@@ -445,14 +444,22 @@ fn resize_buffers(
     let size = match policy {
         ResizePolicy::MostPixels => buffers
             .iter()
-            .max_by(|x, y| x.size.pixel_count().cmp(&y.size.pixel_count()))
+            .max_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
             .map(|buffer| buffer.size)
             .unwrap(),
         ResizePolicy::LeastPixels => buffers
             .iter()
-            .min_by(|x, y| x.size.pixel_count().cmp(&y.size.pixel_count()))
+            .min_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
             .map(|buffer| buffer.size)
             .unwrap(),
+        ResizePolicy::LargestAxes => buffers
+            .iter()
+            .fold(Size::new(0, 0), |a, b| {
+                Size::new(
+                    max(a.width, b.size.width),
+                    max(a.height, b.size.height),
+                )
+            }),
         _ => unimplemented!(),
     };
 
