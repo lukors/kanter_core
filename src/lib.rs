@@ -1,15 +1,21 @@
 // TODO:
-// Make it able to handle sizing of images.
-// Make it able to handle using specific filtering when resizing images.
-// Add a resize node, though nodes are able to output a different size than their input.
-// Implement same features as Channel Shuffle 1 & 2.
-// Implement CLI.
-// Make randomly generated test to try finding corner cases
+// - Use the f32 buffer type from the image lib instead of my own NodeData type.
+// - Make it able to handle sizing of images.
+//   https://github.com/PistonDevelopers/image/issues/795#issuecomment-409001681
+// - Make it able to handle using specific filtering when resizing images.
+// - Add a resize node, though nodes are able to output a different size than their input.
+// - Implement same features as Channel Shuffle 1 & 2.
+// - Implement CLI.
+// - Make randomly generated test to try finding corner cases.
+// - Make benchmark tests.
+// - Optimize away the double-allocation when resizing an image before it's processed.
+// - Make each node save the resized versions of their inputs,
+//   and use them if they are still relevant.
 
 extern crate image;
 extern crate rand;
 
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, FilterType, GenericImageView, ImageBuffer, Luma};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     path::Path,
@@ -51,10 +57,16 @@ struct DetachedBuffer {
 }
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 struct Size {
     width: u32,
     height: u32,
+}
+
+impl Size {
+    fn pixel_count(&self) -> u32 {
+        self.width * self.height
+    }
 }
 
 impl Size {
@@ -91,7 +103,7 @@ impl NodeData {
     // }
 }
 
-type ChannelPixel = f64;
+type ChannelPixel = f32;
 
 impl TextureProcessor {
     pub fn new() -> Self {
@@ -420,6 +432,43 @@ fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
     pixel_vecs
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum ResizePolicy {
+    MostPixels,
+    LeastPixels,
+    LargestAxis,
+    SmallestAxis,
+    SpecificBuffer(usize),
+    SpecificSize(Size),
+}
+
+fn resize_buffers(buffers: &[DetachedBuffer], policy: ResizePolicy, filter: FilterType) -> Vec<Buffer> {
+    unimplemented!();
+    let size = match policy {
+        MostPixels => {
+            buffers.iter().max_by(|x, y| x.size.pixel_count().cmp(&y.size.pixel_count())).map(|buffer| buffer.size).unwrap()
+        },
+        LeastPixels => {
+            buffers.iter().min_by(|x, y| x.size.pixel_count().cmp(&y.size.pixel_count())).map(|buffer| buffer.size).unwrap()
+        },
+        _ => unimplemented!(),
+    };
+
+    // buffers.iter().map(|buffer| {
+    //     // TODO: I think this clones the buffer, creates a `LumaImage` from it, then resizes it,
+    //     // which creates another buffer and returns that.
+    //     //
+    //     // It would be better if it didn't have to clone the buffer first, but could instead just
+    //     // create a resized version right away.
+    //     //
+    //     // I might have to use the types from the image crate for that to work, or implement all the
+    //     // resize algorithms myself.
+
+    //     // let img = image::GrayImage::from_vec(buffer.size.width, buffer.size.height, *(buffer.buffer).clone()).unwrap();
+    //     // img.resize_exact(size.width, size.height, filter).raw_pixels()
+    // }).collect()
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Ord, PartialOrd, Eq, Hash)]
 struct Slot(usize);
 
@@ -449,6 +498,7 @@ pub enum NodeType {
 #[derive(Debug)]
 struct Node(NodeType);
 
+// type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
 type Buffer = Vec<ChannelPixel>;
 
 impl Node {
@@ -613,6 +663,29 @@ struct NodeId(u32);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image::{ImageBuffer, Rgba, imageops, Pixel};
+
+    #[test]
+    fn wip() {
+        let dynamic_image = &image::open(&Path::new(&"data/image_2.png")).unwrap();
+
+        // let image: ImageBuffer<Rgba<ChannelPixel>, _> = ImageBuffer::new(100, 100);
+
+        let img: ImageBuffer<Rgba<ChannelPixel>, _> = ImageBuffer::from_fn(dynamic_image.width(), dynamic_image.height(), |x, y| {
+            let pixel = dynamic_image.get_pixel(x, y).data;
+            Rgba([pixel[0] as ChannelPixel, pixel[1] as ChannelPixel, pixel[2] as ChannelPixel, pixel[3] as ChannelPixel])
+        });
+
+        let img = imageops::resize(&img, 100, 100, FilterType::Nearest);
+
+        image::save_buffer(
+            &Path::new(&"out/wip.png"),
+            &img.pixels().map(|pixel| pixel.data.iter()).flatten().map(|value| (*value * 255.).min(255.) as u8).collect() as &Vec<u8>,
+            100,
+            100,
+            image::ColorType::RGBA(8),
+        ).unwrap();
+    }
 
     #[test]
     fn input_output() {
