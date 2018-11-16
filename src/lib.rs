@@ -1,7 +1,4 @@
 // TODO:
-// - Use the f32 buffer type from the image lib instead of my own NodeData type.
-// - Make it able to handle sizing of images.
-//   https://github.com/PistonDevelopers/image/issues/795#issuecomment-409001681
 // - Make it able to handle using specific filtering when resizing images.
 // - Add a resize node, though nodes are able to output a different size than their input.
 // - Implement same features as Channel Shuffle 1 & 2.
@@ -15,7 +12,7 @@
 extern crate image;
 extern crate rand;
 
-use image::{DynamicImage, FilterType, GenericImageView, ImageBuffer, Luma};
+use image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer, Luma};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     path::Path,
@@ -56,7 +53,6 @@ struct DetachedBuffer {
     buffer: Arc<Buffer>,
 }
 
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 struct Size {
     width: u32,
@@ -64,17 +60,14 @@ struct Size {
 }
 
 impl Size {
-    fn pixel_count(&self) -> u32 {
+    fn pixel_count(self) -> u32 {
         self.width * self.height
     }
 }
 
 impl Size {
     fn new(width: u32, height: u32) -> Self {
-        Size {
-            width,
-            height,
-        }
+        Size { width, height }
     }
 }
 
@@ -91,15 +84,6 @@ impl NodeData {
             buffers: HashMap::new(),
         }
     }
-
-    // fn with_content(slot: Slot, width: u32, height: u32, value: &[ChannelPixel]) -> Self {
-    //     Self {
-    //         slot,
-    //         width,
-    //         height,
-    //         value: value.to_vec(),
-    //     }
-    // }
 }
 
 type ChannelPixel = f32;
@@ -142,11 +126,13 @@ impl TextureProcessor {
             wrapped_buffers.insert(Slot(id), Arc::new(buffer));
         }
 
-
-        self.node_data.insert(id, NodeData {
-            size: Size::new(image.width(), image.height()),
-            buffers: wrapped_buffers,
-        });
+        self.node_data.insert(
+            id,
+            NodeData {
+                size: Size::new(image.width(), image.height()),
+                buffers: wrapped_buffers,
+            },
+        );
 
         id
     }
@@ -254,8 +240,7 @@ impl TextureProcessor {
                             && *id == edge.output_id
                             && current_id == edge.input_id
                         {
-                            input_data.push(
-                                DetachedBuffer{
+                            input_data.push(DetachedBuffer {
                                 id: Some(*id),
                                 slot: *slot,
                                 size: node_data.size,
@@ -271,12 +256,11 @@ impl TextureProcessor {
             let send = send.clone();
 
             thread::spawn(move || {
-                let buffers = current_node.process(&input_data, &relevant_edges);
-                match send.send(
-                    ThreadMessage {
-                        id: current_id,
-                        buffers,
-                    }) {
+                let buffers = current_node.process(&mut input_data, &relevant_edges);
+                match send.send(ThreadMessage {
+                    id: current_id,
+                    buffers,
+                }) {
                     Ok(_) => (),
                     Err(e) => println!("{:?}", e),
                 };
@@ -284,7 +268,6 @@ impl TextureProcessor {
         }
     }
 
-    // TODO: When there are tracked and untracked buffers, this will accept untracked buffers.
     fn set_node_finished(
         &mut self,
         id: NodeId,
@@ -300,7 +283,11 @@ impl TextureProcessor {
                 // let id = buffers[0].id;
                 self.node_data.insert(id, NodeData::new(buffers[0].size));
                 for buffer in buffers {
-                    self.node_data.get_mut(&id).unwrap().buffers.insert(buffer.slot, buffer.buffer);
+                    self.node_data
+                        .get_mut(&id)
+                        .unwrap()
+                        .buffers
+                        .insert(buffer.slot, buffer.buffer);
                 }
             }
             // self.node_data[&id] = buffers;
@@ -409,26 +396,22 @@ fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
         current_channel = (current_channel + 1) % channel_count;
     }
 
-    for i in channel_count .. max_channel_count {
-        pixel_vecs[i] = match i {
+    for (i, mut item) in pixel_vecs
+        .iter_mut()
+        .enumerate()
+        .take(max_channel_count)
+        .skip(channel_count)
+    {
+        *item = match i {
             3 => vec![1.; pixel_count],
             _ => vec![0.; pixel_count],
         }
     }
 
-    // for (channel, pixel_vec) in pixel_vecs
-    //     .iter_mut()
-    //     .enumerate()
-    //     .take(max_channel_count)
-    //     .skip(channel_count)
-    // {
-    //     pixel_vec = match channel {
-    //         3 => vec![1.; pixel_count],
-    //         _ => vec![0.; pixel_count],
-    //     }
-    // }
-
-    pixel_vecs.into_iter().map(|p_vec| ImageBuffer::from_raw(width, height, p_vec).unwrap()).collect()
+    pixel_vecs
+        .into_iter()
+        .map(|p_vec| ImageBuffer::from_raw(width, height, p_vec).unwrap())
+        .collect()
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -441,31 +424,37 @@ enum ResizePolicy {
     SpecificSize(Size),
 }
 
-fn resize_buffers(buffers: &[DetachedBuffer], policy: ResizePolicy, filter: FilterType) -> Vec<Buffer> {
-    unimplemented!();
+fn resize_buffers(buffers: &mut [DetachedBuffer], policy: ResizePolicy, filter: FilterType) {
+    if buffers.is_empty() {
+        return;
+    }
+
     let size = match policy {
-        MostPixels => {
-            buffers.iter().max_by(|x, y| x.size.pixel_count().cmp(&y.size.pixel_count())).map(|buffer| buffer.size).unwrap()
-        },
-        LeastPixels => {
-            buffers.iter().min_by(|x, y| x.size.pixel_count().cmp(&y.size.pixel_count())).map(|buffer| buffer.size).unwrap()
-        },
+        ResizePolicy::MostPixels => buffers
+            .iter()
+            .max_by(|x, y| x.size.pixel_count().cmp(&y.size.pixel_count()))
+            .map(|buffer| buffer.size)
+            .unwrap(),
+        ResizePolicy::LeastPixels => buffers
+            .iter()
+            .min_by(|x, y| x.size.pixel_count().cmp(&y.size.pixel_count()))
+            .map(|buffer| buffer.size)
+            .unwrap(),
         _ => unimplemented!(),
     };
 
-    // buffers.iter().map(|buffer| {
-    //     // TODO: I think this clones the buffer, creates a `LumaImage` from it, then resizes it,
-    //     // which creates another buffer and returns that.
-    //     //
-    //     // It would be better if it didn't have to clone the buffer first, but could instead just
-    //     // create a resized version right away.
-    //     //
-    //     // I might have to use the types from the image crate for that to work, or implement all the
-    //     // resize algorithms myself.
-
-    //     // let img = image::GrayImage::from_vec(buffer.size.width, buffer.size.height, *(buffer.buffer).clone()).unwrap();
-    //     // img.resize_exact(size.width, size.height, filter).raw_pixels()
-    // }).collect()
+    buffers
+        .iter_mut()
+        .filter(|ref buffer| buffer.size != size)
+        .for_each(|ref mut buffer| {
+            buffer.buffer = Arc::new(imageops::resize(
+                &*buffer.buffer,
+                size.width,
+                size.height,
+                filter,
+            ));
+            buffer.size = size;
+        });
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Ord, PartialOrd, Eq, Hash)]
@@ -498,30 +487,33 @@ pub enum NodeType {
 struct Node(NodeType);
 
 type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
-// type Buffer = Vec<ChannelPixel>;
 
 impl Node {
-    pub fn process(
-        &self,
-        input: &[DetachedBuffer],
-        edges: &[Edge],
-    ) -> Vec<DetachedBuffer> {
+    pub fn process(&self, input: &mut [DetachedBuffer], edges: &[Edge]) -> Vec<DetachedBuffer> {
         assert!(input.len() <= self.capacity(Side::Input));
         assert_eq!(edges.len(), input.len());
 
         let mut sorted_input: Vec<Option<DetachedBuffer>> = vec![None; input.len()];
         for detached_buffer in input {
             for edge in edges.iter() {
-                if detached_buffer.id == Some(edge.output_id) && detached_buffer.slot == edge.output_slot {
+                if detached_buffer.id == Some(edge.output_id)
+                    && detached_buffer.slot == edge.output_slot
+                {
                     sorted_input[edge.input_slot.as_usize()] = Some(detached_buffer.clone());
                 }
             }
         }
 
-        let sorted_input: Vec<DetachedBuffer> = sorted_input
+        let mut sorted_input: Vec<DetachedBuffer> = sorted_input
             .into_iter()
-            .map(|node_data| node_data.expect("No NodeData found when expected."))
+            .map(|buffer| buffer.expect("No NodeData found when expected."))
             .collect();
+
+        resize_buffers(
+            &mut sorted_input,
+            ResizePolicy::LeastPixels,
+            FilterType::Nearest,
+        );
 
         let output: Vec<DetachedBuffer> = match self.0 {
             NodeType::Input => Vec::new(),
@@ -564,8 +556,7 @@ impl Node {
         let mut outputs: Vec<DetachedBuffer> = Vec::with_capacity(inputs.len());
 
         for (slot, _input) in inputs.iter().enumerate() {
-            outputs.push(
-                DetachedBuffer {
+            outputs.push(DetachedBuffer {
                 id: None,
                 slot: Slot(slot),
                 size: inputs[slot].size,
@@ -583,14 +574,12 @@ impl Node {
         let buffers = deconstruct_image(&image);
 
         for (channel, buffer) in buffers.into_iter().enumerate() {
-            output.push(
-                DetachedBuffer {
-                    id: None,
-                    slot: Slot(channel),
-                    size: Size::new(image.width(), image.height()),
-                    buffer: Arc::new(buffer),
-                }
-            );
+            output.push(DetachedBuffer {
+                id: None,
+                slot: Slot(channel),
+                size: Size::new(image.width(), image.height()),
+                buffer: Arc::new(buffer),
+            });
         }
 
         output
@@ -619,7 +608,7 @@ impl Node {
             Luma([(input.buffer.get_pixel(x, y).data[0] * -1.) + 1.])
         });
 
-        vec![DetachedBuffer{
+        vec![DetachedBuffer {
             id: None,
             slot: Slot(0),
             size: input.size,
@@ -634,7 +623,7 @@ impl Node {
             Luma([input_0.buffer.get_pixel(x, y).data[0] + input_1.buffer.get_pixel(x, y).data[0]])
         });
 
-        vec![DetachedBuffer{
+        vec![DetachedBuffer {
             id: None,
             slot: Slot(0),
             size: input_0.size,
@@ -644,7 +633,7 @@ impl Node {
 
     fn multiply(input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
         let (width, height) = (input_0.size.width, input_1.size.height);
-        
+
         let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
             Luma([input_0.buffer.get_pixel(x, y).data[0] * input_1.buffer.get_pixel(x, y).data[0]])
         });
@@ -664,35 +653,13 @@ struct NodeId(u32);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{ImageBuffer, Rgba, imageops, Pixel};
-
-    // #[test]
-    // fn wip() {
-    //     let dynamic_image = &image::open(&Path::new(&"data/image_2.png")).unwrap();
-
-    //     // let image: ImageBuffer<Rgba<ChannelPixel>, _> = ImageBuffer::new(100, 100);
-
-    //     let img: ImageBuffer<Rgba<ChannelPixel>, _> = ImageBuffer::from_fn(dynamic_image.width(), dynamic_image.height(), |x, y| {
-    //         let pixel = dynamic_image.get_pixel(x, y).data;
-    //         Rgba([pixel[0] as ChannelPixel, pixel[1] as ChannelPixel, pixel[2] as ChannelPixel, pixel[3] as ChannelPixel])
-    //     });
-
-    //     let img = imageops::resize(&img, 100, 100, FilterType::Nearest);
-
-    //     image::save_buffer(
-    //         &Path::new(&"out/wip.png"),
-    //         &img.pixels().map(|pixel| pixel.data.iter()).flatten().map(|value| (*value * 255.).min(255.) as u8).collect() as &Vec<u8>,
-    //         100,
-    //         100,
-    //         image::ColorType::RGBA(8),
-    //     ).unwrap();
-    // }
 
     #[test]
     fn input_output() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_node = tex_pro.add_input_node(&image::open(&Path::new(&"data/image_2.png")).unwrap());
+        let input_node =
+            tex_pro.add_input_node(&image::open(&Path::new(&"data/image_2.png")).unwrap());
         let output_node = tex_pro.add_node(NodeType::Output);
 
         tex_pro.connect(input_node, output_node, Slot(0), Slot(0));
@@ -741,21 +708,23 @@ mod tests {
         tex_pro.process();
     }
 
-    // #[test]
-    // fn combine_different_sizes() {
-    //     let mut tex_pro = TextureProcessor::new();
+    #[test]
+    fn combine_different_sizes() {
+        let mut tex_pro = TextureProcessor::new();
 
-    //     let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_128.png".to_string()));
-    //     let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
-    //     let write_node = tex_pro.add_node(NodeType::Write("out/combine_different_sizes.png".to_string()));
+        let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_128.png".to_string()));
+        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
+        let write_node = tex_pro.add_node(NodeType::Write(
+            "out/combine_different_sizes.png".to_string(),
+        ));
 
-    //     tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
-    //     tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
-    //     tex_pro.connect(input_image_1, write_node, Slot(2), Slot(0));
-    //     tex_pro.connect(input_image_1, write_node, Slot(3), Slot(3));
+        tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
+        tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
+        tex_pro.connect(input_image_1, write_node, Slot(2), Slot(0));
+        tex_pro.connect(input_image_1, write_node, Slot(3), Slot(3));
 
-    //     tex_pro.process();
-    // }
+        tex_pro.process();
+    }
 
     #[test]
     fn invert() {
