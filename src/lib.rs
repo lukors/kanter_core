@@ -78,7 +78,6 @@ impl Size {
     }
 }
 
-// TODO: Move width & height out a step so it's not saved for each NodeData
 #[derive(Debug)]
 struct NodeData {
     size: Size,
@@ -327,12 +326,12 @@ impl TextureProcessor {
     pub fn get_output_rgba(&self, id: NodeId) -> Vec<u8> {
         let buffers = &self.node_data[&id].buffers;
 
-        let empty_vec = Vec::new();
-        let mut sorted_value_vecs: Vec<&Vec<ChannelPixel>> = Vec::with_capacity(4);
-        sorted_value_vecs.push(&empty_vec);
-        sorted_value_vecs.push(&empty_vec);
-        sorted_value_vecs.push(&empty_vec);
-        sorted_value_vecs.push(&empty_vec);
+        let empty_buffer: Buffer = ImageBuffer::new(0, 0);
+        let mut sorted_value_vecs: Vec<&Buffer> = Vec::with_capacity(4);
+        sorted_value_vecs.push(&empty_buffer);
+        sorted_value_vecs.push(&empty_buffer);
+        sorted_value_vecs.push(&empty_buffer);
+        sorted_value_vecs.push(&empty_buffer);
 
         for (slot, buffer) in buffers {
             match slot {
@@ -381,13 +380,13 @@ fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
     }
 
     channels[0]
-        .iter()
-        .zip(channels[1])
-        .zip(channels[2])
-        .zip(channels[3])
+        .pixels()
+        .zip(channels[1].pixels())
+        .zip(channels[2].pixels())
+        .zip(channels[3].pixels())
         .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
         .flatten()
-        .map(|x| (x * 255.).min(255.) as u8)
+        .map(|x| (x[0] * 255.).min(255.) as u8)
         .collect()
 }
 
@@ -397,7 +396,7 @@ fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
     let pixel_count = (width * height) as usize;
     let channel_count = raw_pixels.len() / pixel_count;
     let max_channel_count = 4;
-    let mut pixel_vecs: Vec<Buffer> = Vec::with_capacity(max_channel_count);
+    let mut pixel_vecs: Vec<Vec<f32>> = Vec::with_capacity(max_channel_count);
 
     for _ in 0..max_channel_count {
         pixel_vecs.push(Vec::with_capacity(pixel_count));
@@ -429,7 +428,7 @@ fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
     //     }
     // }
 
-    pixel_vecs
+    pixel_vecs.into_iter().map(|p_vec| ImageBuffer::from_raw(width, height, p_vec).unwrap()).collect()
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -498,8 +497,8 @@ pub enum NodeType {
 #[derive(Debug)]
 struct Node(NodeType);
 
-// type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
-type Buffer = Vec<ChannelPixel>;
+type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
+// type Buffer = Vec<ChannelPixel>;
 
 impl Node {
     pub fn process(
@@ -614,7 +613,11 @@ impl Node {
 
     fn invert(input: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
         let input = &input[0];
-        let buffer: Buffer = input.buffer.iter().map(|value| (value * -1.) + 1.).collect();
+        // let buffer: Buffer = input.buffer.iter().map(|value| (value * -1.) + 1.).collect();
+        let (width, height) = (input.size.width, input.size.height);
+        let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
+            Luma([(input.buffer.get_pixel(x, y).data[0] * -1.) + 1.])
+        });
 
         vec![DetachedBuffer{
             id: None,
@@ -625,12 +628,11 @@ impl Node {
     }
 
     fn add(input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
-        let buffer: Buffer = input_0
-            .buffer
-            .iter()
-            .zip(&*input_1.buffer)
-            .map(|(x, y)| x + y)
-            .collect();
+        let (width, height) = (input_0.size.width, input_1.size.height);
+
+        let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
+            Luma([input_0.buffer.get_pixel(x, y).data[0] + input_1.buffer.get_pixel(x, y).data[0]])
+        });
 
         vec![DetachedBuffer{
             id: None,
@@ -641,12 +643,11 @@ impl Node {
     }
 
     fn multiply(input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
-        let buffer: Buffer = input_0
-            .buffer
-            .iter()
-            .zip(&*input_1.buffer)
-            .map(|(x, y)| x * y)
-            .collect();
+        let (width, height) = (input_0.size.width, input_1.size.height);
+        
+        let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
+            Luma([input_0.buffer.get_pixel(x, y).data[0] * input_1.buffer.get_pixel(x, y).data[0]])
+        });
 
         vec![DetachedBuffer {
             id: None,
@@ -665,27 +666,27 @@ mod tests {
     use super::*;
     use image::{ImageBuffer, Rgba, imageops, Pixel};
 
-    #[test]
-    fn wip() {
-        let dynamic_image = &image::open(&Path::new(&"data/image_2.png")).unwrap();
+    // #[test]
+    // fn wip() {
+    //     let dynamic_image = &image::open(&Path::new(&"data/image_2.png")).unwrap();
 
-        // let image: ImageBuffer<Rgba<ChannelPixel>, _> = ImageBuffer::new(100, 100);
+    //     // let image: ImageBuffer<Rgba<ChannelPixel>, _> = ImageBuffer::new(100, 100);
 
-        let img: ImageBuffer<Rgba<ChannelPixel>, _> = ImageBuffer::from_fn(dynamic_image.width(), dynamic_image.height(), |x, y| {
-            let pixel = dynamic_image.get_pixel(x, y).data;
-            Rgba([pixel[0] as ChannelPixel, pixel[1] as ChannelPixel, pixel[2] as ChannelPixel, pixel[3] as ChannelPixel])
-        });
+    //     let img: ImageBuffer<Rgba<ChannelPixel>, _> = ImageBuffer::from_fn(dynamic_image.width(), dynamic_image.height(), |x, y| {
+    //         let pixel = dynamic_image.get_pixel(x, y).data;
+    //         Rgba([pixel[0] as ChannelPixel, pixel[1] as ChannelPixel, pixel[2] as ChannelPixel, pixel[3] as ChannelPixel])
+    //     });
 
-        let img = imageops::resize(&img, 100, 100, FilterType::Nearest);
+    //     let img = imageops::resize(&img, 100, 100, FilterType::Nearest);
 
-        image::save_buffer(
-            &Path::new(&"out/wip.png"),
-            &img.pixels().map(|pixel| pixel.data.iter()).flatten().map(|value| (*value * 255.).min(255.) as u8).collect() as &Vec<u8>,
-            100,
-            100,
-            image::ColorType::RGBA(8),
-        ).unwrap();
-    }
+    //     image::save_buffer(
+    //         &Path::new(&"out/wip.png"),
+    //         &img.pixels().map(|pixel| pixel.data.iter()).flatten().map(|value| (*value * 255.).min(255.) as u8).collect() as &Vec<u8>,
+    //         100,
+    //         100,
+    //         image::ColorType::RGBA(8),
+    //     ).unwrap();
+    // }
 
     #[test]
     fn input_output() {
