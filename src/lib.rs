@@ -1,5 +1,5 @@
 // TODO:
-// - Make it able to handle using specific filtering when resizing images.
+// - Check if TextureProcessor.nodes needs to be Arc, I don't think it needs that.
 // - Add a resize node, though nodes are able to output a different size than their input.
 // - Implement same features as Channel Shuffle 1 & 2.
 // - Implement CLI.
@@ -97,29 +97,34 @@ impl TextureProcessor {
         }
     }
 
-    fn add_node_internal(&mut self, node_type: NodeType, id: NodeId) -> NodeId {
-        let node = Node(node_type);
-
+    fn add_node_internal(&mut self, node: Node, id: NodeId) -> NodeId {
         self.nodes.insert(id, Arc::new(node));
         id
     }
 
-    pub fn add_node(&mut self, node_type: NodeType) -> NodeId {
-        if node_type == NodeType::Input {
+    pub fn add_node(&mut self, node: Node) -> NodeId {
+        if node.node_type == NodeType::Input {
             panic!("Use the `add_input_node` function when adding an input node");
         }
         let id = self.new_id();
-        self.add_node_internal(node_type, id)
+        self.add_node_internal(node, id)
     }
 
-    pub fn add_node_with_id(&mut self, node_type: NodeType, id: NodeId) -> NodeId {
-        self.add_node_internal(node_type, id)
+    pub fn add_node_with_id(&mut self, node: Node, id: NodeId) -> NodeId {
+        self.add_node_internal(node, id)
     }
 
     pub fn add_input_node(&mut self, image: &DynamicImage) -> NodeId {
         let id = self.new_id();
 
-        self.add_node_internal(NodeType::Input, id);
+        self.add_node_internal(
+            Node {
+                node_type: NodeType::Input,
+                resize_policy: None,
+                filter_type: None,
+            },
+            id,
+        );
 
         let mut wrapped_buffers = HashMap::new();
         for (id, buffer) in deconstruct_image(&image).into_iter().enumerate() {
@@ -257,6 +262,7 @@ impl TextureProcessor {
 
             thread::spawn(move || {
                 let buffers = current_node.process(&mut input_data, &relevant_edges);
+
                 match send.send(ThreadMessage {
                     id: current_id,
                     buffers,
@@ -424,10 +430,17 @@ enum ResizePolicy {
     SpecificSize(Size),
 }
 
-fn resize_buffers(buffers: &mut [DetachedBuffer], policy: ResizePolicy, filter: FilterType) {
-    if buffers.is_empty() {
+fn resize_buffers(
+    buffers: &mut [DetachedBuffer],
+    policy: Option<ResizePolicy>,
+    filter: Option<FilterType>,
+) {
+    if buffers.len() < 2 {
         return;
     }
+
+    let policy = policy.unwrap_or(ResizePolicy::MostPixels);
+    let filter = filter.unwrap_or(FilterType::CatmullRom);
 
     let size = match policy {
         ResizePolicy::MostPixels => buffers
@@ -483,15 +496,28 @@ pub enum NodeType {
     Multiply,
 }
 
-#[derive(Debug)]
-struct Node(NodeType);
+struct Node {
+    node_type: NodeType,
+    resize_policy: Option<ResizePolicy>,
+    filter_type: Option<FilterType>,
+}
 
 type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
 
 impl Node {
+    fn new(node_type: NodeType) -> Self {
+        Self {
+            node_type,
+            resize_policy: None,
+            filter_type: None,
+        }
+    }
+
     pub fn process(&self, input: &mut [DetachedBuffer], edges: &[Edge]) -> Vec<DetachedBuffer> {
         assert!(input.len() <= self.capacity(Side::Input));
         assert_eq!(edges.len(), input.len());
+
+        resize_buffers(input, self.resize_policy, self.filter_type);
 
         let mut sorted_input: Vec<Option<DetachedBuffer>> = vec![None; input.len()];
         for detached_buffer in input {
@@ -504,18 +530,12 @@ impl Node {
             }
         }
 
-        let mut sorted_input: Vec<DetachedBuffer> = sorted_input
+        let sorted_input: Vec<DetachedBuffer> = sorted_input
             .into_iter()
             .map(|buffer| buffer.expect("No NodeData found when expected."))
             .collect();
 
-        resize_buffers(
-            &mut sorted_input,
-            ResizePolicy::LeastPixels,
-            FilterType::Nearest,
-        );
-
-        let output: Vec<DetachedBuffer> = match self.0 {
+        let output: Vec<DetachedBuffer> = match self.node_type {
             NodeType::Input => Vec::new(),
             NodeType::Output => Self::output(&sorted_input),
             NodeType::Read(ref path) => Self::read(path),
@@ -531,7 +551,7 @@ impl Node {
 
     pub fn capacity(&self, side: Side) -> usize {
         match side {
-            Side::Input => match self.0 {
+            Side::Input => match self.node_type {
                 NodeType::Input => 0,
                 NodeType::Output => 4,
                 NodeType::Read(_) => 0,
@@ -540,7 +560,7 @@ impl Node {
                 NodeType::Add => 2,
                 NodeType::Multiply => 2,
             },
-            Side::Output => match self.0 {
+            Side::Output => match self.node_type {
                 NodeType::Input => 4,
                 NodeType::Output => 4,
                 NodeType::Read(_) => 4,
@@ -660,7 +680,7 @@ mod tests {
 
         let input_node =
             tex_pro.add_input_node(&image::open(&Path::new(&"data/image_2.png")).unwrap());
-        let output_node = tex_pro.add_node(NodeType::Output);
+        let output_node = tex_pro.add_node(Node::new(NodeType::Output));
 
         tex_pro.connect(input_node, output_node, Slot(0), Slot(0));
         tex_pro.connect(input_node, output_node, Slot(1), Slot(1));
@@ -682,8 +702,10 @@ mod tests {
     fn read_write() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
-        let write_node = tex_pro.add_node(NodeType::Write("out/read_write.png".to_string()));
+        let input_image_1 =
+            tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+        let write_node =
+            tex_pro.add_node(Node::new(NodeType::Write("out/read_write.png".to_string())));
 
         tex_pro.connect(input_image_1, write_node, Slot(0), Slot(0));
         tex_pro.connect(input_image_1, write_node, Slot(1), Slot(1));
@@ -697,8 +719,10 @@ mod tests {
     fn shuffle() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_256.png".to_string()));
-        let write_node = tex_pro.add_node(NodeType::Write("out/shuffle.png".to_string()));
+        let input_heart_256 =
+            tex_pro.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())));
+        let write_node =
+            tex_pro.add_node(Node::new(NodeType::Write("out/shuffle.png".to_string())));
 
         tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
         tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
@@ -712,11 +736,13 @@ mod tests {
     fn combine_different_sizes() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_128.png".to_string()));
-        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
-        let write_node = tex_pro.add_node(NodeType::Write(
+        let input_heart_256 =
+            tex_pro.add_node(Node::new(NodeType::Read("data/heart_128.png".to_string())));
+        let input_image_1 =
+            tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+        let write_node = tex_pro.add_node(Node::new(NodeType::Write(
             "out/combine_different_sizes.png".to_string(),
-        ));
+        )));
 
         tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
         tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
@@ -730,9 +756,10 @@ mod tests {
     fn invert() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_heart_256 = tex_pro.add_node(NodeType::Read("data/heart_256.png".to_string()));
-        let invert_node = tex_pro.add_node(NodeType::Invert);
-        let write_node = tex_pro.add_node(NodeType::Write("out/invert.png".to_string()));
+        let input_heart_256 =
+            tex_pro.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())));
+        let invert_node = tex_pro.add_node(Node::new(NodeType::Invert));
+        let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/invert.png".to_string())));
 
         tex_pro.connect(input_heart_256, invert_node, Slot(0), Slot(0));
 
@@ -748,10 +775,11 @@ mod tests {
     fn add() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
-        let input_white = tex_pro.add_node(NodeType::Read("data/white.png".to_string()));
-        let add_node = tex_pro.add_node(NodeType::Add);
-        let write_node = tex_pro.add_node(NodeType::Write("out/add.png".to_string()));
+        let input_image_1 =
+            tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+        let input_white = tex_pro.add_node(Node::new(NodeType::Read("data/white.png".to_string())));
+        let add_node = tex_pro.add_node(Node::new(NodeType::Add));
+        let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/add.png".to_string())));
 
         tex_pro.connect(input_image_1, add_node, Slot(0), Slot(0));
         tex_pro.connect(input_image_1, add_node, Slot(1), Slot(1));
@@ -768,10 +796,12 @@ mod tests {
     fn multiply() {
         let mut tex_pro = TextureProcessor::new();
 
-        let input_image_1 = tex_pro.add_node(NodeType::Read("data/image_1.png".to_string()));
-        let input_white = tex_pro.add_node(NodeType::Read("data/white.png".to_string()));
-        let multiply_node = tex_pro.add_node(NodeType::Multiply);
-        let write_node = tex_pro.add_node(NodeType::Write("out/multiply.png".to_string()));
+        let input_image_1 =
+            tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+        let input_white = tex_pro.add_node(Node::new(NodeType::Read("data/white.png".to_string())));
+        let multiply_node = tex_pro.add_node(Node::new(NodeType::Multiply));
+        let write_node =
+            tex_pro.add_node(Node::new(NodeType::Write("out/multiply.png".to_string())));
 
         tex_pro.connect(input_image_1, multiply_node, Slot(0), Slot(0));
         tex_pro.connect(input_image_1, multiply_node, Slot(3), Slot(1));
