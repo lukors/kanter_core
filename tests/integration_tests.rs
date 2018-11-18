@@ -1,4 +1,5 @@
 extern crate texture_processor;
+extern crate image;
 
 use std::path::Path;
 use texture_processor::*;
