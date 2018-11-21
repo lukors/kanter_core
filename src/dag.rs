@@ -12,11 +12,9 @@
 extern crate image;
 extern crate rand;
 
-use self::image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer, Luma};
+use self::image::{DynamicImage, ImageBuffer};
 use std::{
-    cmp::max,
     collections::{HashMap, HashSet, VecDeque},
-    path::Path,
     sync::{mpsc, Arc},
     thread,
 };

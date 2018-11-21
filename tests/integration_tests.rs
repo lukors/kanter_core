@@ -2,7 +2,10 @@ extern crate texture_processor;
 extern crate image;
 
 use std::path::Path;
-use texture_processor::*;
+use texture_processor::{
+    node::{NodeType, Slot, Node},
+    dag::TextureProcessor,
+};
 
 #[test]
 fn input_output() {

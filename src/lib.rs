@@ -10,5 +10,5 @@
 //   and use them if they are still relevant.
 
 mod shared;
-mod dag;
-mod node;
+pub mod dag;
+pub mod node;
