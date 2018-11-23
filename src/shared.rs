@@ -1,61 +1,14 @@
 extern crate image;
 
-use self::image::{DynamicImage, FilterType, GenericImageView, ImageBuffer, imageops};
+use self::image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
+use error::Result;
 use node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
 use std::{
     cmp::{max, min},
-    error,
-    fmt::{self, Display, Formatter},
-    io,
     path::Path,
-    result,
     sync::Arc,
     u32,
 };
-
-
-
-
-
-
-type Result<T> = result::Result<T, TexProError>;
-
-#[derive(Debug)]
-pub enum TexProError {
-    Generic,
-    Image(image::ImageError)
-}
-
-
-impl Display for TexProError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match *self {
-            TexProError::Generic => f.write_str("Generic"),
-            TexProError::Image(_) => f.write_str("Image"),
-        }
-    }
-}
-
-impl error::Error for TexProError {
-    fn description(&self) -> &str {
-        match *self {
-            TexProError::Generic => "Unspecified error",
-            TexProError::Image(ref e) => e.description(),
-        }
-    }
-}
-
-impl From<image::ImageError> for TexProError {
-    fn from(cause: image::ImageError) -> TexProError {
-        TexProError::Image(cause)
-    }
-}
-
-
-
-
-
-
 
 pub fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
     if channels.len() != 4 {
@@ -149,25 +102,21 @@ pub fn resize_buffers(
             .min_by(|a, b| a.size().pixel_count().cmp(&b.size().pixel_count()))
             .map(|buffer| buffer.size())
             .unwrap(),
-        ResizePolicy::LargestAxes => buffers
-            .iter()
-            .fold(Size::new(0, 0), |a, b| {
-                Size::new(
-                    max(a.width(), b.size().width()),
-                    max(a.height(), b.size().height()),
-                )
-            }),
-        ResizePolicy::SmallestAxes => buffers
-            .iter()
-            .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
-                Size::new(
-                    min(a.width(), b.size().width()),
-                    min(a.height(), b.size().height()),
-                )
-            }),
+        ResizePolicy::LargestAxes => buffers.iter().fold(Size::new(0, 0), |a, b| {
+            Size::new(
+                max(a.width(), b.size().width()),
+                max(a.height(), b.size().height()),
+            )
+        }),
+        ResizePolicy::SmallestAxes => buffers.iter().fold(Size::new(u32::MAX, u32::MAX), |a, b| {
+            Size::new(
+                min(a.width(), b.size().width()),
+                min(a.height(), b.size().height()),
+            )
+        }),
         ResizePolicy::SpecificNode(node_id) => buffers
             .iter()
-            .find(|buffer| buffer.id() == Some(node_id) )
+            .find(|buffer| buffer.id() == Some(node_id))
             .expect("Couldn't find a buffer with the given `NodeId` while resizing")
             .size(),
         ResizePolicy::SpecificSize(size) => size,
@@ -177,12 +126,8 @@ pub fn resize_buffers(
         .iter_mut()
         .filter(|ref buffer| buffer.size() != size)
         .for_each(|ref mut buffer| {
-            let resized_buffer = imageops::resize(
-                &*buffer.buffer(),
-                size.width(),
-                size.height(),
-                filter,
-            );
+            let resized_buffer =
+                imageops::resize(&*buffer.buffer(), size.width(), size.height(), filter);
             buffer.set_buffer(resized_buffer);
             buffer.set_size(size);
         });
@@ -226,48 +171,54 @@ mod tests {
 
     fn buffers_equal(buf_1: &Buffer, buf_2: &Buffer) -> bool {
         if buf_1.len() != buf_2.len() {
-            return false
+            return false;
         }
 
-        !buf_1.pixels()
-            .zip(buf_2.pixels())
-            .any(|(a, b)| a != b)
+        !buf_1.pixels().zip(buf_2.pixels()).any(|(a, b)| a != b)
     }
 
     fn images_equal(img_1: &DynamicImage, img_2: &DynamicImage) -> bool {
         let bufs_1 = deconstruct_image(&img_1);
         let bufs_2 = deconstruct_image(&img_2);
 
-        !bufs_1.iter()
+        !bufs_1
+            .iter()
             .zip(&bufs_2)
             .any(|(a, b)| !buffers_equal(a, b))
     }
 
     fn images_equal_path<P: AsRef<Path>>(path_1: P, path_2: P) -> bool {
-        let bufs_1 = deconstruct_image(&image::open(path_1).expect("Unable to open image at path_1 to compare it"));
-        let bufs_2 = deconstruct_image(&image::open(path_2).expect("Unable to open image at path_2 to compare it"));
+        let bufs_1 = deconstruct_image(
+            &image::open(path_1).expect("Unable to open image at path_1 to compare it"),
+        );
+        let bufs_2 = deconstruct_image(
+            &image::open(path_2).expect("Unable to open image at path_2 to compare it"),
+        );
 
-        !bufs_1.iter()
+        !bufs_1
+            .iter()
             .zip(&bufs_2)
             .any(|(a, b)| !buffers_equal(a, b))
     }
 
     fn buffer_vecs_equal(bufs_1: &[Buffer], bufs_2: &[Buffer]) -> bool {
         if bufs_1.len() != bufs_2.len() {
-            return false
+            return false;
         }
 
-        !bufs_1.iter()
+        !bufs_1
+            .iter()
             .zip(bufs_2.iter())
             .any(|(a, b)| !buffers_equal(a, b))
     }
 
     fn detached_buffers_equal(bufs_1: &[DetachedBuffer], bufs_2: &[DetachedBuffer]) -> bool {
         if bufs_1.len() != bufs_2.len() {
-            return false
+            return false;
         }
 
-        !bufs_1.iter()
+        !bufs_1
+            .iter()
             .zip(bufs_2.iter())
             .any(|(a, b)| !buffers_equal(&a.buffer(), &b.buffer()))
     }
@@ -277,7 +228,11 @@ mod tests {
         let input_path = Path::new(&"data/heart_128.png");
 
         let mut buffers = read_image(&input_path).unwrap();
-        resize_buffers(&mut buffers, Some(ResizePolicy::SpecificSize(Size::new(256, 256))), None);
+        resize_buffers(
+            &mut buffers,
+            Some(ResizePolicy::SpecificSize(Size::new(256, 256))),
+            None,
+        );
 
         let target_size = Size::new(256, 256);
         let target_buffer_length = 256 * 256;
@@ -330,7 +285,7 @@ mod tests {
 
         let mut buffers = read_image(&input_1_path).unwrap();
         buffers.append(&mut read_image(&input_2_path).unwrap());
-        let target_buffer_length = buffers[0].buffer().len()*2;
+        let target_buffer_length = buffers[0].buffer().len() * 2;
 
         resize_buffers(&mut buffers, Some(ResizePolicy::LargestAxes), None);
 
@@ -348,7 +303,7 @@ mod tests {
 
         let mut buffers = read_image(&input_1_path).unwrap();
         buffers.append(&mut read_image(&input_2_path).unwrap());
-        let target_buffer_length = buffers[0].buffer().len()/2;
+        let target_buffer_length = buffers[0].buffer().len() / 2;
 
         resize_buffers(&mut buffers, Some(ResizePolicy::SmallestAxes), None);
 
@@ -377,7 +332,11 @@ mod tests {
 
         buffers_1.append(&mut buffers_2);
 
-        resize_buffers(&mut buffers_1, Some(ResizePolicy::SpecificNode(NodeId::new(1))), None);
+        resize_buffers(
+            &mut buffers_1,
+            Some(ResizePolicy::SpecificNode(NodeId::new(1))),
+            None,
+        );
 
         let target_size = Size::new(128, 128);
         for buffer in buffers_1 {

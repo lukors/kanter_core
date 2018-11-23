@@ -10,6 +10,7 @@
 // - Make each node save the resized versions of their inputs,
 //   and use them if they are still relevant.
 
-mod shared;
 pub mod dag;
+pub mod error;
 pub mod node;
+mod shared;

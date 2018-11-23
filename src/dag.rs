@@ -19,8 +19,8 @@ use std::{
     thread,
 };
 
-use shared::*;
 use node::*;
+use shared::*;
 
 #[derive(Default)]
 pub struct TextureProcessor {
@@ -93,17 +93,15 @@ impl TextureProcessor {
     pub fn add_input_node(&mut self, image: &DynamicImage) -> NodeId {
         let id = self.new_id();
 
-        self.add_node_internal(
-            Node::new(NodeType::Input),
-            id,
-        );
+        self.add_node_internal(Node::new(NodeType::Input), id);
 
         let mut wrapped_buffers = HashMap::new();
         for (id, buffer) in deconstruct_image(&image).into_iter().enumerate() {
             wrapped_buffers.insert(Slot(id), Arc::new(buffer));
         }
 
-        self.node_data.insert(id, NodeData::from_buffers(wrapped_buffers));
+        self.node_data
+            .insert(id, NodeData::from_buffers(wrapped_buffers));
 
         id
     }

@@ -1,18 +1,17 @@
-extern crate texture_processor;
 extern crate image;
+extern crate texture_processor;
 
 use std::path::Path;
 use texture_processor::{
-    node::{NodeType, Slot, Node},
     dag::TextureProcessor,
+    node::{Node, NodeType, Slot},
 };
 
 #[test]
 fn input_output() {
     let mut tex_pro = TextureProcessor::new();
 
-    let input_node =
-        tex_pro.add_input_node(&image::open(&Path::new(&"data/image_2.png")).unwrap());
+    let input_node = tex_pro.add_input_node(&image::open(&Path::new(&"data/image_2.png")).unwrap());
     let output_node = tex_pro.add_node(Node::new(NodeType::Output));
 
     tex_pro.connect(input_node, output_node, Slot(0), Slot(0));
@@ -35,10 +34,8 @@ fn input_output() {
 fn read_write() {
     let mut tex_pro = TextureProcessor::new();
 
-    let input_image_1 =
-        tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
-    let write_node =
-        tex_pro.add_node(Node::new(NodeType::Write("out/read_write.png".to_string())));
+    let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+    let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/read_write.png".to_string())));
 
     tex_pro.connect(input_image_1, write_node, Slot(0), Slot(0));
     tex_pro.connect(input_image_1, write_node, Slot(1), Slot(1));
@@ -54,8 +51,7 @@ fn shuffle() {
 
     let input_heart_256 =
         tex_pro.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())));
-    let write_node =
-        tex_pro.add_node(Node::new(NodeType::Write("out/shuffle.png".to_string())));
+    let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/shuffle.png".to_string())));
 
     tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
     tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
@@ -71,8 +67,7 @@ fn combine_different_sizes() {
 
     let input_heart_256 =
         tex_pro.add_node(Node::new(NodeType::Read("data/heart_128.png".to_string())));
-    let input_image_1 =
-        tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+    let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
     let write_node = tex_pro.add_node(Node::new(NodeType::Write(
         "out/combine_different_sizes.png".to_string(),
     )));
@@ -108,8 +103,7 @@ fn invert() {
 fn add() {
     let mut tex_pro = TextureProcessor::new();
 
-    let input_image_1 =
-        tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+    let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
     let input_white = tex_pro.add_node(Node::new(NodeType::Read("data/white.png".to_string())));
     let add_node = tex_pro.add_node(Node::new(NodeType::Add));
     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/add.png".to_string())));
@@ -129,12 +123,10 @@ fn add() {
 fn multiply() {
     let mut tex_pro = TextureProcessor::new();
 
-    let input_image_1 =
-        tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+    let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
     let input_white = tex_pro.add_node(Node::new(NodeType::Read("data/white.png".to_string())));
     let multiply_node = tex_pro.add_node(Node::new(NodeType::Multiply));
-    let write_node =
-        tex_pro.add_node(Node::new(NodeType::Write("out/multiply.png".to_string())));
+    let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/multiply.png".to_string())));
 
     tex_pro.connect(input_image_1, multiply_node, Slot(0), Slot(0));
     tex_pro.connect(input_image_1, multiply_node, Slot(3), Slot(1));

@@ -1,15 +1,11 @@
 extern crate image;
 extern crate rand;
 
-use self::image::{FilterType, GenericImageView, ImageBuffer, Luma};
-use std::{
-    collections::HashMap,
-    path::Path,
-    sync::Arc,
-};
+use self::image::{FilterType, ImageBuffer, Luma};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
-use shared::*;
 use dag::*;
+use shared::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ResizePolicy {
@@ -52,7 +48,6 @@ pub struct Node {
     resize_policy: Option<ResizePolicy>,
     filter_type: Option<FilterType>,
 }
-
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Size {
