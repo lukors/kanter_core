@@ -150,6 +150,10 @@ impl DetachedBuffer {
         }
     }
 
+    pub fn id(&self) -> Option<NodeId> {
+        self.id
+    }
+
     pub fn size(&self) -> Size {
         self.size
     }
@@ -263,21 +267,7 @@ impl Node {
     }
 
     fn read(path: &str) -> Vec<DetachedBuffer> {
-        let mut output = Vec::new();
-
-        let image = image::open(&Path::new(path)).unwrap();
-        let buffers = deconstruct_image(&image);
-
-        for (channel, buffer) in buffers.into_iter().enumerate() {
-            output.push(DetachedBuffer {
-                id: None,
-                slot: Slot(channel),
-                size: Size::new(image.width(), image.height()),
-                buffer: Arc::new(buffer),
-            });
-        }
-
-        output
+        read_image(&Path::new(path))
     }
 
     fn write(inputs: &[DetachedBuffer], path: &str) -> Vec<DetachedBuffer> {

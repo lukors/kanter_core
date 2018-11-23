@@ -1,8 +1,12 @@
 extern crate image;
 
 use self::image::{DynamicImage, FilterType, GenericImageView, ImageBuffer, imageops};
-use node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size};
-use std::cmp::max;
+use node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
+use std::{
+    cmp::{max, min},
+    path::Path,
+    sync::Arc,
+};
 
 pub fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
     if channels.len() != 4 {
@@ -66,8 +70,8 @@ pub fn resize_buffers(
         return;
     }
 
-    let policy = policy.unwrap_or(ResizePolicy::MostPixels);
-    let filter = filter.unwrap_or(FilterType::CatmullRom);
+    let policy = policy.unwrap_or(ResizePolicy::LargestAxes);
+    let filter = filter.unwrap_or(FilterType::Triangle);
 
     let size = match policy {
         ResizePolicy::MostPixels => buffers
@@ -88,7 +92,20 @@ pub fn resize_buffers(
                     max(a.height(), b.size().height()),
                 )
             }),
-        _ => unimplemented!(),
+        ResizePolicy::SmallestAxes => buffers
+            .iter()
+            .fold(Size::new(0, 0), |a, b| {
+                Size::new(
+                    min(a.width(), b.size().width()),
+                    min(a.height(), b.size().height()),
+                )
+            }),
+        ResizePolicy::SpecificNode(node_id) => buffers
+            .iter()
+            .find(|buffer| buffer.id() == Some(node_id) )
+            .expect("Couldn't find a buffer with the given `NodeId` while resizing")
+            .size(),
+        ResizePolicy::SpecificSize(size) => size,
     };
 
     buffers
@@ -104,4 +121,78 @@ pub fn resize_buffers(
             buffer.set_buffer(resized_buffer);
             buffer.set_size(size);
         });
+}
+
+pub fn read_image(path: &Path) -> Vec<DetachedBuffer> {
+    let image = image::open(path).expect("Could not open the given image");
+    let buffers = deconstruct_image(&image);
+
+    let mut output = Vec::new();
+
+    for (channel, buffer) in buffers.into_iter().enumerate() {
+        output.push(DetachedBuffer::new(
+            None,
+            Slot(channel),
+            Size::new(image.width(), image.height()),
+            Arc::new(buffer),
+        ));
+    }
+
+    output
+}
+
+pub fn write_image(inputs: &[DetachedBuffer], path: &Path) {
+    let channel_vec: Vec<&Buffer> = inputs.iter().map(|node_data| node_data.buffer()).collect();
+    let (width, height) = (inputs[0].size().width(), inputs[0].size().height());
+
+    image::save_buffer(
+        &Path::new(path),
+        &image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)).unwrap(),
+        width,
+        height,
+        image::ColorType::RGBA(8),
+    ).unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn buffers_equal(buf_1: &Buffer, buf_2: &Buffer) -> bool {
+        if buf_1.len() != buf_2.len() {
+            return false
+        }
+
+        !buf_1.pixels()
+            .zip(buf_2.pixels())
+            .any(|(a, b)| a != b)
+    }
+
+    fn images_equal(img_1: &DynamicImage, img_2: &DynamicImage) -> bool {
+        let bufs_1 = deconstruct_image(&img_1);
+        let bufs_2 = deconstruct_image(&img_2);
+
+        !bufs_1.iter()
+            .zip(&bufs_2)
+            .any(|(a, b)| !buffers_equal(a, b))
+    }
+
+    fn buffer_vecs_equal(bufs_1: &[Buffer], bufs_2: &[Buffer]) -> bool {
+        if bufs_1.len() != bufs_2.len() {
+            return false
+        }
+
+        !bufs_1.iter()
+            .zip(bufs_2.iter())
+            .any(|(a, b)| !buffers_equal(a, b))
+    }
+
+    #[test]
+    fn resize_buffers() {
+        let mut buffers = read_image(Path::new(&"data/heart_128.png"));
+
+        super::resize_buffers(&mut buffers, Some(ResizePolicy::SpecificSize(Size::new(100, 100))), None);
+
+
+    }
 }
