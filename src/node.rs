@@ -272,7 +272,7 @@ impl Node {
     }
 
     fn read(path: &str) -> Vec<DetachedBuffer> {
-        read_image(&Path::new(path))
+        read_image(&Path::new(path)).unwrap()
     }
 
     fn write(inputs: &[DetachedBuffer], path: &str) -> Vec<DetachedBuffer> {

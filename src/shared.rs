@@ -4,37 +4,58 @@ use self::image::{DynamicImage, FilterType, GenericImageView, ImageBuffer, image
 use node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
 use std::{
     cmp::{max, min},
-    error::Error,
+    error,
     fmt::{self, Display, Formatter},
+    io,
     path::Path,
     result,
     sync::Arc,
     u32,
 };
 
+
+
+
+
+
 type Result<T> = result::Result<T, TexProError>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum TexProError {
-    GenericError,
+    Generic,
+    Image(image::ImageError)
 }
 
 
 impl Display for TexProError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match *self {
-            TexProError::GenericError => f.write_str("GenericError"),
+            TexProError::Generic => f.write_str("Generic"),
+            TexProError::Image(_) => f.write_str("Image"),
         }
     }
 }
 
-impl Error for TexProError {
+impl error::Error for TexProError {
     fn description(&self) -> &str {
         match *self {
-            TexProError::GenericError => "Unspecified error",
+            TexProError::Generic => "Unspecified error",
+            TexProError::Image(ref e) => e.description(),
         }
     }
 }
+
+impl From<image::ImageError> for TexProError {
+    fn from(cause: image::ImageError) -> TexProError {
+        TexProError::Image(cause)
+    }
+}
+
+
+
+
+
+
 
 pub fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
     if channels.len() != 4 {
@@ -167,8 +188,8 @@ pub fn resize_buffers(
         });
 }
 
-pub fn read_image(path: &Path) -> Vec<DetachedBuffer> {
-    let image = image::open(path).expect("Could not open the given image");
+pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<DetachedBuffer>> {
+    let image = image::open(path)?;
     let buffers = deconstruct_image(&image);
 
     let mut output = Vec::new();
@@ -182,15 +203,15 @@ pub fn read_image(path: &Path) -> Vec<DetachedBuffer> {
         ));
     }
 
-    output
+    Ok(output)
 }
 
-pub fn write_image(inputs: &[DetachedBuffer], path: &Path) {
+pub fn write_image<P: AsRef<Path>>(inputs: &[DetachedBuffer], path: P) {
     let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| node_data.buffer()).collect();
     let (width, height) = (inputs[0].size().width(), inputs[0].size().height());
 
     image::save_buffer(
-        &Path::new(path),
+        path,
         &image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)).unwrap(),
         width,
         height,
@@ -222,7 +243,7 @@ mod tests {
             .any(|(a, b)| !buffers_equal(a, b))
     }
 
-    fn images_equal_path(path_1: &Path, path_2: &Path) -> bool {
+    fn images_equal_path<P: AsRef<Path>>(path_1: P, path_2: P) -> bool {
         let bufs_1 = deconstruct_image(&image::open(path_1).expect("Unable to open image at path_1 to compare it"));
         let bufs_2 = deconstruct_image(&image::open(path_2).expect("Unable to open image at path_2 to compare it"));
 
@@ -255,7 +276,7 @@ mod tests {
     fn resize_buffers_policy_specific_size() {
         let input_path = Path::new(&"data/heart_128.png");
 
-        let mut buffers = read_image(&input_path);
+        let mut buffers = read_image(&input_path).unwrap();
         resize_buffers(&mut buffers, Some(ResizePolicy::SpecificSize(Size::new(256, 256))), None);
 
         let target_size = Size::new(256, 256);
@@ -271,9 +292,9 @@ mod tests {
         let input_1_path = Path::new(&"data/heart_128.png");
         let input_2_path = Path::new(&"data/heart_256.png");
 
-        let mut buffers = read_image(&input_2_path);
+        let mut buffers = read_image(&input_2_path).unwrap();
         let target_buffer_length = buffers[0].buffer().len();
-        buffers.append(&mut read_image(&input_1_path));
+        buffers.append(&mut read_image(&input_1_path).unwrap());
 
         resize_buffers(&mut buffers, Some(ResizePolicy::MostPixels), None);
 
@@ -289,9 +310,9 @@ mod tests {
         let input_1_path = Path::new(&"data/heart_128.png");
         let input_2_path = Path::new(&"data/heart_256.png");
 
-        let mut buffers = read_image(&input_1_path);
+        let mut buffers = read_image(&input_1_path).unwrap();
         let target_buffer_length = buffers[0].buffer().len();
-        buffers.append(&mut read_image(&input_2_path));
+        buffers.append(&mut read_image(&input_2_path).unwrap());
 
         resize_buffers(&mut buffers, Some(ResizePolicy::LeastPixels), None);
 
@@ -307,8 +328,8 @@ mod tests {
         let input_1_path = Path::new(&"data/heart_wide.png");
         let input_2_path = Path::new(&"data/heart_tall.png");
 
-        let mut buffers = read_image(&input_1_path);
-        buffers.append(&mut read_image(&input_2_path));
+        let mut buffers = read_image(&input_1_path).unwrap();
+        buffers.append(&mut read_image(&input_2_path).unwrap());
         let target_buffer_length = buffers[0].buffer().len()*2;
 
         resize_buffers(&mut buffers, Some(ResizePolicy::LargestAxes), None);
@@ -325,8 +346,8 @@ mod tests {
         let input_1_path = Path::new(&"data/heart_wide.png");
         let input_2_path = Path::new(&"data/heart_tall.png");
 
-        let mut buffers = read_image(&input_1_path);
-        buffers.append(&mut read_image(&input_2_path));
+        let mut buffers = read_image(&input_1_path).unwrap();
+        buffers.append(&mut read_image(&input_2_path).unwrap());
         let target_buffer_length = buffers[0].buffer().len()/2;
 
         resize_buffers(&mut buffers, Some(ResizePolicy::SmallestAxes), None);
@@ -343,13 +364,13 @@ mod tests {
         let input_1_path = Path::new(&"data/heart_128.png");
         let input_2_path = Path::new(&"data/heart_256.png");
 
-        let mut buffers_1 = read_image(&input_1_path);
+        let mut buffers_1 = read_image(&input_1_path).unwrap();
         for mut buffer in &mut buffers_1 {
             buffer.set_id(Some(NodeId::new(1)));
         }
         let target_buffer_length = buffers_1[0].buffer().len();
 
-        let mut buffers_2 = read_image(&input_2_path);
+        let mut buffers_2 = read_image(&input_2_path).unwrap();
         for mut buffer in &mut buffers_2 {
             buffer.set_id(Some(NodeId::new(2)));
         }
