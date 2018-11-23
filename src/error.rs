@@ -4,18 +4,18 @@ pub type Result<T> = result::Result<T, TexProError>;
 
 #[derive(Debug)]
 pub enum TexProError {
-    Generic,
     Image(image::ImageError),
-    InvalidInput,
+    InconsistentVectorLengths,
+    InvalidBufferCount,
     Io(std::io::Error),
 }
 
 impl fmt::Display for TexProError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TexProError::Generic => f.write_str("Generic"),
             TexProError::Image(_) => f.write_str("Image"),
-            TexProError::InvalidInput => f.write_str("InvalidInput"),
+            TexProError::InconsistentVectorLengths => f.write_str("InconsistentVectorLengths"),
+            TexProError::InvalidBufferCount => f.write_str("InvalidBufferCount"),
             TexProError::Io(_) => f.write_str("Io"),
         }
     }
@@ -24,9 +24,9 @@ impl fmt::Display for TexProError {
 impl error::Error for TexProError {
     fn description(&self) -> &str {
         match *self {
-            TexProError::Generic => "Unspecified error",
             TexProError::Image(ref e) => e.description(),
-            TexProError::InvalidInput => "The inputs to the function were not valid",
+            TexProError::InconsistentVectorLengths => "Lengths of vectors are not consistent",
+            TexProError::InvalidBufferCount => "Invalid number of channels",
             TexProError::Io(ref e) => e.description(),
         }
     }

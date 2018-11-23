@@ -1,7 +1,7 @@
 extern crate image;
 
 use self::image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
-use error::{self, Result};
+use error::{Result, TexProError};
 use node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
 use std::{
     cmp::{max, min},
@@ -10,12 +10,12 @@ use std::{
     u32,
 };
 
-pub fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
+pub fn channels_to_rgba(channels: &[&Buffer]) -> Result<Vec<u8>> {
     if channels.len() != 4 {
-        panic!("The number of channels when converting to an RGBA image needs to be 4");
+        return Err(TexProError::InvalidBufferCount)
     }
 
-    channels[0]
+    Ok(channels[0]
         .pixels()
         .zip(channels[1].pixels())
         .zip(channels[2].pixels())
@@ -23,13 +23,12 @@ pub fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
         .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
         .flatten()
         .map(|x| (x[0] * 255.).min(255.) as u8)
-        .collect()
+        .collect())
 }
 
 pub fn channels_to_rgba_arc(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
     if channels.len() != 4 {
-        return Err(error::TexProError::InvalidInput)
-        // panic!("The number of channels when converting to an RGBA image needs to be 4");
+        return Err(TexProError::InvalidBufferCount)
     }
 
     Ok(channels[0]
@@ -76,7 +75,7 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 
     pixel_vecs
         .into_iter()
-        .map(|p_vec| ImageBuffer::from_raw(width, height, p_vec).unwrap())
+        .map(|p_vec| ImageBuffer::from_raw(width, height, p_vec).expect("A bug in the deconstruct_image function caused a crash"))
         .collect()
 }
 
@@ -84,9 +83,9 @@ pub fn resize_buffers(
     buffers: &mut [DetachedBuffer],
     policy: Option<ResizePolicy>,
     filter: Option<FilterType>,
-) {
+) -> Result<()> {
     if buffers.len() < 2 {
-        return;
+        return Err(TexProError::InvalidBufferCount);
     }
 
     let policy = policy.unwrap_or(ResizePolicy::LargestAxes);
@@ -132,6 +131,8 @@ pub fn resize_buffers(
             buffer.set_buffer(resized_buffer);
             buffer.set_size(size);
         });
+
+    Ok(())
 }
 
 pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<DetachedBuffer>> {
@@ -159,7 +160,7 @@ pub fn write_image<P: AsRef<Path>>(inputs: &[DetachedBuffer], path: P) -> Result
         if let Some(img) = image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)?) {
             img
         } else {
-            return Err(error::TexProError::Generic)
+            return Err(TexProError::InconsistentVectorLengths)
         }
     };
 
@@ -279,7 +280,7 @@ mod tests {
         let target_buffer_length = buffers[0].buffer().len();
         buffers.append(&mut read_image(&input_2_path).unwrap());
 
-        resize_buffers(&mut buffers, Some(ResizePolicy::LeastPixels), None);
+        resize_buffers(&mut buffers, Some(ResizePolicy::LeastPixels), None).unwrap();
 
         let target_size = Size::new(128, 128);
         for buffer in buffers {

@@ -12,6 +12,7 @@
 extern crate image;
 extern crate rand;
 
+use error::Result;
 use self::image::{DynamicImage, ImageBuffer};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -225,7 +226,7 @@ impl TextureProcessor {
             let send = send.clone();
 
             thread::spawn(move || {
-                let buffers = current_node.process(&mut input_data, &relevant_edges);
+                let buffers = current_node.process(&mut input_data, &relevant_edges).unwrap();
 
                 match send.send(ThreadMessage {
                     id: current_id,
@@ -280,7 +281,7 @@ impl TextureProcessor {
     //         .collect()
     // }
 
-    pub fn get_output_rgba(&self, id: NodeId) -> Vec<u8> {
+    pub fn get_output_rgba(&self, id: NodeId) -> Result<Vec<u8>> {
         let buffers = self.node_data[&id].get_buffers();
 
         let empty_buffer: Buffer = ImageBuffer::new(0, 0);

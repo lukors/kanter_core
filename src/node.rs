@@ -1,6 +1,7 @@
 extern crate image;
 extern crate rand;
 
+use error::Result;
 use self::image::{FilterType, ImageBuffer, Luma};
 use std::{collections::HashMap, path::Path, sync::Arc};
 
@@ -192,7 +193,7 @@ impl Node {
         &self.node_type
     }
 
-    pub fn process(&self, input: &mut [DetachedBuffer], edges: &[Edge]) -> Vec<DetachedBuffer> {
+    pub fn process(&self, input: &mut [DetachedBuffer], edges: &[Edge]) -> Result<Vec<DetachedBuffer>> {
         assert!(input.len() <= self.capacity(Side::Input));
         assert_eq!(edges.len(), input.len());
 
@@ -218,14 +219,14 @@ impl Node {
             NodeType::Input => Vec::new(),
             NodeType::Output => Self::output(&sorted_input),
             NodeType::Read(ref path) => Self::read(path),
-            NodeType::Write(ref path) => Self::write(&sorted_input, path),
+            NodeType::Write(ref path) => Self::write(&sorted_input, path)?,
             NodeType::Invert => Self::invert(&sorted_input),
             NodeType::Add => Self::add(&sorted_input[0], &sorted_input[1]), // TODO: These should take the entire vector and not two arguments
             NodeType::Multiply => Self::multiply(&sorted_input[0], &sorted_input[1]),
         };
 
         assert!(output.len() <= self.capacity(Side::Output));
-        output
+        Ok(output)
     }
 
     fn capacity(&self, side: Side) -> usize {
@@ -270,19 +271,19 @@ impl Node {
         read_image(&Path::new(path)).unwrap()
     }
 
-    fn write(inputs: &[DetachedBuffer], path: &str) -> Vec<DetachedBuffer> {
+    fn write(inputs: &[DetachedBuffer], path: &str) -> Result<Vec<DetachedBuffer>> {
         let channel_vec: Vec<&Buffer> = inputs.iter().map(|node_data| &*node_data.buffer).collect();
         let (width, height) = (inputs[0].size.width, inputs[0].size.height);
 
         image::save_buffer(
             &Path::new(path),
-            &image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)).unwrap(),
+            &image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)?).unwrap(),
             width,
             height,
             image::ColorType::RGBA(8),
         ).unwrap();
 
-        Vec::new()
+        Ok(Vec::new())
     }
 
     fn invert(input: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
