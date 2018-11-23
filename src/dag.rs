@@ -12,7 +12,7 @@
 extern crate image;
 extern crate rand;
 
-use error::Result;
+use error::{Result, TexProError};
 use self::image::{DynamicImage, ImageBuffer};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -74,23 +74,25 @@ impl TextureProcessor {
         }
     }
 
-    fn add_node_internal(&mut self, node: Node, id: NodeId) -> NodeId {
+    fn add_node_internal(&mut self, node: Node, id: NodeId) {
         self.nodes.insert(id, Arc::new(node));
-        id
     }
 
     pub fn add_node(&mut self, node: Node) -> NodeId {
         if *node.get_type() == NodeType::Input {
-            panic!("Use the `add_input_node` function when adding an input node");
+            panic!("Use the `add_input_node()` function when adding an input node");
         }
         let id = self.new_id();
-        self.add_node_internal(node, id)
+        self.add_node_internal(node, id);
+        id
     }
 
     pub fn add_node_with_id(&mut self, node: Node, id: NodeId) -> NodeId {
-        self.add_node_internal(node, id)
+        self.add_node_internal(node, id);
+        id
     }
 
+    /// This function takes an image, creates a node for it and returns the NodeId.
     pub fn add_input_node(&mut self, image: &DynamicImage) -> NodeId {
         let id = self.new_id();
 
@@ -107,16 +109,18 @@ impl TextureProcessor {
         id
     }
 
-    pub fn connect(&mut self, id_1: NodeId, id_2: NodeId, slot_1: Slot, slot_2: Slot) {
+    pub fn connect(&mut self, id_1: NodeId, id_2: NodeId, slot_1: Slot, slot_2: Slot) -> Result<()> {
         if !self.nodes.contains_key(&id_1) || !self.nodes.contains_key(&id_2) {
-            panic!("Tried connecting to a node that doesn't exist");
+            return Err(TexProError::InvalidNodeId)
         }
 
         if self.slot_occupied(id_2, Side::Input, slot_2) {
-            panic!("Tried adding an input to an occupied input slot");
+            return Err(TexProError::SlotOccupied)
         }
 
         self.edges.push(Edge::new(id_1, id_2, slot_1, slot_2));
+
+        Ok(())
     }
 
     pub fn slot_occupied(&self, id: NodeId, side: Side, slot: Slot) -> bool {

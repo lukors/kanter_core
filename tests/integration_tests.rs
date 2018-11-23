@@ -23,7 +23,7 @@ fn input_output() {
 
     image::save_buffer(
         &Path::new(&"out/input_output.png"),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node)).unwrap(),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap()).unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
