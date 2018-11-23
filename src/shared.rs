@@ -1,7 +1,7 @@
 extern crate image;
 
 use self::image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
-use error::Result;
+use error::{self, Result};
 use node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
 use std::{
     cmp::{max, min},
@@ -26,12 +26,13 @@ pub fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
         .collect()
 }
 
-pub fn channels_to_rgba_arc(channels: &[Arc<Buffer>]) -> Vec<u8> {
+pub fn channels_to_rgba_arc(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
     if channels.len() != 4 {
-        panic!("The number of channels when converting to an RGBA image needs to be 4");
+        return Err(error::TexProError::InvalidInput)
+        // panic!("The number of channels when converting to an RGBA image needs to be 4");
     }
 
-    channels[0]
+    Ok(channels[0]
         .pixels()
         .zip(channels[1].pixels())
         .zip(channels[2].pixels())
@@ -39,7 +40,7 @@ pub fn channels_to_rgba_arc(channels: &[Arc<Buffer>]) -> Vec<u8> {
         .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
         .flatten()
         .map(|x| (x[0] * 255.).min(255.) as u8)
-        .collect()
+        .collect())
 }
 
 pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
@@ -151,17 +152,26 @@ pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<DetachedBuffer>> {
     Ok(output)
 }
 
-pub fn write_image<P: AsRef<Path>>(inputs: &[DetachedBuffer], path: P) {
+pub fn write_image<P: AsRef<Path>>(inputs: &[DetachedBuffer], path: P) -> Result<()> {
     let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| node_data.buffer()).collect();
     let (width, height) = (inputs[0].size().width(), inputs[0].size().height());
+    let img = {
+        if let Some(img) = image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)?) {
+            img
+        } else {
+            return Err(error::TexProError::Generic)
+        }
+    };
 
     image::save_buffer(
         path,
-        &image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)).unwrap(),
+        &img,
         width,
         height,
         image::ColorType::RGBA(8),
-    ).unwrap();
+    )?;
+
+    Ok(())
 }
 
 #[cfg(test)]

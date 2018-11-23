@@ -6,6 +6,8 @@ pub type Result<T> = result::Result<T, TexProError>;
 pub enum TexProError {
     Generic,
     Image(image::ImageError),
+    InvalidInput,
+    Io(std::io::Error),
 }
 
 impl fmt::Display for TexProError {
@@ -13,6 +15,8 @@ impl fmt::Display for TexProError {
         match *self {
             TexProError::Generic => f.write_str("Generic"),
             TexProError::Image(_) => f.write_str("Image"),
+            TexProError::InvalidInput => f.write_str("InvalidInput"),
+            TexProError::Io(_) => f.write_str("Io"),
         }
     }
 }
@@ -22,6 +26,8 @@ impl error::Error for TexProError {
         match *self {
             TexProError::Generic => "Unspecified error",
             TexProError::Image(ref e) => e.description(),
+            TexProError::InvalidInput => "The inputs to the function were not valid",
+            TexProError::Io(ref e) => e.description(),
         }
     }
 }
@@ -29,5 +35,11 @@ impl error::Error for TexProError {
 impl From<image::ImageError> for TexProError {
     fn from(cause: image::ImageError) -> TexProError {
         TexProError::Image(cause)
+    }
+}
+
+impl From<std::io::Error> for TexProError {
+    fn from(cause: std::io::Error) -> TexProError {
+        TexProError::Io(cause)
     }
 }
