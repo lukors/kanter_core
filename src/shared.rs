@@ -6,9 +6,26 @@ use std::{
     cmp::{max, min},
     path::Path,
     sync::Arc,
+    u32,
 };
 
 pub fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
+    if channels.len() != 4 {
+        panic!("The number of channels when converting to an RGBA image needs to be 4");
+    }
+
+    channels[0]
+        .pixels()
+        .zip(channels[1].pixels())
+        .zip(channels[2].pixels())
+        .zip(channels[3].pixels())
+        .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
+        .flatten()
+        .map(|x| (x[0] * 255.).min(255.) as u8)
+        .collect()
+}
+
+pub fn channels_to_rgba_arc(channels: &[Arc<Buffer>]) -> Vec<u8> {
     if channels.len() != 4 {
         panic!("The number of channels when converting to an RGBA image needs to be 4");
     }
@@ -94,7 +111,7 @@ pub fn resize_buffers(
             }),
         ResizePolicy::SmallestAxes => buffers
             .iter()
-            .fold(Size::new(0, 0), |a, b| {
+            .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
                 Size::new(
                     min(a.width(), b.size().width()),
                     min(a.height(), b.size().height()),
@@ -142,12 +159,12 @@ pub fn read_image(path: &Path) -> Vec<DetachedBuffer> {
 }
 
 pub fn write_image(inputs: &[DetachedBuffer], path: &Path) {
-    let channel_vec: Vec<&Buffer> = inputs.iter().map(|node_data| node_data.buffer()).collect();
+    let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| node_data.buffer()).collect();
     let (width, height) = (inputs[0].size().width(), inputs[0].size().height());
 
     image::save_buffer(
         &Path::new(path),
-        &image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)).unwrap(),
+        &image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)).unwrap(),
         width,
         height,
         image::ColorType::RGBA(8),
@@ -157,6 +174,7 @@ pub fn write_image(inputs: &[DetachedBuffer], path: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use node::NodeId;
 
     fn buffers_equal(buf_1: &Buffer, buf_2: &Buffer) -> bool {
         if buf_1.len() != buf_2.len() {
@@ -177,6 +195,15 @@ mod tests {
             .any(|(a, b)| !buffers_equal(a, b))
     }
 
+    fn images_equal_path(path_1: &Path, path_2: &Path) -> bool {
+        let bufs_1 = deconstruct_image(&image::open(path_1).expect("Unable to open image at path_1 to compare it"));
+        let bufs_2 = deconstruct_image(&image::open(path_2).expect("Unable to open image at path_2 to compare it"));
+
+        !bufs_1.iter()
+            .zip(&bufs_2)
+            .any(|(a, b)| !buffers_equal(a, b))
+    }
+
     fn buffer_vecs_equal(bufs_1: &[Buffer], bufs_2: &[Buffer]) -> bool {
         if bufs_1.len() != bufs_2.len() {
             return false
@@ -187,12 +214,127 @@ mod tests {
             .any(|(a, b)| !buffers_equal(a, b))
     }
 
+    fn detached_buffers_equal(bufs_1: &[DetachedBuffer], bufs_2: &[DetachedBuffer]) -> bool {
+        if bufs_1.len() != bufs_2.len() {
+            return false
+        }
+
+        !bufs_1.iter()
+            .zip(bufs_2.iter())
+            .any(|(a, b)| !buffers_equal(&a.buffer(), &b.buffer()))
+    }
+
     #[test]
-    fn resize_buffers() {
-        let mut buffers = read_image(Path::new(&"data/heart_128.png"));
+    fn resize_buffers_policy_specific_size() {
+        let input_path = Path::new(&"data/heart_128.png");
 
-        super::resize_buffers(&mut buffers, Some(ResizePolicy::SpecificSize(Size::new(100, 100))), None);
+        let mut buffers = read_image(&input_path);
+        resize_buffers(&mut buffers, Some(ResizePolicy::SpecificSize(Size::new(256, 256))), None);
 
+        let target_size = Size::new(256, 256);
+        let target_buffer_length = 256 * 256;
+        for buffer in buffers {
+            assert_eq!(buffer.buffer().len(), target_buffer_length);
+            assert_eq!(buffer.size(), target_size);
+        }
+    }
 
+    #[test]
+    fn resize_buffers_policy_most_pixels() {
+        let input_1_path = Path::new(&"data/heart_128.png");
+        let input_2_path = Path::new(&"data/heart_256.png");
+
+        let mut buffers = read_image(&input_2_path);
+        let target_buffer_length = buffers[0].buffer().len();
+        buffers.append(&mut read_image(&input_1_path));
+
+        resize_buffers(&mut buffers, Some(ResizePolicy::MostPixels), None);
+
+        let target_size = Size::new(256, 256);
+        for buffer in buffers {
+            assert_eq!(buffer.buffer().len(), target_buffer_length);
+            assert_eq!(buffer.size(), target_size);
+        }
+    }
+
+    #[test]
+    fn resize_buffers_policy_least_pixels() {
+        let input_1_path = Path::new(&"data/heart_128.png");
+        let input_2_path = Path::new(&"data/heart_256.png");
+
+        let mut buffers = read_image(&input_1_path);
+        let target_buffer_length = buffers[0].buffer().len();
+        buffers.append(&mut read_image(&input_2_path));
+
+        resize_buffers(&mut buffers, Some(ResizePolicy::LeastPixels), None);
+
+        let target_size = Size::new(128, 128);
+        for buffer in buffers {
+            assert_eq!(buffer.buffer().len(), target_buffer_length);
+            assert_eq!(buffer.size(), target_size);
+        }
+    }
+
+    #[test]
+    fn resize_buffers_policy_largest_axes() {
+        let input_1_path = Path::new(&"data/heart_wide.png");
+        let input_2_path = Path::new(&"data/heart_tall.png");
+
+        let mut buffers = read_image(&input_1_path);
+        buffers.append(&mut read_image(&input_2_path));
+        let target_buffer_length = buffers[0].buffer().len()*2;
+
+        resize_buffers(&mut buffers, Some(ResizePolicy::LargestAxes), None);
+
+        let target_size = Size::new(128, 128);
+        for buffer in buffers {
+            assert_eq!(buffer.buffer().len(), target_buffer_length);
+            assert_eq!(buffer.size(), target_size);
+        }
+    }
+
+    #[test]
+    fn resize_buffers_policy_smallest_axes() {
+        let input_1_path = Path::new(&"data/heart_wide.png");
+        let input_2_path = Path::new(&"data/heart_tall.png");
+
+        let mut buffers = read_image(&input_1_path);
+        buffers.append(&mut read_image(&input_2_path));
+        let target_buffer_length = buffers[0].buffer().len()/2;
+
+        resize_buffers(&mut buffers, Some(ResizePolicy::SmallestAxes), None);
+
+        let target_size = Size::new(64, 64);
+        for buffer in buffers {
+            assert_eq!(buffer.buffer().len(), target_buffer_length);
+            assert_eq!(buffer.size(), target_size);
+        }
+    }
+
+    #[test]
+    fn resize_buffers_policy_specific_node() {
+        let input_1_path = Path::new(&"data/heart_128.png");
+        let input_2_path = Path::new(&"data/heart_256.png");
+
+        let mut buffers_1 = read_image(&input_1_path);
+        for mut buffer in &mut buffers_1 {
+            buffer.set_id(Some(NodeId::new(1)));
+        }
+        let target_buffer_length = buffers_1[0].buffer().len();
+
+        let mut buffers_2 = read_image(&input_2_path);
+        for mut buffer in &mut buffers_2 {
+            buffer.set_id(Some(NodeId::new(2)));
+        }
+
+        buffers_1.append(&mut buffers_2);
+
+        resize_buffers(&mut buffers_1, Some(ResizePolicy::SpecificNode(NodeId::new(1))), None);
+
+        let target_size = Size::new(128, 128);
+        for buffer in buffers_1 {
+            assert_eq!(buffer.buffer().len(), target_buffer_length);
+            assert_eq!(buffer.size(), target_size);
+        }
     }
 }

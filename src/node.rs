@@ -150,6 +150,11 @@ impl DetachedBuffer {
         }
     }
 
+    #[cfg(test)]
+    pub fn set_id(&mut self, id: Option<NodeId>) {
+        self.id = id;
+    }
+
     pub fn id(&self) -> Option<NodeId> {
         self.id
     }
