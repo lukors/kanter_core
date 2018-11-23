@@ -197,7 +197,7 @@ impl Node {
         assert!(input.len() <= self.capacity(Side::Input));
         assert_eq!(edges.len(), input.len());
 
-        resize_buffers(input, self.resize_policy, self.filter_type);
+        resize_buffers(input, self.resize_policy, self.filter_type)?;
 
         let mut sorted_input: Vec<Option<DetachedBuffer>> = vec![None; input.len()];
         for detached_buffer in input {
@@ -218,7 +218,7 @@ impl Node {
         let output: Vec<DetachedBuffer> = match self.node_type {
             NodeType::Input => Vec::new(),
             NodeType::Output => Self::output(&sorted_input),
-            NodeType::Read(ref path) => Self::read(path),
+            NodeType::Read(ref path) => Self::read(path)?,
             NodeType::Write(ref path) => Self::write(&sorted_input, path)?,
             NodeType::Invert => Self::invert(&sorted_input),
             NodeType::Add => Self::add(&sorted_input[0], &sorted_input[1]), // TODO: These should take the entire vector and not two arguments
@@ -267,8 +267,8 @@ impl Node {
         outputs
     }
 
-    fn read(path: &str) -> Vec<DetachedBuffer> {
-        read_image(&Path::new(path)).unwrap()
+    fn read(path: &str) -> Result<Vec<DetachedBuffer>> {
+        Ok(read_image(&Path::new(path))?)
     }
 
     fn write(inputs: &[DetachedBuffer], path: &str) -> Result<Vec<DetachedBuffer>> {
@@ -288,7 +288,6 @@ impl Node {
 
     fn invert(input: &[DetachedBuffer]) -> Vec<DetachedBuffer> {
         let input = &input[0];
-        // let buffer: Buffer = input.buffer.iter().map(|value| (value * -1.) + 1.).collect();
         let (width, height) = (input.size.width, input.size.height);
         let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
             Luma([(input.buffer.get_pixel(x, y).data[0] * -1.) + 1.])
