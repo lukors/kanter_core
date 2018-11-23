@@ -1,5 +1,5 @@
 // TODO:
-// - Add support for all ResizePolicy variants
+// - Add Result things everywhere
 // - Add a resize node, though nodes are able to output a different size than their input.
 // - Implement same features as Channel Shuffle 1 & 2.
 // - Implement CLI.

@@ -4,10 +4,37 @@ use self::image::{DynamicImage, FilterType, GenericImageView, ImageBuffer, image
 use node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
 use std::{
     cmp::{max, min},
+    error::Error,
+    fmt::{self, Display, Formatter},
     path::Path,
+    result,
     sync::Arc,
     u32,
 };
+
+type Result<T> = result::Result<T, TexProError>;
+
+#[derive(Debug, Clone)]
+pub enum TexProError {
+    GenericError,
+}
+
+
+impl Display for TexProError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match *self {
+            TexProError::GenericError => f.write_str("GenericError"),
+        }
+    }
+}
+
+impl Error for TexProError {
+    fn description(&self) -> &str {
+        match *self {
+            TexProError::GenericError => "Unspecified error",
+        }
+    }
+}
 
 pub fn channels_to_rgba(channels: &[&Buffer]) -> Vec<u8> {
     if channels.len() != 4 {
