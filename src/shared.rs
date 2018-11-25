@@ -84,10 +84,6 @@ pub fn resize_buffers(
     policy: Option<ResizePolicy>,
     filter: Option<FilterType>,
 ) -> Result<()> {
-    if buffers.len() < 2 {
-        return Err(TexProError::InvalidBufferCount);
-    }
-
     let policy = policy.unwrap_or(ResizePolicy::LargestAxes);
     let filter = filter.unwrap_or(FilterType::Triangle);
 

@@ -1,4 +1,6 @@
-use std::{error, fmt, result};
+extern crate image;
+
+use std::{error, fmt, io, result};
 
 pub type Result<T> = result::Result<T, TexProError>;
 
@@ -9,7 +11,7 @@ pub enum TexProError {
     InvalidBufferCount,
     InvalidNodeId,
     SlotOccupied,
-    Io(std::io::Error),
+    Io(io::Error),
 }
 
 impl fmt::Display for TexProError {
@@ -44,8 +46,8 @@ impl From<image::ImageError> for TexProError {
     }
 }
 
-impl From<std::io::Error> for TexProError {
-    fn from(cause: std::io::Error) -> TexProError {
+impl From<io::Error> for TexProError {
+    fn from(cause: io::Error) -> TexProError {
         TexProError::Io(cause)
     }
 }

@@ -14,10 +14,10 @@ fn input_output() {
     let input_node = tex_pro.add_input_node(&image::open(&Path::new(&"data/image_2.png")).unwrap());
     let output_node = tex_pro.add_node(Node::new(NodeType::Output));
 
-    tex_pro.connect(input_node, output_node, Slot(0), Slot(0));
-    tex_pro.connect(input_node, output_node, Slot(1), Slot(1));
-    tex_pro.connect(input_node, output_node, Slot(2), Slot(2));
-    tex_pro.connect(input_node, output_node, Slot(3), Slot(3));
+    tex_pro.connect(input_node, output_node, Slot(0), Slot(0)).unwrap();
+    tex_pro.connect(input_node, output_node, Slot(1), Slot(1)).unwrap();
+    tex_pro.connect(input_node, output_node, Slot(2), Slot(2)).unwrap();
+    tex_pro.connect(input_node, output_node, Slot(3), Slot(3)).unwrap();
 
     tex_pro.process();
 
@@ -37,10 +37,10 @@ fn read_write() {
     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/read_write.png".to_string())));
 
-    tex_pro.connect(input_image_1, write_node, Slot(0), Slot(0));
-    tex_pro.connect(input_image_1, write_node, Slot(1), Slot(1));
-    tex_pro.connect(input_image_1, write_node, Slot(2), Slot(2));
-    tex_pro.connect(input_image_1, write_node, Slot(3), Slot(3));
+    tex_pro.connect(input_image_1, write_node, Slot(0), Slot(0)).unwrap();
+    tex_pro.connect(input_image_1, write_node, Slot(1), Slot(1)).unwrap();
+    tex_pro.connect(input_image_1, write_node, Slot(2), Slot(2)).unwrap();
+    tex_pro.connect(input_image_1, write_node, Slot(3), Slot(3)).unwrap();
 
     tex_pro.process();
 }
@@ -53,10 +53,10 @@ fn shuffle() {
         tex_pro.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())));
     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/shuffle.png".to_string())));
 
-    tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
-    tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
-    tex_pro.connect(input_heart_256, write_node, Slot(2), Slot(0));
-    tex_pro.connect(input_heart_256, write_node, Slot(3), Slot(3));
+    tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1)).unwrap();
+    tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2)).unwrap();
+    tex_pro.connect(input_heart_256, write_node, Slot(2), Slot(0)).unwrap();
+    tex_pro.connect(input_heart_256, write_node, Slot(3), Slot(3)).unwrap();
 
     tex_pro.process();
 }
@@ -72,10 +72,10 @@ fn combine_different_sizes() {
         "out/combine_different_sizes.png".to_string(),
     )));
 
-    tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1));
-    tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2));
-    tex_pro.connect(input_image_1, write_node, Slot(2), Slot(0));
-    tex_pro.connect(input_image_1, write_node, Slot(3), Slot(3));
+    tex_pro.connect(input_heart_256, write_node, Slot(0), Slot(1)).unwrap();
+    tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(2)).unwrap();
+    tex_pro.connect(input_image_1, write_node, Slot(2), Slot(0)).unwrap();
+    tex_pro.connect(input_image_1, write_node, Slot(3), Slot(3)).unwrap();
 
     tex_pro.process();
 }
@@ -89,12 +89,12 @@ fn invert() {
     let invert_node = tex_pro.add_node(Node::new(NodeType::Invert));
     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/invert.png".to_string())));
 
-    tex_pro.connect(input_heart_256, invert_node, Slot(0), Slot(0));
+    tex_pro.connect(input_heart_256, invert_node, Slot(0), Slot(0)).unwrap();
 
-    tex_pro.connect(invert_node, write_node, Slot(0), Slot(0));
-    tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(1));
-    tex_pro.connect(input_heart_256, write_node, Slot(2), Slot(2));
-    tex_pro.connect(input_heart_256, write_node, Slot(3), Slot(3));
+    tex_pro.connect(invert_node, write_node, Slot(0), Slot(0)).unwrap();
+    tex_pro.connect(input_heart_256, write_node, Slot(1), Slot(1)).unwrap();
+    tex_pro.connect(input_heart_256, write_node, Slot(2), Slot(2)).unwrap();
+    tex_pro.connect(input_heart_256, write_node, Slot(3), Slot(3)).unwrap();
 
     tex_pro.process();
 }
@@ -108,13 +108,13 @@ fn add() {
     let add_node = tex_pro.add_node(Node::new(NodeType::Add));
     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/add.png".to_string())));
 
-    tex_pro.connect(input_image_1, add_node, Slot(0), Slot(0));
-    tex_pro.connect(input_image_1, add_node, Slot(1), Slot(1));
+    tex_pro.connect(input_image_1, add_node, Slot(0), Slot(0)).unwrap();
+    tex_pro.connect(input_image_1, add_node, Slot(1), Slot(1)).unwrap();
 
-    tex_pro.connect(add_node, write_node, Slot(0), Slot(0));
-    tex_pro.connect(add_node, write_node, Slot(0), Slot(1));
-    tex_pro.connect(add_node, write_node, Slot(0), Slot(2));
-    tex_pro.connect(input_white, write_node, Slot(0), Slot(3));
+    tex_pro.connect(add_node, write_node, Slot(0), Slot(0)).unwrap();
+    tex_pro.connect(add_node, write_node, Slot(0), Slot(1)).unwrap();
+    tex_pro.connect(add_node, write_node, Slot(0), Slot(2)).unwrap();
+    tex_pro.connect(input_white, write_node, Slot(0), Slot(3)).unwrap();
 
     tex_pro.process();
 }
@@ -128,13 +128,13 @@ fn multiply() {
     let multiply_node = tex_pro.add_node(Node::new(NodeType::Multiply));
     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/multiply.png".to_string())));
 
-    tex_pro.connect(input_image_1, multiply_node, Slot(0), Slot(0));
-    tex_pro.connect(input_image_1, multiply_node, Slot(3), Slot(1));
+    tex_pro.connect(input_image_1, multiply_node, Slot(0), Slot(0)).unwrap();
+    tex_pro.connect(input_image_1, multiply_node, Slot(3), Slot(1)).unwrap();
 
-    tex_pro.connect(multiply_node, write_node, Slot(0), Slot(0));
-    tex_pro.connect(multiply_node, write_node, Slot(0), Slot(1));
-    tex_pro.connect(multiply_node, write_node, Slot(0), Slot(2));
-    tex_pro.connect(input_white, write_node, Slot(0), Slot(3));
+    tex_pro.connect(multiply_node, write_node, Slot(0), Slot(0)).unwrap();
+    tex_pro.connect(multiply_node, write_node, Slot(0), Slot(1)).unwrap();
+    tex_pro.connect(multiply_node, write_node, Slot(0), Slot(2)).unwrap();
+    tex_pro.connect(input_white, write_node, Slot(0), Slot(3)).unwrap();
 
     tex_pro.process();
 }
