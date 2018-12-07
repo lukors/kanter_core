@@ -12,7 +12,7 @@ use std::{
 
 pub fn channels_to_rgba(channels: &[&Buffer]) -> Result<Vec<u8>> {
     if channels.len() != 4 {
-        return Err(TexProError::InvalidBufferCount)
+        return Err(TexProError::InvalidBufferCount);
     }
 
     Ok(channels[0]
@@ -28,7 +28,7 @@ pub fn channels_to_rgba(channels: &[&Buffer]) -> Result<Vec<u8>> {
 
 pub fn channels_to_rgba_arc(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
     if channels.len() != 4 {
-        return Err(TexProError::InvalidBufferCount)
+        return Err(TexProError::InvalidBufferCount);
     }
 
     Ok(channels[0]
@@ -75,7 +75,10 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 
     pixel_vecs
         .into_iter()
-        .map(|p_vec| ImageBuffer::from_raw(width, height, p_vec).expect("A bug in the deconstruct_image function caused a crash"))
+        .map(|p_vec| {
+            ImageBuffer::from_raw(width, height, p_vec)
+                .expect("A bug in the deconstruct_image function caused a crash")
+        })
         .collect()
 }
 
@@ -153,20 +156,16 @@ pub fn write_image<P: AsRef<Path>>(inputs: &[DetachedBuffer], path: P) -> Result
     let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| node_data.buffer()).collect();
     let (width, height) = (inputs[0].size().width(), inputs[0].size().height());
     let img = {
-        if let Some(img) = image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)?) {
+        if let Some(img) =
+            image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)?)
+        {
             img
         } else {
-            return Err(TexProError::InconsistentVectorLengths)
+            return Err(TexProError::InconsistentVectorLengths);
         }
     };
 
-    image::save_buffer(
-        path,
-        &img,
-        width,
-        height,
-        image::ColorType::RGBA(8),
-    )?;
+    image::save_buffer(path, &img, width, height, image::ColorType::RGBA(8))?;
 
     Ok(())
 }

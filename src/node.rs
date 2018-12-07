@@ -1,8 +1,8 @@
 extern crate image;
 extern crate rand;
 
-use error::Result;
 use self::image::{FilterType, ImageBuffer, Luma};
+use error::Result;
 use std::{collections::HashMap, path::Path, sync::Arc};
 
 use dag::*;
@@ -193,7 +193,11 @@ impl Node {
         &self.node_type
     }
 
-    pub fn process(&self, input: &mut [DetachedBuffer], edges: &[Edge]) -> Result<Vec<DetachedBuffer>> {
+    pub fn process(
+        &self,
+        input: &mut [DetachedBuffer],
+        edges: &[Edge],
+    ) -> Result<Vec<DetachedBuffer>> {
         assert!(input.len() <= self.capacity(Side::Input));
         assert_eq!(edges.len(), input.len());
 
@@ -281,7 +285,8 @@ impl Node {
             width,
             height,
             image::ColorType::RGBA(8),
-        ).unwrap();
+        )
+        .unwrap();
 
         Ok(Vec::new())
     }

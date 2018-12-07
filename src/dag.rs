@@ -12,8 +12,8 @@
 extern crate image;
 extern crate rand;
 
-use error::{Result, TexProError};
 use self::image::{DynamicImage, ImageBuffer};
+use error::{Result, TexProError};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{mpsc, Arc},
@@ -109,13 +109,19 @@ impl TextureProcessor {
         id
     }
 
-    pub fn connect(&mut self, id_1: NodeId, id_2: NodeId, slot_1: Slot, slot_2: Slot) -> Result<()> {
+    pub fn connect(
+        &mut self,
+        id_1: NodeId,
+        id_2: NodeId,
+        slot_1: Slot,
+        slot_2: Slot,
+    ) -> Result<()> {
         if !self.nodes.contains_key(&id_1) || !self.nodes.contains_key(&id_2) {
-            return Err(TexProError::InvalidNodeId)
+            return Err(TexProError::InvalidNodeId);
         }
 
         if self.slot_occupied(id_2, Side::Input, slot_2) {
-            return Err(TexProError::SlotOccupied)
+            return Err(TexProError::SlotOccupied);
         }
 
         self.edges.push(Edge::new(id_1, id_2, slot_1, slot_2));
@@ -230,7 +236,9 @@ impl TextureProcessor {
             let send = send.clone();
 
             thread::spawn(move || {
-                let buffers = current_node.process(&mut input_data, &relevant_edges).unwrap();
+                let buffers = current_node
+                    .process(&mut input_data, &relevant_edges)
+                    .unwrap();
 
                 match send.send(ThreadMessage {
                     id: current_id,
@@ -331,7 +339,8 @@ impl TextureProcessor {
                     .iter()
                     .map(|edge| edge.output_id)
                     .any(|x| x == **node_id)
-            }).cloned()
+            })
+            .cloned()
             .collect::<Vec<NodeId>>()
     }
 }
