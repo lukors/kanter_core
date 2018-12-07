@@ -238,7 +238,8 @@ mod tests {
             &mut buffers,
             Some(ResizePolicy::SpecificSize(Size::new(256, 256))),
             None,
-        );
+        )
+        .unwrap();
 
         let target_size = Size::new(256, 256);
         let target_buffer_length = 256 * 256;
@@ -257,7 +258,7 @@ mod tests {
         let target_buffer_length = buffers[0].buffer().len();
         buffers.append(&mut read_image(&input_1_path).unwrap());
 
-        resize_buffers(&mut buffers, Some(ResizePolicy::MostPixels), None);
+        resize_buffers(&mut buffers, Some(ResizePolicy::MostPixels), None).unwrap();
 
         let target_size = Size::new(256, 256);
         for buffer in buffers {
@@ -293,7 +294,7 @@ mod tests {
         buffers.append(&mut read_image(&input_2_path).unwrap());
         let target_buffer_length = buffers[0].buffer().len() * 2;
 
-        resize_buffers(&mut buffers, Some(ResizePolicy::LargestAxes), None);
+        resize_buffers(&mut buffers, Some(ResizePolicy::LargestAxes), None).unwrap();
 
         let target_size = Size::new(128, 128);
         for buffer in buffers {
@@ -311,7 +312,7 @@ mod tests {
         buffers.append(&mut read_image(&input_2_path).unwrap());
         let target_buffer_length = buffers[0].buffer().len() / 2;
 
-        resize_buffers(&mut buffers, Some(ResizePolicy::SmallestAxes), None);
+        resize_buffers(&mut buffers, Some(ResizePolicy::SmallestAxes), None).unwrap();
 
         let target_size = Size::new(64, 64);
         for buffer in buffers {
@@ -342,7 +343,8 @@ mod tests {
             &mut buffers_1,
             Some(ResizePolicy::SpecificNode(NodeId::new(1))),
             None,
-        );
+        )
+        .unwrap();
 
         let target_size = Size::new(128, 128);
         for buffer in buffers_1 {
