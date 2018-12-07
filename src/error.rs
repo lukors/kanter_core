@@ -1,5 +1,3 @@
-extern crate image;
-
 use std::{error, fmt, io, result};
 
 pub type Result<T> = result::Result<T, TexProError>;

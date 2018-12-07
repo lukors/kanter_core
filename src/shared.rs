@@ -1,8 +1,6 @@
-extern crate image;
-
-use self::image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
-use error::{Result, TexProError};
-use node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
+use image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
+use crate::error::{Result, TexProError};
+use crate::node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
 use std::{
     cmp::{max, min},
     path::Path,
@@ -61,7 +59,7 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
         current_channel = (current_channel + 1) % channel_count;
     }
 
-    for (i, mut item) in pixel_vecs
+    for (i, item) in pixel_vecs
         .iter_mut()
         .enumerate()
         .take(max_channel_count)
@@ -173,7 +171,7 @@ pub fn write_image<P: AsRef<Path>>(inputs: &[DetachedBuffer], path: P) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
-    use node::NodeId;
+    use crate::node::NodeId;
 
     fn buffers_equal(buf_1: &Buffer, buf_2: &Buffer) -> bool {
         if buf_1.len() != buf_2.len() {

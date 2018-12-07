@@ -1,12 +1,9 @@
-extern crate image;
-extern crate rand;
-
-use self::image::{FilterType, ImageBuffer, Luma};
-use error::Result;
+use image::{FilterType, ImageBuffer, Luma};
+use crate::error::Result;
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use dag::*;
-use shared::*;
+use crate::dag::*;
+use crate::shared::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ResizePolicy {

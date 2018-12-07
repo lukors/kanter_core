@@ -9,19 +9,16 @@
 // - Make each node save the resized versions of their inputs,
 //   and use them if they are still relevant.
 
-extern crate image;
-extern crate rand;
-
-use self::image::{DynamicImage, ImageBuffer};
-use error::{Result, TexProError};
+use image::{DynamicImage, ImageBuffer};
+use crate::error::{Result, TexProError};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{mpsc, Arc},
     thread,
 };
 
-use node::*;
-use shared::*;
+use crate::node::*;
+use crate::shared::*;
 
 #[derive(Default)]
 pub struct TextureProcessor {

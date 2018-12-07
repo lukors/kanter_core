@@ -1,6 +1,3 @@
-extern crate image;
-extern crate texture_processor;
-
 use std::path::Path;
 use texture_processor::{
     dag::TextureProcessor,
