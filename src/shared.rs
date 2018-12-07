@@ -1,6 +1,6 @@
-use image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
 use crate::error::{Result, TexProError};
 use crate::node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
+use image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
 use std::{
     cmp::{max, min},
     path::Path,

@@ -1,16 +1,5 @@
-// TODO:
-// - Add Result things everywhere
-// - Add a resize node, though nodes are able to output a different size than their input.
-// - Implement same features as Channel Shuffle 1 & 2.
-// - Implement CLI.
-// - Make randomly generated test to try finding corner cases.
-// - Make benchmark tests.
-// - Optimize away the double-allocation when resizing an image before it's processed.
-// - Make each node save the resized versions of their inputs,
-//   and use them if they are still relevant.
-
-use image::{DynamicImage, ImageBuffer};
 use crate::error::{Result, TexProError};
+use image::{DynamicImage, ImageBuffer};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{mpsc, Arc},
@@ -25,6 +14,8 @@ pub struct TextureProcessor {
     nodes: HashMap<NodeId, Arc<Node>>,
     node_data: HashMap<NodeId, NodeData>,
     edges: Vec<Edge>,
+    inputs: Vec<NodeId>,
+    outputs: Vec<NodeId>,
 }
 
 #[derive(Debug, Clone)]
@@ -68,15 +59,21 @@ impl TextureProcessor {
             nodes: HashMap::new(),
             node_data: HashMap::new(),
             edges: Vec::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
         }
     }
 
     fn add_node_internal(&mut self, node: Node, id: NodeId) {
+        if *node.node_type() == NodeType::Output {
+            self.outputs.push(id);
+        }
+
         self.nodes.insert(id, Arc::new(node));
     }
 
     pub fn add_node(&mut self, node: Node) -> NodeId {
-        if *node.get_type() == NodeType::Input {
+        if *node.node_type() == NodeType::Input {
             panic!("Use the `add_input_node()` function when adding an input node");
         }
         let id = self.new_id();
@@ -103,7 +100,23 @@ impl TextureProcessor {
         self.node_data
             .insert(id, NodeData::from_buffers(wrapped_buffers));
 
+        self.inputs.push(id);
+
         id
+    }
+
+    pub fn input_count(&self) -> usize {
+        self.nodes
+            .values()
+            .filter(|node| *node.node_type() == NodeType::Input)
+            .count()
+    }
+
+    pub fn output_count(&self) -> usize {
+        self.nodes
+            .values()
+            .filter(|node| *node.node_type() == NodeType::Output)
+            .count()
     }
 
     pub fn connect(

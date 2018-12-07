@@ -1,5 +1,5 @@
 // TODO:
-// - Add support for all ResizePolicy variants
+// - Ability to execute a graph in a graph.
 // - Add a resize node, though nodes are able to output a different size than their input, but only
 //   with a default filter (Bilinear?) and ResizePolicy (LargestAxes) then.
 // - Implement same features as Channel Shuffle 1 & 2.

@@ -1,5 +1,5 @@
-use image::{FilterType, ImageBuffer, Luma};
 use crate::error::Result;
+use image::{FilterType, ImageBuffer, Luma};
 use std::{collections::HashMap, path::Path, sync::Arc};
 
 use crate::dag::*;
@@ -30,15 +30,21 @@ pub enum Side {
     Output,
 }
 
-#[derive(Debug, PartialEq)]
 pub enum NodeType {
     Input,
     Output,
+    Graph(TextureProcessor),
     Read(String),
     Write(String),
     Invert,
     Add,
     Multiply,
+}
+
+impl PartialEq for NodeType {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
 }
 
 pub struct Node {
@@ -186,7 +192,7 @@ impl Node {
         }
     }
 
-    pub fn get_type(&self) -> &NodeType {
+    pub fn node_type(&self) -> &NodeType {
         &self.node_type
     }
 
@@ -219,6 +225,7 @@ impl Node {
         let output: Vec<DetachedBuffer> = match self.node_type {
             NodeType::Input => Vec::new(),
             NodeType::Output => Self::output(&sorted_input),
+            NodeType::Graph(ref graph) => Self::graph(graph)?,
             NodeType::Read(ref path) => Self::read(path)?,
             NodeType::Write(ref path) => Self::write(&sorted_input, path)?,
             NodeType::Invert => Self::invert(&sorted_input),
@@ -235,6 +242,7 @@ impl Node {
             Side::Input => match self.node_type {
                 NodeType::Input => 0,
                 NodeType::Output => 4,
+                NodeType::Graph(ref graph) => graph.input_count(),
                 NodeType::Read(_) => 0,
                 NodeType::Write(_) => 4,
                 NodeType::Invert => 1,
@@ -244,6 +252,7 @@ impl Node {
             Side::Output => match self.node_type {
                 NodeType::Input => 4,
                 NodeType::Output => 4,
+                NodeType::Graph(ref graph) => graph.output_count(),
                 NodeType::Read(_) => 4,
                 NodeType::Write(_) => 0,
                 NodeType::Invert => 1,
@@ -266,6 +275,10 @@ impl Node {
         }
 
         outputs
+    }
+
+    fn graph(graph: &TextureProcessor) -> Result<Vec<DetachedBuffer>> {
+        unimplemented!()
     }
 
     fn read(path: &str) -> Result<Vec<DetachedBuffer>> {
