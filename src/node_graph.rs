@@ -2,7 +2,10 @@ use crate::{
     error::*,
     node::*,
 };
-use std::collections::hash_map::HashMap;
+use std::{
+    collections::hash_map::HashMap,
+    sync::Arc,
+};
 
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Default)]
@@ -34,7 +37,7 @@ impl NodeGraph {
 
 
     fn add_node_internal(&mut self, node: Node, id: NodeId) {
-        self.nodes.insert(id, node);
+        self.nodes.insert(id, Arc::new(node));
     }
 
     pub fn add_node(&mut self, node: Node) -> NodeId {
