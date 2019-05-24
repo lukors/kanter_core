@@ -81,7 +81,7 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 }
 
 pub fn resize_buffers(
-    buffers: &mut [DetachedBuffer],
+    node_datas: &mut [Arc<NodeData>],
     policy: Option<ResizePolicy>,
     filter: Option<FilterType>,
 ) -> Result<()> {
@@ -89,29 +89,29 @@ pub fn resize_buffers(
     let filter = filter.unwrap_or(FilterType::Triangle);
 
     let size = match policy {
-        ResizePolicy::MostPixels => buffers
+        ResizePolicy::MostPixels => node_datas
             .iter()
             .max_by(|a, b| a.size().pixel_count().cmp(&b.size().pixel_count()))
             .map(|buffer| buffer.size())
             .unwrap(),
-        ResizePolicy::LeastPixels => buffers
+        ResizePolicy::LeastPixels => node_datas
             .iter()
             .min_by(|a, b| a.size().pixel_count().cmp(&b.size().pixel_count()))
             .map(|buffer| buffer.size())
             .unwrap(),
-        ResizePolicy::LargestAxes => buffers.iter().fold(Size::new(0, 0), |a, b| {
+        ResizePolicy::LargestAxes => node_datas.iter().fold(Size::new(0, 0), |a, b| {
             Size::new(
                 max(a.width(), b.size().width()),
                 max(a.height(), b.size().height()),
             )
         }),
-        ResizePolicy::SmallestAxes => buffers.iter().fold(Size::new(u32::MAX, u32::MAX), |a, b| {
+        ResizePolicy::SmallestAxes => node_datas.iter().fold(Size::new(u32::MAX, u32::MAX), |a, b| {
             Size::new(
                 min(a.width(), b.size().width()),
                 min(a.height(), b.size().height()),
             )
         }),
-        ResizePolicy::SpecificNode(node_id) => buffers
+        ResizePolicy::SpecificNode(node_id) => node_datas
             .iter()
             .find(|buffer| buffer.id() == Some(node_id))
             .expect("Couldn't find a buffer with the given `NodeId` while resizing")
@@ -119,7 +119,7 @@ pub fn resize_buffers(
         ResizePolicy::SpecificSize(size) => size,
     };
 
-    buffers
+    node_datas
         .iter_mut()
         .filter(|ref buffer| buffer.size() != size)
         .for_each(|ref mut buffer| {

@@ -2,6 +2,7 @@ use crate::{
     error::Result,
     node_data::*,
     node_graph::*,
+    process::*,
 };
 use image::ImageBuffer;
 use std::{

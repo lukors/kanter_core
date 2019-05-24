@@ -40,7 +40,7 @@ impl NodeGraph {
     }
 
     pub fn add_node(&mut self, node: Node) -> NodeId {
-        if *node.node_type() == NodeType::Input {
+        if node.node_type == NodeType::Input {
             panic!("Use the `add_input_node()` function when adding an input node");
         }
         let id = self.new_id();
@@ -56,14 +56,14 @@ impl NodeGraph {
     pub fn input_count(&self) -> usize {
         self.nodes
             .values()
-            .filter(|node| *node.node_type() == NodeType::Input)
+            .filter(|node| node.node_type == NodeType::Input)
             .count()
     }
 
     pub fn output_count(&self) -> usize {
         self.nodes
             .values()
-            .filter(|node| *node.node_type() == NodeType::Output)
+            .filter(|node| node.node_type == NodeType::Output)
             .count()
     }
 
