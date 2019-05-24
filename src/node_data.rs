@@ -1,19 +1,12 @@
-use crate::{
-    node::Slot,
-    node_graph::*,
-};
+use crate::node_graph::*;
 use image::{ImageBuffer, Luma};
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
 
 #[derive(Debug)]
 pub struct NodeData {
     pub size: Size,
-    pub slot_id: Slot,
+    pub slot_id: SlotId,
     pub node_id: NodeId,
-    pub buffers: HashMap<Slot, Buffer>,
+    pub buffer: Buffer,
 }
 
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
@@ -23,6 +16,9 @@ pub struct Size {
     width: u32,
     height: u32,
 }
+
+// TODO: In this file I want to change it so that instead of having a `HashMap<Arc<Buffer>>`, it has
+// only one `Buffer`.
 
 impl Size {
     pub fn new(width: u32, height: u32) -> Self {
@@ -46,42 +42,49 @@ pub type ChannelPixel = f32;
 
 
 impl NodeData {
-    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size) -> Self {
+    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Buffer) -> Self {
         Self {
             node_id,
             slot_id, 
             size,
-            buffers: HashMap::new(),
+            buffer,
         }
     }
 
-    pub fn from_buffers(buffers: HashMap<Slot, Arc<Buffer>>) -> Self {
-        if buffers.is_empty() {
-            panic!("Attempted to create a `NodeData` with empty buffers.");
-        }
+    // pub fn from_buffer(buffer: Buffer) -> Self {
+    //     let (width, height) = buffer.dimensions();
+    //     Self {
+    //         size: Size::new(width, height),
+    //         slot_id: 
+    // }
 
-        let (width, height) = buffers.values().next().unwrap().dimensions();
-        for buffer in buffers.values() {
-            if buffer.dimensions() != (width, height) {
-                panic!("Attempted to create `NodeData` with differently sized buffers in slots.");
-            }
-        }
+    // pub fn from_buffers(buffers: HashMap<Slot, Arc<Buffer>>) -> Self {
+    //     if buffers.is_empty() {
+    //         panic!("Attempted to create a `NodeData` with empty buffers.");
+    //     }
 
-        Self {
-            size: Size::new(width, height),
-            buffers,
-        }
-    }
+    //     let (width, height) = buffers.values().next().unwrap().dimensions();
+    //     for buffer in buffers.values() {
+    //         if buffer.dimensions() != (width, height) {
+    //             panic!("Attempted to create `NodeData` with differently sized buffers in slots.");
+    //         }
+    //     }
 
-    pub fn get_buffers(&self) -> &HashMap<Slot, Arc<Buffer>> {
-        &self.buffers
-    }
+    //     Self {
+    //         size: Size::new(width, height),
+    //         buffers,
+    //     }
+    // }
 
-    pub fn get_buffers_mut(&mut self) -> &mut HashMap<Slot, Arc<Buffer>> {
-        &mut self.buffers
-    }
+    // pub fn get_buffers(&self) -> &HashMap<Slot, Arc<Buffer>> {
+    //     &self.buffers
+    // }
 
-    pub fn get_size(&self) -> Size {
-        self.size
-    }
+    // pub fn get_buffers_mut(&mut self) -> &mut HashMap<Slot, Arc<Buffer>> {
+    //     &mut self.buffers
+    // }
+
+    // pub fn get_size(&self) -> Size {
+    //     self.size
+    // }
 }

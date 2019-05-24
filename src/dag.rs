@@ -101,14 +101,12 @@ impl TextureProcessor {
                     continue;
                 }
                 for edge in &self.node_graph.edges {
-                    for data_vec in node_data.get_buffers().iter() {
-                        if node_data.slot_id == edge.output_slot
-                            && node_data.node_id == edge.output_id
-                            && current_id == edge.input_id
-                        {
-                            input_data.push( Arc::clone(node_data) );
-                            relevant_edges.push( edge.clone() );
-                        }
+                    if node_data.slot_id == edge.output_slot
+                        && node_data.node_id == edge.output_id
+                        && current_id == edge.input_id
+                    {
+                        input_data.push( Arc::clone(node_data) );
+                        relevant_edges.push( edge.clone() );
                     }
                 }
             }
@@ -164,9 +162,7 @@ impl TextureProcessor {
             // self.node_datas[&id] = buffers;
         }
 
-        // TODO: I don't understand what this does. Shouldn't it look at the `output_id` instead of
-        // the `input_id` and add that to the `queued_ids` and `started_nodes`?
-        // I think I want to 
+        // Add any child node to the input `NodeId` to the list of nodes to potentially process.
         for edge in &self.node_graph.edges {
             let input_id = edge.input_id;
             if edge.output_id == id
@@ -185,9 +181,12 @@ impl TextureProcessor {
     //         .map(|x| (x * 255.).min(255.) as u8)
     //         .collect()
     // }
+    fn get_node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
+        self.node_datas.iter().filter(|&x| x.node_id == id).map(|x| Arc::clone(x)).collect()
+    }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Result<Vec<u8>> {
-        let buffers = self.node_datas[id.as_usize()].get_buffers();
+        let node_datas = self.get_node_datas(id);
 
         let empty_buffer: Buffer = ImageBuffer::new(0, 0);
         let mut sorted_value_vecs: Vec<&Buffer> = Vec::with_capacity(4);
@@ -196,12 +195,12 @@ impl TextureProcessor {
         sorted_value_vecs.push(&empty_buffer);
         sorted_value_vecs.push(&empty_buffer);
 
-        for (slot, buffer) in buffers {
-            match slot {
-                Slot(0) => sorted_value_vecs[0] = &buffer,
-                Slot(1) => sorted_value_vecs[1] = &buffer,
-                Slot(2) => sorted_value_vecs[2] = &buffer,
-                Slot(3) => sorted_value_vecs[3] = &buffer,
+        for node_data in node_datas {
+            match node_data.slot_id {
+                SlotId(0) => sorted_value_vecs[0] = &node_data.buffer,
+                SlotId(1) => sorted_value_vecs[1] = &node_data.buffer,
+                SlotId(2) => sorted_value_vecs[2] = &node_data.buffer,
+                SlotId(3) => sorted_value_vecs[3] = &node_data.buffer,
                 _ => continue,
             }
         }

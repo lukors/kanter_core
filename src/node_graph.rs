@@ -35,7 +35,6 @@ impl NodeGraph {
         self.edges
     }
 
-
     fn add_node_internal(&mut self, node: Node, id: NodeId) {
         self.nodes.insert(id, Arc::new(node));
     }
@@ -72,8 +71,8 @@ impl NodeGraph {
         &mut self,
         id_1: NodeId,
         id_2: NodeId,
-        slot_1: Slot,
-        slot_2: Slot,
+        slot_1: SlotId,
+        slot_2: SlotId,
     ) -> Result<()> {
         if !self.nodes.contains_key(&id_1) || !self.nodes.contains_key(&id_2) {
             return Err(TexProError::InvalidNodeId);
@@ -88,7 +87,7 @@ impl NodeGraph {
         Ok(())
     }
 
-    pub fn slot_occupied(&self, id: NodeId, side: Side, slot: Slot) -> bool {
+    pub fn slot_occupied(&self, id: NodeId, side: Side, slot: SlotId) -> bool {
         match side {
             Side::Input => self
                 .edges
@@ -112,16 +111,25 @@ impl NodeId {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct SlotId(pub u32);
+
+impl SlotId {
+    pub fn as_usize(&self) -> usize {
+        self.0 as usize
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Edge {
     pub output_id: NodeId,
     pub input_id: NodeId,
-    pub output_slot: Slot,
-    pub input_slot: Slot,
+    pub output_slot: SlotId,
+    pub input_slot: SlotId,
 }
 
 impl Edge {
-    pub fn new(output_id: NodeId, input_id: NodeId, output_slot: Slot, input_slot: Slot) -> Self {
+    pub fn new(output_id: NodeId, input_id: NodeId, output_slot: SlotId, input_slot: SlotId) -> Self {
         Self {
             output_id,
             output_slot,
@@ -138,11 +146,11 @@ impl Edge {
         self.input_id
     }
 
-    pub fn output_slot(&self) -> Slot {
+    pub fn output_slot(&self) -> SlotId {
         self.output_slot
     }
 
-    pub fn input_slot(&self) -> Slot {
+    pub fn input_slot(&self) -> SlotId {
         self.input_slot
     }
 }
