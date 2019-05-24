@@ -103,6 +103,12 @@ impl NodeGraph {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct NodeId(pub u32);
 
+impl NodeId {
+    pub fn as_usize(&self) -> usize {
+        self.0 as usize
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Edge {
     pub output_id: NodeId,

@@ -1,11 +1,11 @@
 use crate::{
-    error::{Result, TexProError},
+    error::Result,
     node_data::*,
     node_graph::*,
 };
-use image::{DynamicImage, ImageBuffer};
+use image::ImageBuffer;
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashSet, VecDeque},
     sync::{mpsc, Arc},
     thread,
 };
@@ -136,37 +136,43 @@ impl TextureProcessor {
         unimplemented!()
     }
 
-    /// 
+    /// Takes a node and the data it generated, marks it as finished and puts the data in the
+    /// `TextureProcessor`'s data vector.
+    /// Then it adds any child `NodeId`s of the input `NodeId` to the list of `NodeId`s to process.
     fn set_node_finished(
         &mut self,
         id: NodeId,
         // For refactoring: Used to be `buffers: Option<Vec<Arc<Buffer>>>`:
-        node_data: Option<Vec<Arc<NodeData>>>,
+        node_datas: Option<Vec<Arc<NodeData>>>,
         started_nodes: &mut HashSet<NodeId>,
         finished_nodes: &mut HashSet<NodeId>,
         queued_ids: &mut VecDeque<NodeId>,
     ) {
         finished_nodes.insert(id);
 
-        if let Some(buffers) = buffers {
-            if !buffers.is_empty() {
-                // let id = buffers[0].id;
-                self.node_datas.push(NodeData::new(buffers[0].size()));
-                for buffer in buffers {
-                    self.node_datas
-                        .get_mut(&id)
-                        .unwrap()
-                        .get_buffers_mut()
-                        .insert(buffer.slot(), buffer.buffer());
-                }
-            }
+        if let Some(node_datas) = node_datas {
+            self.node_datas.append(&mut node_datas);
+            // self.node_datas.push(NodeData::new(node_datas[0].size()));
+            // for node_data in node_datas {
+                // self.node_datas.push(node_data);
+                // self.node_datas
+                //     .get_mut(&id)
+                //     .unwrap()
+                //     .get_buffers_mut()
+                //     .insert(node_data.slot(), node_data.buffer());
+            // }
             // self.node_datas[&id] = buffers;
         }
 
-        for edge in &self.edges {
-            if !started_nodes.contains(&edge.input_id) {
-                queued_ids.push_back(edge.input_id);
-                started_nodes.insert(edge.input_id);
+        // TODO: I don't understand what this does. Shouldn't it look at the `output_id` instead of
+        // the `input_id` and add that to the `queued_ids` and `started_nodes`?
+        // I think I want to 
+        for edge in &self.node_graph.edges {
+            let input_id = edge.input_id;
+            if edge.output_id == id
+            && !started_nodes.contains(&input_id) {
+                queued_ids.push_back(input_id);
+                started_nodes.insert(input_id);
             }
         }
     }
@@ -181,7 +187,7 @@ impl TextureProcessor {
     // }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Result<Vec<u8>> {
-        let buffers = self.node_datas[&id].get_buffers();
+        let buffers = self.node_datas[id.as_usize()].get_buffers();
 
         let empty_buffer: Buffer = ImageBuffer::new(0, 0);
         let mut sorted_value_vecs: Vec<&Buffer> = Vec::with_capacity(4);
@@ -210,10 +216,10 @@ impl TextureProcessor {
     }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {
-        self.nodes
+        self.node_graph.nodes
             .keys()
             .filter(|node_id| {
-                self.edges
+                self.node_graph.edges
                     .iter()
                     .map(|edge| edge.output_id)
                     .any(|x| x == **node_id)
@@ -223,12 +229,12 @@ impl TextureProcessor {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn placeholder() {
-        ()
-    }
-}
+//     #[test]
+//     fn placeholder() {
+//         ()
+//     }
+// }
