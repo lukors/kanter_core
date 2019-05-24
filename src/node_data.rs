@@ -11,14 +11,14 @@ pub struct NodeData {
 
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
 
+// TODO: In this file I want to change it so that instead of having a `HashMap<Arc<Buffer>>`, it has
+// only one `Buffer`.
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Size {
     pub width: u32,
     pub height: u32,
 }
-
-// TODO: In this file I want to change it so that instead of having a `HashMap<Arc<Buffer>>`, it has
-// only one `Buffer`.
 
 impl Size {
     pub fn new(width: u32, height: u32) -> Self {

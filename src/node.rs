@@ -5,6 +5,7 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use crate::{
     dag::*,
     node_graph::*,
+    node_data::*,
     shared::*,
 };
 
@@ -54,30 +55,6 @@ pub struct Node {
     pub node_type: NodeType,
     pub resize_policy: Option<ResizePolicy>,
     pub filter_type: Option<FilterType>,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Size {
-    width: u32,
-    height: u32,
-}
-
-impl Size {
-    pub fn new(width: u32, height: u32) -> Self {
-        Size { width, height }
-    }
-
-    pub fn pixel_count(self) -> u32 {
-        self.width * self.height
-    }
-
-    pub fn width(self) -> u32 {
-        self.width
-    }
-
-    pub fn height(self) -> u32 {
-        self.height
-    }
 }
 
 impl Node {

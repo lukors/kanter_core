@@ -1,5 +1,8 @@
 use crate::error::{Result, TexProError};
-use crate::node::{Buffer, ChannelPixel, DetachedBuffer, ResizePolicy, Size, Slot};
+use crate::{
+    node::*,
+    node_data::*,
+};
 use image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
 use std::{
     cmp::{max, min},
@@ -91,68 +94,68 @@ pub fn resize_buffers(
     let size = match policy {
         ResizePolicy::MostPixels => node_datas
             .iter()
-            .max_by(|a, b| a.size().pixel_count().cmp(&b.size().pixel_count()))
-            .map(|buffer| buffer.size())
+            .max_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
+            .map(|node_data| node_data.size)
             .unwrap(),
         ResizePolicy::LeastPixels => node_datas
             .iter()
-            .min_by(|a, b| a.size().pixel_count().cmp(&b.size().pixel_count()))
-            .map(|buffer| buffer.size())
+            .min_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
+            .map(|node_data| node_data.size)
             .unwrap(),
         ResizePolicy::LargestAxes => node_datas.iter().fold(Size::new(0, 0), |a, b| {
             Size::new(
-                max(a.width(), b.size().width()),
-                max(a.height(), b.size().height()),
+                max(a.width, b.size.width),
+                max(a.height, b.size.height),
             )
         }),
         ResizePolicy::SmallestAxes => node_datas.iter().fold(Size::new(u32::MAX, u32::MAX), |a, b| {
             Size::new(
-                min(a.width(), b.size().width()),
-                min(a.height(), b.size().height()),
+                min(a.width, b.size.width),
+                min(a.height, b.size.height),
             )
         }),
         ResizePolicy::SpecificNode(node_id) => node_datas
             .iter()
-            .find(|buffer| buffer.id() == Some(node_id))
+            .find(|node_data| node_data.node_id == node_id)
             .expect("Couldn't find a buffer with the given `NodeId` while resizing")
-            .size(),
+            .size,
         ResizePolicy::SpecificSize(size) => size,
     };
 
     node_datas
         .iter_mut()
-        .filter(|ref buffer| buffer.size() != size)
-        .for_each(|ref mut buffer| {
+        .filter(|ref node_data| node_data.size != size)
+        .for_each(|ref mut node_data| {
             let resized_buffer =
-                imageops::resize(&*buffer.buffer(), size.width(), size.height(), filter);
-            buffer.set_buffer(resized_buffer);
-            buffer.set_size(size);
+                imageops::resize(&*node_data.buffer, size.width, size.height, filter);
+            node_data.buffer = resized_buffer;
+            node_data.size = size;
         });
 
     Ok(())
 }
 
-pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<DetachedBuffer>> {
+pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {
     let image = image::open(path)?;
     let buffers = deconstruct_image(&image);
 
-    let mut output = Vec::new();
+    // let mut output = Vec::new();
 
-    for (channel, buffer) in buffers.into_iter().enumerate() {
-        output.push(DetachedBuffer::new(
-            None,
-            Slot(channel),
-            Size::new(image.width(), image.height()),
-            Arc::new(buffer),
-        ));
-    }
+    // for buffer in buffers.into_iter() {
+    //     output.push(NodeData::new(
+    //         None,
+    //         Slot(channel),
+    //         Size::new(image.width, image.height),
+    //         Arc::new(buffer),
+    //     ));
+    // }
 
-    Ok(output)
+    Ok(buffers)
 }
 
-pub fn write_image<P: AsRef<Path>>(inputs: &[DetachedBuffer], path: P) -> Result<()> {
-    let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| node_data.buffer()).collect();
-    let (width, height) = (inputs[0].size().width(), inputs[0].size().height());
+pub fn write_image<P: AsRef<Path>>(inputs: &[Arc<NodeData>], path: P) -> Result<()> {
+    let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| node_data.buffer).collect();
+    let (width, height) = (inputs[0].size.width, inputs[0].size.height);
     let img = {
         if let Some(img) =
             image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)?)
