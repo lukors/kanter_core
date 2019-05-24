@@ -13,8 +13,8 @@ pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Size {
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 // TODO: In this file I want to change it so that instead of having a `HashMap<Arc<Buffer>>`, it has
@@ -27,14 +27,6 @@ impl Size {
 
     pub fn pixel_count(self) -> u32 {
         self.width * self.height
-    }
-
-    pub fn width(self) -> u32 {
-        self.width
-    }
-
-    pub fn height(self) -> u32 {
-        self.height
     }
 }
 

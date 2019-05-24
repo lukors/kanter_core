@@ -86,7 +86,7 @@ fn read(path: &str) -> Result<Vec<Arc<NodeData>>> {
 }
 
 fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {
-    let channel_vec: Vec<&Buffer> = inputs.iter().map(|node_data| &*node_data.buffer).collect();
+    let channel_vec: Vec<&Buffer> = inputs.iter().map(|node_data| &node_data.buffer).collect();
     let (width, height) = (inputs[0].size.width, inputs[0].size.height);
 
     image::save_buffer(
@@ -133,7 +133,7 @@ fn add(input_0: Arc<NodeData>, input_1: Arc<NodeData>) -> Vec<Arc<NodeData>> {
     // }]
 }
 
-fn multiply(input_0: &DetachedBuffer, input_1: &DetachedBuffer) -> Vec<DetachedBuffer> {
+fn multiply(input_0: &Arc<NodeData>, input_1: &Arc<NodeData>) -> Vec<Arc<NodeData>> {
     unimplemented!()
     // let (width, height) = (input_0.size.width, input_1.size.height);
 
