@@ -47,7 +47,7 @@ impl TextureProcessor {
             for message in recv.try_iter() {
                 self.set_node_finished(
                     message.node_id,
-                    Some(message.node_datas),
+                    &mut Some(message.node_datas),
                     &mut started_nodes,
                     &mut finished_nodes,
                     &mut queued_ids,
@@ -59,10 +59,10 @@ impl TextureProcessor {
                 None => continue,
             };
 
-            if self.node_datas.iter().any(|&x| x.node_id == current_id) {
+            if self.node_datas.iter().any(|x| x.node_id == current_id) {
                 self.set_node_finished(
                     current_id,
-                    None,
+                    &mut None,
                     &mut started_nodes,
                     &mut finished_nodes,
                     &mut queued_ids,
@@ -83,7 +83,7 @@ impl TextureProcessor {
             }
 
             let mut relevant_ids: Vec<NodeId> = Vec::new();
-            for node_data in self.node_datas {
+            for node_data in &self.node_datas {
                 for edge in &self.node_graph.edges {
                     if edge.output_id != node_data.node_id {
                         continue;
@@ -142,7 +142,7 @@ impl TextureProcessor {
         &mut self,
         id: NodeId,
         // For refactoring: Used to be `buffers: Option<Vec<Arc<Buffer>>>`:
-        node_datas: Option<Vec<Arc<NodeData>>>,
+        node_datas: &mut Option<Vec<Arc<NodeData>>>,
         started_nodes: &mut HashSet<NodeId>,
         finished_nodes: &mut HashSet<NodeId>,
         queued_ids: &mut VecDeque<NodeId>,
@@ -150,7 +150,7 @@ impl TextureProcessor {
         finished_nodes.insert(id);
 
         if let Some(node_datas) = node_datas {
-            self.node_datas.append(&mut node_datas);
+            self.node_datas.append(node_datas);
             // self.node_datas.push(NodeData::new(node_datas[0].size()));
             // for node_data in node_datas {
                 // self.node_datas.push(node_data);
@@ -189,22 +189,32 @@ impl TextureProcessor {
     pub fn get_output_rgba(&self, id: NodeId) -> Result<Vec<u8>> {
         let node_datas = self.get_node_datas(id);
 
-        let empty_buffer: Buffer = ImageBuffer::new(0, 0);
+        let empty_buffer: Buffer = Box::new(ImageBuffer::new(0, 0));
         let mut sorted_value_vecs: Vec<&Buffer> = Vec::with_capacity(4);
         sorted_value_vecs.push(&empty_buffer);
         sorted_value_vecs.push(&empty_buffer);
         sorted_value_vecs.push(&empty_buffer);
         sorted_value_vecs.push(&empty_buffer);
 
-        for node_data in node_datas {
+        // for node_data in node_datas {
+        //     match node_data.slot_id {
+        //         SlotId(0) => sorted_value_vecs[0] = &node_data.buffer,
+        //         SlotId(1) => sorted_value_vecs[1] = &node_data.buffer,
+        //         SlotId(2) => sorted_value_vecs[2] = &node_data.buffer,
+        //         SlotId(3) => sorted_value_vecs[3] = &node_data.buffer,
+        //         _ => continue,
+        //     }
+        // }
+
+        sorted_value_vecs = node_datas.iter().map(|node_data| {
             match node_data.slot_id {
-                SlotId(0) => sorted_value_vecs[0] = &node_data.buffer,
-                SlotId(1) => sorted_value_vecs[1] = &node_data.buffer,
-                SlotId(2) => sorted_value_vecs[2] = &node_data.buffer,
-                SlotId(3) => sorted_value_vecs[3] = &node_data.buffer,
-                _ => continue,
+                SlotId(0) => &node_data.buffer,
+                SlotId(1) => &node_data.buffer,
+                SlotId(2) => &node_data.buffer,
+                SlotId(3) => &node_data.buffer,
+                _ => &empty_buffer,
             }
-        }
+        }).collect();
 
         for value_vec in &sorted_value_vecs {
             if value_vec.is_empty() {
@@ -212,7 +222,8 @@ impl TextureProcessor {
             }
         }
 
-        channels_to_rgba(&sorted_value_vecs)
+        let sorted_value_vecs_refs: Vec<&Buffer> = sorted_value_vecs.iter().map(|buf| *buf).collect();
+        channels_to_rgba(&sorted_value_vecs_refs)
     }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {

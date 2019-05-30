@@ -9,7 +9,7 @@ pub struct NodeData {
     pub buffer: Buffer,
 }
 
-pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
+pub type Buffer = Box<ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>>;
 
 // TODO: In this file I want to change it so that instead of having a `HashMap<Arc<Buffer>>`, it has
 // only one `Buffer`.

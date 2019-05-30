@@ -77,8 +77,8 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
     pixel_vecs
         .into_iter()
         .map(|p_vec| {
-            ImageBuffer::from_raw(width, height, p_vec)
-                .expect("A bug in the deconstruct_image function caused a crash")
+            Box::new(ImageBuffer::from_raw(width, height, p_vec)
+                .expect("A bug in the deconstruct_image function caused a crash"))
         })
         .collect()
 }
@@ -127,7 +127,7 @@ pub fn resize_buffers(
         .filter(|ref node_data| node_data.size != size)
         .for_each(|ref mut node_data| {
             let resized_buffer =
-                imageops::resize(&node_data.buffer, size.width, size.height, filter);
+                Box::new(imageops::resize(&*node_data.buffer, size.width, size.height, filter));
             node_data.buffer = resized_buffer;
             node_data.size = size;
         });
