@@ -10,7 +10,7 @@ use std::{
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Default)]
 pub struct NodeGraph {
-    pub nodes: HashMap<NodeId, Arc<Node>>,
+    pub nodes: Vec<Arc<Node>>,
     pub edges: Vec<Edge>,
 }
 
@@ -31,12 +31,17 @@ impl NodeGraph {
         }
     }
 
+    fn has_node_with_id(&self, node_id: NodeId) -> bool {
+        self.nodes.
+    }
+
     fn edges(&self) -> &[Edge] {
         &self.edges
     }
 
     fn add_node_internal(&mut self, node: Node, id: NodeId) {
-        self.nodes.insert(id, Arc::new(node));
+        node.node_id = id;
+        self.nodes.push(Arc::new(node));
     }
 
     pub fn add_node(&mut self, node: Node) -> NodeId {

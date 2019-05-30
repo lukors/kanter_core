@@ -59,9 +59,9 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(node_id: NodeId, node_type: NodeType) -> Self {
+    pub fn new(node_type: NodeType) -> Self {
         Self {
-            node_id,
+            node_id: NodeId(0),
             node_type,
             resize_policy: None,
             filter_type: None,
