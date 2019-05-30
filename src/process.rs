@@ -63,19 +63,20 @@ pub fn process_node(
 // TODO: Re-implement the deactivated node type process functions.
 
 fn output(inputs: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
-    unimplemented!()
-    // let mut outputs: Vec<NodeData> = Vec::with_capacity(inputs.len());
+    let mut outputs: Vec<Arc<NodeData>> = inputs.iter().map(|node_data| Arc::clone(node_data));
 
-    // for (slot, _input) in inputs.iter().enumerate() {
-    //     outputs.push(NodeData {
-    //         id: None,
-    //         slot: Slot(slot),
-    //         size: inputs[slot].size,
-    //         buffer: Arc::clone(&inputs[slot].buffer),
-    //     });
-    // }
+    outputs.iter_mut().enumerate().for_each(|i, node_data| node_data.slot_id = i)
 
-    // outputs
+    for (slot, input) in inputs.iter().enumerate() {
+        outputs.push(Arc::clone(NodeData::new(
+            inputs[0].node_id,
+            SlotId(slot as u32),
+            inputs[slot].size,
+            inputs[slot].buffer,
+        )));
+    }
+
+    outputs
 }
 
 fn graph(inputs: &[Arc<NodeData>], graph: &NodeGraph) -> Result<Vec<Arc<NodeData>>> {
