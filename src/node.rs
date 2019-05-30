@@ -19,15 +19,6 @@ pub enum ResizePolicy {
     SpecificSize(Size),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Ord, PartialOrd, Eq, Hash)]
-pub struct Slot(pub usize);
-
-impl Slot {
-    fn as_usize(self) -> usize {
-        self.0
-    }
-}
-
 #[derive(Clone, Copy)]
 pub enum Side {
     Input,

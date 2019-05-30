@@ -13,7 +13,7 @@ use crate::{
 // TODO: I want to make this function take a node and process it.
 pub fn process_node(
     node: Arc<Node>,
-    input_node_datas: Vec<Arc<NodeData>>,
+    input_node_datas: &[Arc<NodeData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<NodeData>>> {
     assert!(input_node_datas.len() <= node.capacity(Side::Input));

@@ -1,8 +1,8 @@
 use std::path::Path;
 use texture_processor::{
     dag::TextureProcessor,
-    node::{Node, NodeType, Slot},
-    node_graph::NodeGraph,
+    node::{Node, NodeType},
+    node_graph::{NodeGraph, SlotId},
 };
 
 #[test]
@@ -13,16 +13,16 @@ fn input_output() {
     let output_node = node_graph.add_node(Node::new(NodeType::Output));
 
     node_graph
-        .connect(input_node, output_node, Slot(0), Slot(0))
+        .connect(input_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
     node_graph
-        .connect(input_node, output_node, Slot(1), Slot(1))
+        .connect(input_node, output_node, SlotId(1), SlotId(1))
         .unwrap();
     node_graph
-        .connect(input_node, output_node, Slot(2), Slot(2))
+        .connect(input_node, output_node, SlotId(2), SlotId(2))
         .unwrap();
     node_graph
-        .connect(input_node, output_node, Slot(3), Slot(3))
+        .connect(input_node, output_node, SlotId(3), SlotId(3))
         .unwrap();
 
     let mut tex_pro = TextureProcessor::new();

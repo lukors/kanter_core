@@ -31,23 +31,22 @@ impl TextureProcessor {
     pub fn process(&mut self) {
         struct ThreadMessage {
             node_id: NodeId,
-            node_datas: Vec<Arc<NodeData>>,
+            node_datas: Result<Vec<Arc<NodeData>>>,
         }
-
         let (send, recv) = mpsc::channel::<ThreadMessage>();
-        let mut finished_nodes: HashSet<NodeId> = HashSet::with_capacity(self.node_graph.nodes.len());
-        let mut started_nodes: HashSet<NodeId> = HashSet::with_capacity(self.node_graph.nodes.len());
+        let mut finished_nodes: HashSet<NodeId> = HashSet::with_capacity(self.node_graph.nodes().len());
+        let mut started_nodes: HashSet<NodeId> = HashSet::with_capacity(self.node_graph.nodes().len());
 
         let mut queued_ids: VecDeque<NodeId> = VecDeque::from(self.get_root_ids());
         for item in &queued_ids {
             started_nodes.insert(*item);
         }
 
-        'outer: while finished_nodes.len() < self.node_graph.nodes.len() {
+        'outer: while finished_nodes.len() < self.node_graph.nodes().len() {
             for message in recv.try_iter() {
                 self.set_node_finished(
                     message.node_id,
-                    &mut Some(message.node_datas),
+                    &mut Some(message.node_datas.unwrap()),
                     &mut started_nodes,
                     &mut finished_nodes,
                     &mut queued_ids,
@@ -114,11 +113,11 @@ impl TextureProcessor {
 
             // Spawn a thread and calculate the node in it and send back the new `node_data`s for
             // each slot in the node.
-            let current_node = Arc::clone(&self.node_graph.nodes[&current_id]);
+            let current_node = Arc::clone(self.node_graph.node_with_id(current_id).unwrap());
             let send = send.clone();
 
             thread::spawn(move || {
-                let node_datas: Vec<Arc<NodeData>> = Self::process_node(current_node, &mut input_data, relevant_edges);
+                let node_datas: Result<Vec<Arc<NodeData>>> = process_node(current_node, &input_data, &relevant_edges);
 
                 match send.send(ThreadMessage {
                     node_id: current_id,
@@ -131,9 +130,9 @@ impl TextureProcessor {
         }
     }
 
-    fn process_node(node: Arc<Node>, data: &mut Vec<Arc<NodeData>>, edges: Vec<Edge>) -> Vec<Arc<NodeData>> {
-        unimplemented!()
-    }
+    // fn process_node(node: Arc<Node>, data: &mut Vec<Arc<NodeData>>, edges: Vec<Edge>) -> Vec<Arc<NodeData>> {
+    //     unimplemented!()
+    // }
 
     /// Takes a node and the data it generated, marks it as finished and puts the data in the
     /// `TextureProcessor`'s data vector.
@@ -227,15 +226,15 @@ impl TextureProcessor {
     }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {
-        self.node_graph.nodes
-            .keys()
-            .filter(|node_id| {
+        self.node_graph.nodes()
+            .iter()
+            .filter(|node| {
                 self.node_graph.edges
                     .iter()
                     .map(|edge| edge.output_id)
-                    .any(|x| x == **node_id)
+                    .any(|x| x == node.node_id)
             })
-            .cloned()
+            .map(|node| node.node_id)
             .collect::<Vec<NodeId>>()
     }
 }

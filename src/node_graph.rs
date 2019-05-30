@@ -10,14 +10,14 @@ use std::{
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Default)]
 pub struct NodeGraph {
-    pub nodes: Vec<Arc<Node>>,
+    nodes: Vec<Arc<Node>>,
     pub edges: Vec<Edge>,
 }
 
 impl NodeGraph {
     pub fn new() -> Self {
         Self {
-            nodes: HashMap::new(),
+            nodes: Vec::new(),
             edges: Vec::new(),
         }
     }
@@ -25,21 +25,29 @@ impl NodeGraph {
     fn new_id(&mut self) -> NodeId {
         loop {
             let id = NodeId(rand::random());
-            if !self.nodes.contains_key(&id) {
+            if !self.has_node_with_id(id) {
                 return id;
             }
         }
     }
 
     fn has_node_with_id(&self, node_id: NodeId) -> bool {
-        self.nodes.
+        self.nodes.iter().any(|node| node.node_id == node_id)
+    }
+
+    pub fn nodes(&self) -> &Vec<Arc<Node>> {
+        &self.nodes
+    }
+
+    pub fn node_with_id(&self, node_id: NodeId) -> Option<&Arc<Node>> {
+        self.nodes.iter().find(|node| node.node_id == node_id)
     }
 
     fn edges(&self) -> &[Edge] {
         &self.edges
     }
 
-    fn add_node_internal(&mut self, node: Node, id: NodeId) {
+    fn add_node_internal(&mut self, mut node: Node, id: NodeId) {
         node.node_id = id;
         self.nodes.push(Arc::new(node));
     }
@@ -60,14 +68,14 @@ impl NodeGraph {
 
     pub fn input_count(&self) -> usize {
         self.nodes
-            .values()
+            .iter()
             .filter(|node| node.node_type == NodeType::Input)
             .count()
     }
 
     pub fn output_count(&self) -> usize {
         self.nodes
-            .values()
+            .iter()
             .filter(|node| node.node_type == NodeType::Output)
             .count()
     }
@@ -79,7 +87,7 @@ impl NodeGraph {
         slot_1: SlotId,
         slot_2: SlotId,
     ) -> Result<()> {
-        if !self.nodes.contains_key(&id_1) || !self.nodes.contains_key(&id_2) {
+        if !self.has_node_with_id(id_1) || !self.has_node_with_id(id_2) {
             return Err(TexProError::InvalidNodeId);
         }
 
