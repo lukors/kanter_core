@@ -19,7 +19,8 @@ pub fn process_node(
     assert!(input_node_datas.len() <= node.capacity(Side::Input));
     assert_eq!(edges.len(), input_node_datas.len());
 
-    resize_buffers(&mut input_node_datas, node.resize_policy, node.filter_type)?;
+    let input_node_datas: Vec<Arc<NodeData>> =
+        resize_buffers(&input_node_datas, node.resize_policy, node.filter_type)?;
 
     // NOTE: I believe this code is no longer needed because it used to be that I sent in buffers,
     // which meant I needed to sort them in the order they were supposed to be in for the
@@ -51,7 +52,7 @@ pub fn process_node(
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Invert => invert(&input_node_datas),
-        NodeType::Add => add(input_node_datas[0], input_node_datas[1]), // TODO: These should take the entire vector and not two arguments
+        NodeType::Add => add(Arc::clone(&input_node_datas[0]), Arc::clone(&input_node_datas[1])), // TODO: These should take the entire vector and not two arguments
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
     };
 

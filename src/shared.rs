@@ -84,10 +84,10 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 }
 
 pub fn resize_buffers(
-    node_datas: &mut [Arc<NodeData>],
+    node_datas: &[Arc<NodeData>],
     policy: Option<ResizePolicy>,
     filter: Option<FilterType>,
-) -> Result<()> {
+) -> Result<Vec<Arc<NodeData>>> {
     let policy = policy.unwrap_or(ResizePolicy::LargestAxes);
     let filter = filter.unwrap_or(FilterType::Triangle);
 
@@ -122,17 +122,21 @@ pub fn resize_buffers(
         ResizePolicy::SpecificSize(size) => size,
     };
 
-    node_datas
-        .iter_mut()
-        .filter(|ref node_data| node_data.size != size)
-        .for_each(|ref mut node_data| {
-            let resized_buffer =
-                Box::new(imageops::resize(&*node_data.buffer, size.width, size.height, filter));
-            node_data.buffer = resized_buffer;
-            node_data.size = size;
-        });
+    let output: Vec<Arc<NodeData>> = node_datas
+        .iter()
+        // .filter(|ref node_data| node_data.size != size)
+        .map(|ref node_data| {
+            if node_data.size != size { // Needs to be resized
+                let resized_buffer =
+                    Box::new(imageops::resize(&*node_data.buffer, size.width, size.height, filter));
+                Arc::new(NodeData::new(node_data.node_id, node_data.slot_id, node_data.size, resized_buffer))
+            } else { // Does not need to be resized
+                Arc::clone(node_data)
+            }
+        })
+        .collect();
 
-    Ok(())
+    Ok(output)
 }
 
 pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {

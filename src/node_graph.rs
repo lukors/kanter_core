@@ -31,8 +31,8 @@ impl NodeGraph {
         }
     }
 
-    fn edges(&self) -> Vec<Edge> {
-        self.edges
+    fn edges(&self) -> &[Edge] {
+        &self.edges
     }
 
     fn add_node_internal(&mut self, node: Node, id: NodeId) {
@@ -120,7 +120,7 @@ impl SlotId {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Edge {
     pub output_id: NodeId,
     pub input_id: NodeId,
