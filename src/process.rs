@@ -19,7 +19,7 @@ pub fn process_node(
     assert!(input_node_datas.len() <= node.capacity(Side::Input));
     assert_eq!(edges.len(), input_node_datas.len());
 
-    resize_buffers(input_node_datas, node.resize_policy, node.filter_type)?;
+    resize_buffers(&mut input_node_datas, node.resize_policy, node.filter_type)?;
 
     // NOTE: I believe this code is no longer needed because it used to be that I sent in buffers,
     // which meant I needed to sort them in the order they were supposed to be in for the
@@ -48,7 +48,7 @@ pub fn process_node(
         NodeType::Input => Vec::new(),
         NodeType::Output => output(&input_node_datas),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, node_graph)?,
-        NodeType::Read(ref path) => read(path)?,
+        NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Invert => invert(&input_node_datas),
         NodeType::Add => add(input_node_datas[0], input_node_datas[1]), // TODO: These should take the entire vector and not two arguments
@@ -81,8 +81,29 @@ fn graph(inputs: &[Arc<NodeData>], graph: &NodeGraph) -> Result<Vec<Arc<NodeData
     unimplemented!()
 }
 
-fn read(path: &str) -> Result<Vec<Arc<NodeData>>> {
-    Ok(read_image(&Path::new(path))?)
+fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
+    let buffers = read_image(&Path::new(path))?;
+    let size = Size{width: buffers[0].width(), height: buffers[0].height()};
+    // Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
+
+    let mut output: Vec<Arc<NodeData>> = Vec::with_capacity(4);
+    for (channel, buffer) in buffers.into_iter().enumerate() {
+        output.push(Arc::new(NodeData::new(
+            node.node_id,
+            SlotId(channel as u32),
+            size,
+            buffer
+        )));
+
+        // output.push(NodeData::new(
+        //     None,
+        //     Slot(channel),
+        //     Size::new(image.width, image.height),
+        //     Arc::new(buffer),
+        // ));
+    }
+
+    Ok(output)
 }
 
 fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {

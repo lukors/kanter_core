@@ -52,14 +52,16 @@ impl PartialEq for NodeType {
 }
 
 pub struct Node {
+    pub node_id: NodeId,
     pub node_type: NodeType,
     pub resize_policy: Option<ResizePolicy>,
     pub filter_type: Option<FilterType>,
 }
 
 impl Node {
-    pub fn new(node_type: NodeType) -> Self {
+    pub fn new(node_id: NodeId, node_type: NodeType) -> Self {
         Self {
+            node_id,
             node_type,
             resize_policy: None,
             filter_type: None,
