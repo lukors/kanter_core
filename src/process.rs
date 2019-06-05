@@ -47,7 +47,7 @@ pub fn process_node(
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::Input => Vec::new(),
-        NodeType::Output => output(&input_node_datas),
+        NodeType::Output => output(&input_node_datas, edges),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, node_graph)?,
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
@@ -62,21 +62,15 @@ pub fn process_node(
 
 // TODO: Re-implement the deactivated node type process functions.
 
-fn output(inputs: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
-    let mut outputs: Vec<Arc<NodeData>> = inputs.iter().map(|node_data| Arc::clone(node_data));
+fn output(inputs: &[Arc<NodeData>], edges: &[Edge]) -> Vec<Arc<NodeData>> {
+    let new_node_id = edges[0].input_id;
 
-    outputs.iter_mut().enumerate().for_each(|i, node_data| node_data.slot_id = i)
-
-    for (slot, input) in inputs.iter().enumerate() {
-        outputs.push(Arc::clone(NodeData::new(
-            inputs[0].node_id,
-            SlotId(slot as u32),
-            inputs[slot].size,
-            inputs[slot].buffer,
-        )));
+    let mut new_node_datas: Vec<NodeData> = inputs.iter().map(|node_data| (**node_data).clone()).collect();
+    for new_node_data in &mut new_node_datas {
+        new_node_data.node_id = new_node_id;
     }
 
-    outputs
+    new_node_datas.into_iter().map(|node_data| Arc::new(node_data)).collect()
 }
 
 fn graph(inputs: &[Arc<NodeData>], graph: &NodeGraph) -> Result<Vec<Arc<NodeData>>> {

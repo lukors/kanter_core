@@ -12,6 +12,7 @@ use std::{
 };
 
 pub fn channels_to_rgba(channels: &[&Buffer]) -> Result<Vec<u8>> {
+    dbg!(channels.len());
     if channels.len() != 4 {
         return Err(TexProError::InvalidBufferCount);
     }

@@ -1,7 +1,7 @@
 use crate::node_graph::*;
 use image::{ImageBuffer, Luma};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NodeData {
     pub size: Size,
     pub slot_id: SlotId,

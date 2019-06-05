@@ -12,23 +12,19 @@ fn input_output() {
     let input_node = node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string())));
     let output_node = node_graph.add_node(Node::new(NodeType::Output));
 
-    node_graph
-        .connect(input_node, output_node, SlotId(0), SlotId(0))
-        .unwrap();
-    node_graph
-        .connect(input_node, output_node, SlotId(1), SlotId(1))
-        .unwrap();
-    node_graph
-        .connect(input_node, output_node, SlotId(2), SlotId(2))
-        .unwrap();
-    node_graph
-        .connect(input_node, output_node, SlotId(3), SlotId(3))
-        .unwrap();
+    dbg!(input_node);
+    dbg!(output_node);
+
+    node_graph.connect(input_node, output_node, SlotId(0), SlotId(0)).unwrap();
+    node_graph.connect(input_node, output_node, SlotId(1), SlotId(1)).unwrap();
+    node_graph.connect(input_node, output_node, SlotId(2), SlotId(2)).unwrap();
+    node_graph.connect(input_node, output_node, SlotId(3), SlotId(3)).unwrap();
 
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = node_graph;
     tex_pro.process();
 
+    dbg!();
     image::save_buffer(
         &Path::new(&"out/input_output.png"),
         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
@@ -38,6 +34,7 @@ fn input_output() {
         image::ColorType::RGBA(8),
     )
     .unwrap();
+    dbg!();
 }
 
 // #[test]

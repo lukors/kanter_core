@@ -182,10 +182,14 @@ impl TextureProcessor {
     //         .collect()
     // }
     fn get_node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
+        for node_data in &self.node_datas {
+            dbg!(node_data.node_id);
+        }
         self.node_datas.iter().filter(|&x| x.node_id == id).map(|x| Arc::clone(x)).collect()
     }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Result<Vec<u8>> {
+        dbg!(self.node_datas.len());
         let node_datas = self.get_node_datas(id);
 
         let empty_buffer: Buffer = Box::new(ImageBuffer::new(0, 0));
@@ -205,6 +209,8 @@ impl TextureProcessor {
         //     }
         // }
 
+        dbg!(node_datas.len());
+
         sorted_value_vecs = node_datas.iter().map(|node_data| {
             match node_data.slot_id {
                 SlotId(0) => &node_data.buffer,
@@ -214,6 +220,8 @@ impl TextureProcessor {
                 _ => &empty_buffer,
             }
         }).collect();
+
+        dbg!(sorted_value_vecs.len());
 
         for value_vec in &sorted_value_vecs {
             if value_vec.is_empty() {
