@@ -1,11 +1,5 @@
-use crate::{
-    error::*,
-    node::*,
-};
-use std::{
-    collections::hash_map::HashMap,
-    sync::Arc,
-};
+use crate::{error::*, node::*};
+use std::{collections::hash_map::HashMap, sync::Arc};
 
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Default)]
@@ -114,7 +108,6 @@ impl NodeGraph {
     }
 }
 
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct NodeId(pub u32);
 
@@ -142,7 +135,12 @@ pub struct Edge {
 }
 
 impl Edge {
-    pub fn new(output_id: NodeId, input_id: NodeId, output_slot: SlotId, input_slot: SlotId) -> Self {
+    pub fn new(
+        output_id: NodeId,
+        input_id: NodeId,
+        output_slot: SlotId,
+        input_slot: SlotId,
+    ) -> Self {
         Self {
             output_id,
             output_slot,

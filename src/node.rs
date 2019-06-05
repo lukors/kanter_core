@@ -2,12 +2,7 @@ use crate::error::Result;
 use image::{FilterType, ImageBuffer, Luma};
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use crate::{
-    dag::*,
-    node_graph::*,
-    node_data::*,
-    shared::*,
-};
+use crate::{dag::*, node_data::*, node_graph::*, shared::*};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ResizePolicy {

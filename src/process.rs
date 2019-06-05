@@ -1,14 +1,7 @@
 use image::{FilterType, ImageBuffer, Luma};
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use crate::{
-    dag::*,
-    error::Result,
-    node::*,
-    node_data::*,
-    node_graph::*,
-    shared::*,
-};
+use crate::{dag::*, error::Result, node::*, node_data::*, node_graph::*, shared::*};
 
 // TODO: I want to make this function take a node and process it.
 pub fn process_node(
@@ -25,7 +18,7 @@ pub fn process_node(
     // NOTE: I believe this code is no longer needed because it used to be that I sent in buffers,
     // which meant I needed to sort them in the order they were supposed to be in for the
     // calculations to be correct before doing the calculations.
-    
+
     // Now I send in `NodeData`s instead, which contain the node and slot they belong to, so there
     // should be no need for any sorting now.
 
@@ -47,12 +40,15 @@ pub fn process_node(
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::Input => Vec::new(),
-        NodeType::Output => output(&input_node_datas, edges),
+        NodeType::Output => output(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, node_graph)?,
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Invert => invert(&input_node_datas),
-        NodeType::Add => add(Arc::clone(&input_node_datas[0]), Arc::clone(&input_node_datas[1])), // TODO: These should take the entire vector and not two arguments
+        NodeType::Add => add(
+            Arc::clone(&input_node_datas[0]),
+            Arc::clone(&input_node_datas[1]),
+        ), // TODO: These should take the entire vector and not two arguments
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
     };
 
@@ -62,15 +58,38 @@ pub fn process_node(
 
 // TODO: Re-implement the deactivated node type process functions.
 
-fn output(inputs: &[Arc<NodeData>], edges: &[Edge]) -> Vec<Arc<NodeData>> {
-    let new_node_id = edges[0].input_id;
+/// Finds the `NodeData`s relevant for this `Node` and outputs them.
+fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
+    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::new();
 
-    let mut new_node_datas: Vec<NodeData> = inputs.iter().map(|node_data| (**node_data).clone()).collect();
-    for new_node_data in &mut new_node_datas {
-        new_node_data.node_id = new_node_id;
+    for edge in edges {
+        // Find a `NodeData` in `inputs` that matches the current `Edge`.
+        let mut new_node_data = (**inputs
+            .iter()
+            .find(|node_data| {
+                node.node_id == edge.input_id
+                    && node_data.node_id == edge.output_id
+                    && node_data.slot_id == edge.output_slot
+            })
+            .unwrap())
+        .clone();
+
+        new_node_data.node_id = node.node_id;
+        new_node_data.slot_id = edge.input_slot;
+
+        new_node_datas.push(Arc::new(new_node_data));
     }
 
-    new_node_datas.into_iter().map(|node_data| Arc::new(node_data)).collect()
+    assert_eq!(new_node_datas.len(), 4);
+
+    // let mut new_node_datas: Vec<NodeData> = inputs.iter().map(|node_data| (**node_data).clone()).collect();
+    // for new_node_data in &mut new_node_datas {
+    //     new_node_data.node_id = new_node_id;
+    //     new_node_data.slot_id = edges.iter().
+
+    // }
+
+    new_node_datas
 }
 
 fn graph(inputs: &[Arc<NodeData>], graph: &NodeGraph) -> Result<Vec<Arc<NodeData>>> {
@@ -79,7 +98,10 @@ fn graph(inputs: &[Arc<NodeData>], graph: &NodeGraph) -> Result<Vec<Arc<NodeData
 
 fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
     let buffers = read_image(&Path::new(path))?;
-    let size = Size{width: buffers[0].width(), height: buffers[0].height()};
+    let size = Size {
+        width: buffers[0].width(),
+        height: buffers[0].height(),
+    };
     // Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
 
     let mut output: Vec<Arc<NodeData>> = Vec::with_capacity(4);
@@ -88,7 +110,7 @@ fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
             node.node_id,
             SlotId(channel as u32),
             size,
-            buffer
+            buffer,
         )));
 
         // output.push(NodeData::new(

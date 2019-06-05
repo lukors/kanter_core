@@ -1,9 +1,4 @@
-use crate::{
-    error::Result,
-    node_data::*,
-    node_graph::*,
-    process::*,
-};
+use crate::{error::Result, node_data::*, node_graph::*, process::*};
 use image::ImageBuffer;
 use std::{
     collections::{HashSet, VecDeque},
@@ -34,8 +29,10 @@ impl TextureProcessor {
             node_datas: Result<Vec<Arc<NodeData>>>,
         }
         let (send, recv) = mpsc::channel::<ThreadMessage>();
-        let mut finished_nodes: HashSet<NodeId> = HashSet::with_capacity(self.node_graph.nodes().len());
-        let mut started_nodes: HashSet<NodeId> = HashSet::with_capacity(self.node_graph.nodes().len());
+        let mut finished_nodes: HashSet<NodeId> =
+            HashSet::with_capacity(self.node_graph.nodes().len());
+        let mut started_nodes: HashSet<NodeId> =
+            HashSet::with_capacity(self.node_graph.nodes().len());
 
         let mut queued_ids: VecDeque<NodeId> = VecDeque::from(self.get_root_ids());
         for item in &queued_ids {
@@ -69,7 +66,9 @@ impl TextureProcessor {
                 continue;
             }
 
-            let parent_ids = self.node_graph.edges
+            let parent_ids = self
+                .node_graph
+                .edges
                 .iter()
                 .filter(|edge| edge.input_id == current_id)
                 .map(|edge| edge.output_id);
@@ -105,8 +104,8 @@ impl TextureProcessor {
                         && node_data.node_id == edge.output_id
                         && current_id == edge.input_id
                     {
-                        input_data.push( Arc::clone(node_data) );
-                        relevant_edges.push( edge.clone() );
+                        input_data.push(Arc::clone(node_data));
+                        relevant_edges.push(edge.clone());
                     }
                 }
             }
@@ -117,7 +116,8 @@ impl TextureProcessor {
             let send = send.clone();
 
             thread::spawn(move || {
-                let node_datas: Result<Vec<Arc<NodeData>>> = process_node(current_node, &input_data, &relevant_edges);
+                let node_datas: Result<Vec<Arc<NodeData>>> =
+                    process_node(current_node, &input_data, &relevant_edges);
 
                 match send.send(ThreadMessage {
                     node_id: current_id,
@@ -152,12 +152,12 @@ impl TextureProcessor {
             self.node_datas.append(node_datas);
             // self.node_datas.push(NodeData::new(node_datas[0].size()));
             // for node_data in node_datas {
-                // self.node_datas.push(node_data);
-                // self.node_datas
-                //     .get_mut(&id)
-                //     .unwrap()
-                //     .get_buffers_mut()
-                //     .insert(node_data.slot(), node_data.buffer());
+            // self.node_datas.push(node_data);
+            // self.node_datas
+            //     .get_mut(&id)
+            //     .unwrap()
+            //     .get_buffers_mut()
+            //     .insert(node_data.slot(), node_data.buffer());
             // }
             // self.node_datas[&id] = buffers;
         }
@@ -165,8 +165,7 @@ impl TextureProcessor {
         // Add any child node to the input `NodeId` to the list of nodes to potentially process.
         for edge in &self.node_graph.edges {
             let input_id = edge.input_id;
-            if edge.output_id == id
-            && !started_nodes.contains(&input_id) {
+            if edge.output_id == id && !started_nodes.contains(&input_id) {
                 queued_ids.push_back(input_id);
                 started_nodes.insert(input_id);
             }
@@ -185,7 +184,11 @@ impl TextureProcessor {
         for node_data in &self.node_datas {
             dbg!(node_data.node_id);
         }
-        self.node_datas.iter().filter(|&x| x.node_id == id).map(|x| Arc::clone(x)).collect()
+        self.node_datas
+            .iter()
+            .filter(|&x| x.node_id == id)
+            .map(|x| Arc::clone(x))
+            .collect()
     }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Result<Vec<u8>> {
@@ -211,15 +214,16 @@ impl TextureProcessor {
 
         dbg!(node_datas.len());
 
-        sorted_value_vecs = node_datas.iter().map(|node_data| {
-            match node_data.slot_id {
+        sorted_value_vecs = node_datas
+            .iter()
+            .map(|node_data| match node_data.slot_id {
                 SlotId(0) => &node_data.buffer,
                 SlotId(1) => &node_data.buffer,
                 SlotId(2) => &node_data.buffer,
                 SlotId(3) => &node_data.buffer,
                 _ => &empty_buffer,
-            }
-        }).collect();
+            })
+            .collect();
 
         dbg!(sorted_value_vecs.len());
 
@@ -229,15 +233,18 @@ impl TextureProcessor {
             }
         }
 
-        let sorted_value_vecs_refs: Vec<&Buffer> = sorted_value_vecs.iter().map(|buf| *buf).collect();
+        let sorted_value_vecs_refs: Vec<&Buffer> =
+            sorted_value_vecs.iter().map(|buf| *buf).collect();
         channels_to_rgba(&sorted_value_vecs_refs)
     }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {
-        self.node_graph.nodes()
+        self.node_graph
+            .nodes()
             .iter()
             .filter(|node| {
-                self.node_graph.edges
+                self.node_graph
+                    .edges
                     .iter()
                     .map(|edge| edge.output_id)
                     .any(|x| x == node.node_id)

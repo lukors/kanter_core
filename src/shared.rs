@@ -1,8 +1,5 @@
 use crate::error::{Result, TexProError};
-use crate::{
-    node::*,
-    node_data::*,
-};
+use crate::{node::*, node_data::*};
 use image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
 use std::{
     cmp::{max, min},
@@ -78,8 +75,10 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
     pixel_vecs
         .into_iter()
         .map(|p_vec| {
-            Box::new(ImageBuffer::from_raw(width, height, p_vec)
-                .expect("A bug in the deconstruct_image function caused a crash"))
+            Box::new(
+                ImageBuffer::from_raw(width, height, p_vec)
+                    .expect("A bug in the deconstruct_image function caused a crash"),
+            )
         })
         .collect()
 }
@@ -104,22 +103,20 @@ pub fn resize_buffers(
             .map(|node_data| node_data.size)
             .unwrap(),
         ResizePolicy::LargestAxes => node_datas.iter().fold(Size::new(0, 0), |a, b| {
-            Size::new(
-                max(a.width, b.size.width),
-                max(a.height, b.size.height),
-            )
+            Size::new(max(a.width, b.size.width), max(a.height, b.size.height))
         }),
-        ResizePolicy::SmallestAxes => node_datas.iter().fold(Size::new(u32::MAX, u32::MAX), |a, b| {
-            Size::new(
-                min(a.width, b.size.width),
-                min(a.height, b.size.height),
-            )
-        }),
-        ResizePolicy::SpecificNode(node_id) => node_datas
+        ResizePolicy::SmallestAxes => node_datas
             .iter()
-            .find(|node_data| node_data.node_id == node_id)
-            .expect("Couldn't find a buffer with the given `NodeId` while resizing")
-            .size,
+            .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
+                Size::new(min(a.width, b.size.width), min(a.height, b.size.height))
+            }),
+        ResizePolicy::SpecificNode(node_id) => {
+            node_datas
+                .iter()
+                .find(|node_data| node_data.node_id == node_id)
+                .expect("Couldn't find a buffer with the given `NodeId` while resizing")
+                .size
+        }
         ResizePolicy::SpecificSize(size) => size,
     };
 
@@ -127,11 +124,22 @@ pub fn resize_buffers(
         .iter()
         // .filter(|ref node_data| node_data.size != size)
         .map(|ref node_data| {
-            if node_data.size != size { // Needs to be resized
-                let resized_buffer =
-                    Box::new(imageops::resize(&*node_data.buffer, size.width, size.height, filter));
-                Arc::new(NodeData::new(node_data.node_id, node_data.slot_id, node_data.size, resized_buffer))
-            } else { // Does not need to be resized
+            if node_data.size != size {
+                // Needs to be resized
+                let resized_buffer = Box::new(imageops::resize(
+                    &*node_data.buffer,
+                    size.width,
+                    size.height,
+                    filter,
+                ));
+                Arc::new(NodeData::new(
+                    node_data.node_id,
+                    node_data.slot_id,
+                    node_data.size,
+                    resized_buffer,
+                ))
+            } else {
+                // Does not need to be resized
                 Arc::clone(node_data)
             }
         })

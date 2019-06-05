@@ -15,16 +15,23 @@ fn input_output() {
     dbg!(input_node);
     dbg!(output_node);
 
-    node_graph.connect(input_node, output_node, SlotId(0), SlotId(0)).unwrap();
-    node_graph.connect(input_node, output_node, SlotId(1), SlotId(1)).unwrap();
-    node_graph.connect(input_node, output_node, SlotId(2), SlotId(2)).unwrap();
-    node_graph.connect(input_node, output_node, SlotId(3), SlotId(3)).unwrap();
+    node_graph
+        .connect(input_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    node_graph
+        .connect(input_node, output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    node_graph
+        .connect(input_node, output_node, SlotId(2), SlotId(2))
+        .unwrap();
+    node_graph
+        .connect(input_node, output_node, SlotId(3), SlotId(3))
+        .unwrap();
 
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = node_graph;
     tex_pro.process();
 
-    dbg!();
     image::save_buffer(
         &Path::new(&"out/input_output.png"),
         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
@@ -34,7 +41,52 @@ fn input_output() {
         image::ColorType::RGBA(8),
     )
     .unwrap();
-    dbg!();
+}
+
+#[test]
+fn input_output_2() {
+    let tex_pro_compare = input_output_2_internal();
+
+    for _ in 0..30 {
+        let tex_pro = input_output_2_internal();
+
+        for node_data_cmp in &tex_pro_compare.node_datas {
+            assert!(tex_pro.node_datas.iter().any(|node_data| *node_data == *node_data_cmp));
+        }
+    }
+}
+
+fn input_output_2_internal() -> TextureProcessor {
+    let mut tex_pro = TextureProcessor::new();
+
+    let input_node_1 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string())));
+    let input_node_2 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string())));
+    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::Output));
+
+    tex_pro
+        .node_graph
+        .connect(input_node_2, output_node, SlotId(2), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_node_1, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_node_1, output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_node_2, output_node, SlotId(3), SlotId(3))
+        .unwrap();
+
+    tex_pro.process();
+
+    tex_pro
 }
 
 // #[test]

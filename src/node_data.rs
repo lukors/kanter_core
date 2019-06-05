@@ -11,10 +11,7 @@ pub struct NodeData {
 
 pub type Buffer = Box<ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>>;
 
-// TODO: In this file I want to change it so that instead of having a `HashMap<Arc<Buffer>>`, it has
-// only one `Buffer`.
-
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Size {
     pub width: u32,
     pub height: u32,
@@ -32,12 +29,24 @@ impl Size {
 
 pub type ChannelPixel = f32;
 
+impl PartialEq for NodeData {
+    fn eq(&self, other: &Self) -> bool {
+        self.size == other.size
+            && self
+                .buffer
+                .pixels()
+                .zip(other.buffer.pixels())
+                .all(|(p1, p2)| p1 == p2)
+    }
+}
+
+impl Eq for NodeData {}
 
 impl NodeData {
     pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Buffer) -> Self {
         Self {
             node_id,
-            slot_id, 
+            slot_id,
             size,
             buffer,
         }
@@ -47,7 +56,7 @@ impl NodeData {
     //     let (width, height) = buffer.dimensions();
     //     Self {
     //         size: Size::new(width, height),
-    //         slot_id: 
+    //         slot_id:
     // }
 
     // pub fn from_buffers(buffers: HashMap<Slot, Arc<Buffer>>) -> Self {
