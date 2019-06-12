@@ -39,9 +39,9 @@ pub fn process_node(
     //     .collect();
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
-        NodeType::Input => Vec::new(),
+        NodeType::Input => input(&input_node_datas, &node),
         NodeType::Output => output(&input_node_datas, edges, &node),
-        NodeType::Graph(ref node_graph) => graph(&input_node_datas, node_graph)?,
+        NodeType::Graph(ref node_graph) => graph(&input_node_datas, edges, &node, node_graph),
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Invert => invert(&input_node_datas),
@@ -92,8 +92,43 @@ fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc
     new_node_datas
 }
 
-fn graph(inputs: &[Arc<NodeData>], graph: &NodeGraph) -> Result<Vec<Arc<NodeData>>> {
-    unimplemented!()
+/// If there is no `NodeData` associated with this node, just send an empty `Vec`, otherwise send a
+/// `Vec` with the associated `NodeData`.
+fn input(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
+    unimplemented!();
+    Vec::new()
+}
+
+/// Executes the node graph contained in the node.
+fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
+    let mut output: Vec<Arc<NodeData>> = Vec::new();
+
+    let mut tex_pro = TextureProcessor::new();
+    tex_pro.node_graph = (*graph).clone();
+
+    // Put the relevant `NodeData` into the input nodes for this graph.
+    for input_id in tex_pro.node_graph.input_ids() {
+        // Get the output `NodeId` for the `NodeData` whose buffer should be given to this
+        // `input_id`.
+        let input_slot = tex_pro.node_graph.input_slot(input_id);
+        let output_id: NodeId = edges.iter().find(|edge| edge.input_id == node.node_id && edge.input_slot == input_slot).unwrap().output_id;
+        let output_data = inputs.iter().find(|node_data| node_data.node_id == output_id).unwrap();
+
+        tex_pro.node_datas.push(
+            Arc::new(
+                NodeData::new(input_id, SlotId(0), output_data.size, Arc::clone(&output_data.buffer))
+                )
+            );
+    }
+
+    tex_pro.process();
+
+    // Fill the output vector with `NodeData`.
+    for output_id in tex_pro.node_graph.output_ids() {
+        output.push(Arc::clone(&tex_pro.node_datas(output_id)[0]));
+    }
+
+    output
 }
 
 fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
@@ -110,7 +145,7 @@ fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
             node.node_id,
             SlotId(channel as u32),
             size,
-            buffer,
+            Arc::new(buffer),
         )));
 
         // output.push(NodeData::new(
@@ -125,7 +160,7 @@ fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
 }
 
 fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {
-    let channel_vec: Vec<&Buffer> = inputs.iter().map(|node_data| &node_data.buffer).collect();
+    let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| Arc::clone(&node_data.buffer)).collect();
     let (width, height) = (inputs[0].size.width, inputs[0].size.height);
 
     image::save_buffer(

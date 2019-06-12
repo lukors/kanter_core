@@ -1,12 +1,13 @@
 use crate::node_graph::*;
 use image::{ImageBuffer, Luma};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct NodeData {
     pub size: Size,
     pub slot_id: SlotId,
     pub node_id: NodeId,
-    pub buffer: Buffer,
+    pub buffer: Arc<Buffer>,
 }
 
 pub type Buffer = Box<ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>>;
@@ -43,7 +44,7 @@ impl PartialEq for NodeData {
 impl Eq for NodeData {}
 
 impl NodeData {
-    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Buffer) -> Self {
+    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Arc<Buffer>) -> Self {
         Self {
             node_id,
             slot_id,

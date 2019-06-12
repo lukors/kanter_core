@@ -8,8 +8,8 @@ use std::{
     u32,
 };
 
-pub fn channels_to_rgba(channels: &[&Buffer]) -> Result<Vec<u8>> {
-    dbg!(channels.len());
+pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
+    // dbg!(channels.len());
     if channels.len() != 4 {
         return Err(TexProError::InvalidBufferCount);
     }
@@ -126,17 +126,19 @@ pub fn resize_buffers(
         .map(|ref node_data| {
             if node_data.size != size {
                 // Needs to be resized
-                let resized_buffer = Box::new(imageops::resize(
-                    &*node_data.buffer,
-                    size.width,
-                    size.height,
-                    filter,
-                ));
+                let resized_buffer: Arc<Buffer> = Arc::new(
+                    Box::new(imageops::resize(
+                        &**node_data.buffer,
+                        size.width,
+                        size.height,
+                        filter,
+                    ))
+                );
                 Arc::new(NodeData::new(
                     node_data.node_id,
                     node_data.slot_id,
                     node_data.size,
-                    resized_buffer,
+                    Arc::clone(&resized_buffer),
                 ))
             } else {
                 // Does not need to be resized
@@ -167,11 +169,11 @@ pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {
 }
 
 pub fn write_image<P: AsRef<Path>>(inputs: &[Arc<NodeData>], path: P) -> Result<()> {
-    let channel_vec: Vec<&Buffer> = inputs.iter().map(|node_data| &node_data.buffer).collect();
+    let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| Arc::clone(&node_data.buffer)).collect();
     let (width, height) = (inputs[0].size.width, inputs[0].size.height);
     let img = {
         if let Some(img) =
-            image::RgbaImage::from_vec(width, height, channels_to_rgba_arc(&channel_vec)?)
+            image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)?)
         {
             img
         } else {

@@ -180,10 +180,10 @@ impl TextureProcessor {
     //         .map(|x| (x * 255.).min(255.) as u8)
     //         .collect()
     // }
-    fn get_node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
-        for node_data in &self.node_datas {
-            dbg!(node_data.node_id);
-        }
+    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
+        // for node_data in &self.node_datas {
+        //     dbg!(node_data.node_id);
+        // }
         self.node_datas
             .iter()
             .filter(|&x| x.node_id == id)
@@ -192,15 +192,15 @@ impl TextureProcessor {
     }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Result<Vec<u8>> {
-        dbg!(self.node_datas.len());
-        let node_datas = self.get_node_datas(id);
+        // dbg!(self.node_datas.len());
+        let node_datas = self.node_datas(id);
 
-        let empty_buffer: Buffer = Box::new(ImageBuffer::new(0, 0));
-        let mut sorted_value_vecs: Vec<&Buffer> = Vec::with_capacity(4);
-        sorted_value_vecs.push(&empty_buffer);
-        sorted_value_vecs.push(&empty_buffer);
-        sorted_value_vecs.push(&empty_buffer);
-        sorted_value_vecs.push(&empty_buffer);
+        let empty_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::new(0, 0)));
+        let mut sorted_value_vecs: Vec<Arc<Buffer>> = Vec::with_capacity(4);
+        sorted_value_vecs.push(Arc::clone(&empty_buffer));
+        sorted_value_vecs.push(Arc::clone(&empty_buffer));
+        sorted_value_vecs.push(Arc::clone(&empty_buffer));
+        sorted_value_vecs.push(Arc::clone(&empty_buffer));
 
         // for node_data in node_datas {
         //     match node_data.slot_id {
@@ -212,20 +212,20 @@ impl TextureProcessor {
         //     }
         // }
 
-        dbg!(node_datas.len());
+        // dbg!(node_datas.len());
 
         sorted_value_vecs = node_datas
             .iter()
             .map(|node_data| match node_data.slot_id {
-                SlotId(0) => &node_data.buffer,
-                SlotId(1) => &node_data.buffer,
-                SlotId(2) => &node_data.buffer,
-                SlotId(3) => &node_data.buffer,
-                _ => &empty_buffer,
+                SlotId(0) => Arc::clone(&node_data.buffer),
+                SlotId(1) => Arc::clone(&node_data.buffer),
+                SlotId(2) => Arc::clone(&node_data.buffer),
+                SlotId(3) => Arc::clone(&node_data.buffer),
+                _ => Arc::clone(&empty_buffer),
             })
             .collect();
 
-        dbg!(sorted_value_vecs.len());
+        // dbg!(sorted_value_vecs.len());
 
         for value_vec in &sorted_value_vecs {
             if value_vec.is_empty() {
@@ -233,8 +233,8 @@ impl TextureProcessor {
             }
         }
 
-        let sorted_value_vecs_refs: Vec<&Buffer> =
-            sorted_value_vecs.iter().map(|buf| *buf).collect();
+        let sorted_value_vecs_refs: Vec<Arc<Buffer>> =
+            sorted_value_vecs.iter().map(|buf| Arc::clone(buf)).collect();
         channels_to_rgba(&sorted_value_vecs_refs)
     }
 

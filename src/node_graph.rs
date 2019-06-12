@@ -2,8 +2,9 @@ use crate::{error::*, node::*};
 use std::{collections::hash_map::HashMap, sync::Arc};
 
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct NodeGraph {
+    input_slots: Vec<(SlotId, NodeId)>,
     nodes: Vec<Arc<Node>>,
     pub edges: Vec<Edge>,
 }
@@ -11,6 +12,7 @@ pub struct NodeGraph {
 impl NodeGraph {
     pub fn new() -> Self {
         Self {
+            input_slots: Vec::new(),
             nodes: Vec::new(),
             edges: Vec::new(),
         }
@@ -23,6 +25,10 @@ impl NodeGraph {
                 return id;
             }
         }
+    }
+
+    pub fn input_slot(&self, node_id: NodeId) -> SlotId {
+        self.input_slots.iter().find(|(_, i_node_id)| node_id == *i_node_id).unwrap().0
     }
 
     fn has_node_with_id(&self, node_id: NodeId) -> bool {
@@ -46,10 +52,15 @@ impl NodeGraph {
         self.nodes.push(Arc::new(node));
     }
 
+    /// Is used for adding inputs so that you can decide which slot the input should map to.
+    pub fn add_node_input(&mut self, slot_id: SlotId) -> Result<NodeId> {
+        unimplemented!();
+        Ok(self.add_node(Node::new(NodeType::Input)))
+    }
+
     pub fn add_node(&mut self, node: Node) -> NodeId {
-        if node.node_type == NodeType::Input {
-            panic!("Use the `add_input_node()` function when adding an input node");
-        }
+        // TODO: Should crash if you try to add an input node.
+
         let id = self.new_id();
         self.add_node_internal(node, id);
         id
@@ -72,6 +83,22 @@ impl NodeGraph {
             .iter()
             .filter(|node| node.node_type == NodeType::Output)
             .count()
+    }
+
+    pub fn output_ids(&self) -> Vec<NodeId> {
+        self.nodes
+            .iter()
+            .filter(|node| node.node_type == NodeType::Output)
+            .map(|node| node.node_id)
+            .collect()
+    }
+
+    pub fn input_ids(&self) -> Vec<NodeId> {
+        self.nodes
+            .iter()
+            .filter(|node| node.node_type == NodeType::Input)
+            .map(|node| node.node_id)
+            .collect()
     }
 
     pub fn connect(
