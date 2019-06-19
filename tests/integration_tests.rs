@@ -9,8 +9,8 @@ use texture_processor::{
 fn input_output() {
     let mut tex_pro = TextureProcessor::new();
 
-    let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string())));
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::Output));
+    let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
+    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     tex_pro.node_graph
         .connect(input_node, output_node, SlotId(0), SlotId(0))
@@ -56,11 +56,11 @@ fn input_output_2_internal() -> TextureProcessor {
 
     let input_node_1 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string())));
+        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string()))).unwrap();
     let input_node_2 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string())));
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::Output));
+        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string()))).unwrap();
+    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     tex_pro
         .node_graph
@@ -90,7 +90,7 @@ fn nested_graph_passthrough() {
     let mut nested_graph = NodeGraph::new();
 
     let nested_input_node = nested_graph.add_node_input(SlotId(0)).unwrap();
-    let nested_output_node = nested_graph.add_node(Node::new(NodeType::Output));
+    let nested_output_node = nested_graph.add_node(Node::new(NodeType::Output)).unwrap();
 
     nested_graph.connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0)).unwrap();
 
@@ -98,9 +98,9 @@ fn nested_graph_passthrough() {
     // Texture Processor
     let mut tex_pro = TextureProcessor::new();
 
-    let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string())));
-    let graph_node = tex_pro.node_graph.add_node(Node::new(NodeType::Graph(nested_graph)));
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::Output));
+    let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
+    let graph_node = tex_pro.node_graph.add_node(Node::new(NodeType::Graph(nested_graph))).unwrap();
+    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     tex_pro.node_graph.connect(input_node, graph_node, SlotId(0), SlotId(0)).unwrap();
     tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(0)).unwrap();

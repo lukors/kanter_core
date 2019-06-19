@@ -9,6 +9,9 @@ pub fn process_node(
     input_node_datas: &[Arc<NodeData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<NodeData>>> {
+    // dbg!(&node.node_type);
+    dbg!(input_node_datas.len());
+    dbg!(node.capacity(Side::Input));
     assert!(input_node_datas.len() <= node.capacity(Side::Input));
     assert_eq!(edges.len(), input_node_datas.len());
 
@@ -39,7 +42,9 @@ pub fn process_node(
     //     .collect();
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
-        NodeType::Input => input(&input_node_datas, &node),
+        NodeType::InputRgba => input_rgba(&input_node_datas, &node),
+        NodeType::InputGray => input_gray(&input_node_datas, &node),
+        NodeType::OutputRgba => output_rgba(&input_node_datas, edges, &node),
         NodeType::Output => output(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, edges, &node, node_graph),
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
@@ -59,11 +64,51 @@ pub fn process_node(
 // TODO: Re-implement the deactivated node type process functions.
 
 /// Finds the `NodeData`s relevant for this `Node` and outputs them.
-fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
-    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::new();
+fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
+    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
 
+    // Find a `NodeData` in `inputs` that matches the current `Edge`.
     for edge in edges {
-        // Find a `NodeData` in `inputs` that matches the current `Edge`.
+        // Clone the `NodeData` when you find the right one. We don't want to clone the
+        // `Arc<NodeData>`, because we want to make an entirely new `NodeData` which we can then
+        // modify and put in a new `Arc<NodeData>` and return from the function.
+        let mut new_node_data = (**inputs
+            .iter()
+            .find(|node_data| {
+                node.node_id == edge.input_id
+                    && node_data.node_id == edge.output_id
+                    && node_data.slot_id == edge.output_slot
+            })
+            .unwrap())
+        .clone();
+
+        new_node_data.node_id = node.node_id;
+        new_node_data.slot_id = edge.input_slot;
+
+        new_node_datas.push(Arc::new(new_node_data));
+    }
+
+    assert_eq!(new_node_datas.len(), 4);
+
+    // let mut new_node_datas: Vec<NodeData> = inputs.iter().map(|node_data| (**node_data).clone()).collect();
+    // for new_node_data in &mut new_node_datas {
+    //     new_node_data.node_id = new_node_id;
+    //     new_node_data.slot_id = edges.iter().
+
+    // }
+
+    new_node_datas
+}
+
+/// Finds the `NodeData` relevant for this `Node` and outputs them.
+fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
+    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
+
+    // Find a `NodeData` in `inputs` that matches the current `Edge`.
+    for edge in edges {
+        // Clone the `NodeData` in the `Arc<NodeData>` when we find the right one. We don't want to
+        // clone the `Arc<NodeData>`, because we want to make an entirely new `NodeData` which we
+        // can then modify and put in the `Vec<Arc<NodeData>>` and return from the function.
         let mut new_node_data = (**inputs
             .iter()
             .find(|node_data| {
@@ -94,7 +139,14 @@ fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc
 
 /// If there is no `NodeData` associated with this node, just send an empty `Vec`, otherwise send a
 /// `Vec` with the associated `NodeData`.
-fn input(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
+fn input_gray(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
+    unimplemented!();
+    Vec::new()
+}
+
+/// If there is no `NodeData` associated with this node, just send an empty `Vec`, otherwise send a
+/// `Vec` with the associated `NodeData`.
+fn input_rgba(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
     unimplemented!();
     Vec::new()
 }

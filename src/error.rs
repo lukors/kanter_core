@@ -8,6 +8,7 @@ pub enum TexProError {
     InconsistentVectorLengths,
     InvalidBufferCount,
     InvalidNodeId,
+    InvalidNodeType,
     SlotOccupied,
     Io(io::Error),
 }
@@ -19,6 +20,7 @@ impl fmt::Display for TexProError {
             TexProError::InconsistentVectorLengths => f.write_str("InconsistentVectorLengths"),
             TexProError::InvalidBufferCount => f.write_str("InvalidBufferCount"),
             TexProError::InvalidNodeId => f.write_str("InvalidNodeId"),
+            TexProError::InvalidNodeType => f.write_str("InvalidNodeType"),
             TexProError::SlotOccupied => f.write_str("SlotOccupied"),
             TexProError::Io(_) => f.write_str("Io"),
         }
@@ -32,6 +34,7 @@ impl error::Error for TexProError {
             TexProError::InconsistentVectorLengths => "Lengths of vectors are not consistent",
             TexProError::InvalidBufferCount => "Invalid number of channels",
             TexProError::InvalidNodeId => "Invalid NodeId",
+            TexProError::InvalidNodeType => "Invalid NodeType",
             TexProError::SlotOccupied => "Invalid Slot",
             TexProError::Io(ref e) => e.description(),
         }

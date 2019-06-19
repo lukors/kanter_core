@@ -1,5 +1,5 @@
 use crate::{error::*, node::*};
-use std::{collections::hash_map::HashMap, sync::Arc};
+use std::{collections::hash_map::HashMap, fmt, sync::Arc};
 
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Default, Clone)]
@@ -7,6 +7,12 @@ pub struct NodeGraph {
     input_slots: Vec<(SlotId, NodeId)>,
     nodes: Vec<Arc<Node>>,
     pub edges: Vec<Edge>,
+}
+
+impl fmt::Debug for NodeGraph {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "NodeGraph {{ input_slots: {:?}, edges: {:?} }}", self.input_slots, self.edges)
+    }
 }
 
 impl NodeGraph {
@@ -47,23 +53,50 @@ impl NodeGraph {
         &self.edges
     }
 
-    fn add_node_internal(&mut self, mut node: Node, id: NodeId) {
-        node.node_id = id;
+    fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) {
+        node.node_id = node_id;
         self.nodes.push(Arc::new(node));
     }
 
-    /// Is used for adding inputs so that you can decide which slot the input should map to.
+    /// Adds an input so that you can decide which slot the input should map to.
     pub fn add_node_input(&mut self, slot_id: SlotId) -> Result<NodeId> {
-        unimplemented!();
-        Ok(self.add_node(Node::new(NodeType::Input)))
+        if self.input_slot_occupied(slot_id) {
+            return Err(TexProError::SlotOccupied)
+        }
+
+        let node_id = self.new_id();
+        self.add_node_internal(Node::new(NodeType::InputGray), node_id);
+        self.input_slots.push((slot_id, node_id));
+
+        Ok(node_id)
     }
 
-    pub fn add_node(&mut self, node: Node) -> NodeId {
-        // TODO: Should crash if you try to add an input node.
+    /// Adds an input so that you can decide which slot the input should map to.
+    pub fn add_node_input_rgba(&mut self, slot_id: SlotId) -> Result<NodeId> {
+        if self.input_slot_occupied(slot_id) {
+            return Err(TexProError::SlotOccupied)
+        }
 
-        let id = self.new_id();
-        self.add_node_internal(node, id);
-        id
+        let node_id = self.new_id();
+        self.add_node_internal(Node::new(NodeType::InputRgba), node_id);
+        self.input_slots.push((slot_id, node_id));
+
+        Ok(node_id)
+    }
+
+    fn input_slot_occupied(&self, input_slot_id: SlotId) -> bool {
+        self.input_slots.iter().any(|(slot_id, _node_id)| input_slot_id == *slot_id)
+    }
+
+    pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
+        if node.node_type == NodeType::InputRgba || node.node_type == NodeType::InputGray {
+            return Err(TexProError::InvalidNodeType)
+        }
+
+        let node_id = self.new_id();
+        self.add_node_internal(node, node_id);
+        
+        Ok(node_id)
     }
 
     pub fn add_node_with_id(&mut self, node: Node, id: NodeId) -> NodeId {
@@ -72,23 +105,37 @@ impl NodeGraph {
     }
 
     pub fn input_count(&self) -> usize {
-        self.nodes
+        let input_rgba_count = self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::Input)
-            .count()
+            .filter(|node| node.node_type == NodeType::InputRgba)
+            .count();
+
+        let input_gray_count = self.nodes
+            .iter()
+            .filter(|node| node.node_type == NodeType::InputGray)
+            .count();
+
+        input_rgba_count*4 + input_gray_count
     }
 
     pub fn output_count(&self) -> usize {
-        self.nodes
+        let output_rgba_count = self.nodes
+            .iter()
+            .filter(|node| node.node_type == NodeType::OutputRgba)
+            .count();
+
+        let output_gray_count = self.nodes
             .iter()
             .filter(|node| node.node_type == NodeType::Output)
-            .count()
+            .count();
+
+        output_rgba_count*4 + output_gray_count
     }
 
     pub fn output_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::Output)
+            .filter(|node| node.node_type == NodeType::OutputRgba)
             .map(|node| node.node_id)
             .collect()
     }
@@ -96,7 +143,7 @@ impl NodeGraph {
     pub fn input_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::Input)
+            .filter(|node| node.node_type == NodeType::InputRgba)
             .map(|node| node.node_id)
             .collect()
     }

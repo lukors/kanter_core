@@ -20,9 +20,12 @@ pub enum Side {
     Output,
 }
 
+#[derive(Debug)]
 pub enum NodeType {
-    Input,
+    InputGray,
+    InputRgba,
     Output,
+    OutputRgba,
     Graph(NodeGraph),
     Read(String),
     Write(String),
@@ -57,8 +60,10 @@ impl Node {
     pub fn capacity(&self, side: Side) -> usize {
         match side {
             Side::Input => match self.node_type {
-                NodeType::Input => 0,
-                NodeType::Output => 4,
+                NodeType::InputGray => 1,
+                NodeType::InputRgba => 0,
+                NodeType::Output => 1,
+                NodeType::OutputRgba => 4,
                 NodeType::Graph(ref graph) => graph.input_count(),
                 NodeType::Read(_) => 0,
                 NodeType::Write(_) => 4,
@@ -67,8 +72,10 @@ impl Node {
                 NodeType::Multiply => 2,
             },
             Side::Output => match self.node_type {
-                NodeType::Input => 4,
-                NodeType::Output => 4,
+                NodeType::InputGray => 1,
+                NodeType::InputRgba => 4,
+                NodeType::Output => 1,
+                NodeType::OutputRgba => 4,
                 NodeType::Graph(ref graph) => graph.output_count(),
                 NodeType::Read(_) => 4,
                 NodeType::Write(_) => 0,
