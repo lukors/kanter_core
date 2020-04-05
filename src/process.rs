@@ -89,6 +89,8 @@ fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 
         new_node_datas.push(Arc::new(new_node_data));
     }
+    dbg!(inputs.len());
+    dbg!(edges.len());
 
     // dbg!(&edges);
     // dbg!(&inputs);
@@ -168,6 +170,7 @@ fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &Nod
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = (*graph).clone();
 
+
     // Put the relevant `NodeData` into the input nodes for this graph.
     for input_id in tex_pro.node_graph.input_ids() {
         // Get the output `NodeId` for the `NodeData` whose buffer should be given to this
@@ -187,20 +190,20 @@ fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &Nod
             );
     }
 
-    // dbg!(&graph);
-    // dbg!(&tex_pro.node_graph);
-    // dbg!(inputs.len());
-    // dbg!(&tex_pro.node_datas);
-
     println!("Before");
     tex_pro.process();
     println!("After");
 
     // Fill the output vector with `NodeData`.
     for output_id in tex_pro.node_graph.output_ids() {
-        // pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Arc<Buffer>) -> Self {
-
-        let new_node_data = NodeData::new(node.node_id, tex_pro.node_datas(output_id)[0].slot_id, tex_pro.node_datas(output_id)[0].size, Arc::clone(&tex_pro.node_datas(output_id)[0].buffer));
+        // Remapping the node id from the nested graph to the parent graph so the node data ends up
+        // in the right place when the parent graph tries to access it. Then return it.
+        let new_node_data = NodeData::new(
+            node.node_id,
+            tex_pro.node_datas(output_id)[0].slot_id,
+            tex_pro.node_datas(output_id)[0].size,
+            Arc::clone(&tex_pro.node_datas(output_id)[0].buffer)
+        );
         output.push(Arc::new(new_node_data));
         // output.push(Arc::clone(&tex_pro.node_datas(output_id)[0]));
     }

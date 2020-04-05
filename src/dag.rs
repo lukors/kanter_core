@@ -125,12 +125,8 @@ impl TextureProcessor {
                     
                     if node_data.slot_id == edge.output_slot {
                         if node_data.node_id == edge.output_id {
-                            println!("nästan");
-                            dbg!(current_id.0);
-                            dbg!(edge.input_id.0);
                             if current_id == edge.input_id
                             {
-                                println!("\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
                                 input_data.push(Arc::clone(node_data));
                                 relevant_edges.push(edge.clone());
                             }
