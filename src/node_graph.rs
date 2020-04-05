@@ -99,9 +99,14 @@ impl NodeGraph {
         Ok(node_id)
     }
 
-    pub fn add_node_with_id(&mut self, node: Node, id: NodeId) -> NodeId {
-        self.add_node_internal(node, id);
-        id
+    pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
+        if self.node_with_id(node_id).is_some() {
+            return Err(TexProError::InvalidNodeId)
+        }
+
+        self.add_node_internal(node, node_id);
+        
+        Ok(node_id)
     }
 
     pub fn input_count(&self) -> usize {
@@ -135,7 +140,7 @@ impl NodeGraph {
     pub fn output_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::OutputRgba)
+            .filter(|node| node.node_type == NodeType::OutputRgba || node.node_type == NodeType::Output)
             .map(|node| node.node_id)
             .collect()
     }
@@ -143,7 +148,7 @@ impl NodeGraph {
     pub fn input_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::InputRgba)
+            .filter(|node| node.node_type == NodeType::InputRgba || node.node_type ==  NodeType::InputGray)
             .map(|node| node.node_id)
             .collect()
     }

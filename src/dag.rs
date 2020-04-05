@@ -90,6 +90,28 @@ impl TextureProcessor {
                     }
                 }
             }
+            relevant_ids.sort_unstable();
+            relevant_ids.dedup();
+
+            if current_id == NodeId(1) {
+                println!("INPUT");
+                dbg!(&self.node_graph.edges);
+                for node_data in &self.node_datas {
+                    dbg!(node_data.node_id.0);
+                    dbg!(node_data.slot_id.0);
+                    println!("");
+                }
+            }
+            if current_id == NodeId(3) {
+                println!("OUTPUT");
+                dbg!(&self.node_graph.edges);
+                for node_data in &self.node_datas {
+                    dbg!(node_data.node_id.0);
+                    dbg!(node_data.slot_id.0);
+                    println!("");
+                }
+            }
+
 
             // Put the `Arc<Buffer>`s and `Edge`s relevant for the calculation of this node into
             // lists.
@@ -100,15 +122,27 @@ impl TextureProcessor {
                     continue;
                 }
                 for edge in &self.node_graph.edges {
-                    if node_data.slot_id == edge.output_slot
-                        && node_data.node_id == edge.output_id
-                        && current_id == edge.input_id
-                    {
-                        input_data.push(Arc::clone(node_data));
-                        relevant_edges.push(edge.clone());
+                    
+                    if node_data.slot_id == edge.output_slot {
+                        if node_data.node_id == edge.output_id {
+                            println!("nästan");
+                            dbg!(current_id.0);
+                            dbg!(edge.input_id.0);
+                            if current_id == edge.input_id
+                            {
+                                println!("\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+                                input_data.push(Arc::clone(node_data));
+                                relevant_edges.push(edge.clone());
+                            }
+                        }
                     }
                 }
             }
+
+            // dbg!(&relevant_ids);
+            // dbg!(&self.node_graph.edges);
+            // dbg!(input_data.len());
+            // dbg!(&relevant_edges);
 
             // Spawn a thread and calculate the node in it and send back the new `node_data`s for
             // each slot in the node.

@@ -10,8 +10,8 @@ pub fn process_node(
     edges: &[Edge],
 ) -> Result<Vec<Arc<NodeData>>> {
     // dbg!(&node.node_type);
-    dbg!(input_node_datas.len());
-    dbg!(node.capacity(Side::Input));
+    // dbg!(input_node_datas.len());
+    // dbg!(node.capacity(Side::Input));
     assert!(input_node_datas.len() <= node.capacity(Side::Input));
     assert_eq!(edges.len(), input_node_datas.len());
 
@@ -40,6 +40,8 @@ pub fn process_node(
     //     .into_iter()
     //     .map(|buffer| buffer.expect("No NodeData found when expected."))
     //     .collect();
+
+    // dbg!(&edges);
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::InputRgba => input_rgba(&input_node_datas, &node),
@@ -88,6 +90,8 @@ fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
         new_node_datas.push(Arc::new(new_node_data));
     }
 
+    // dbg!(&edges);
+    // dbg!(&inputs);
     assert_eq!(new_node_datas.len(), 4);
 
     // let mut new_node_datas: Vec<NodeData> = inputs.iter().map(|node_data| (**node_data).clone()).collect();
@@ -102,7 +106,7 @@ fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 
 /// Finds the `NodeData` relevant for this `Node` and outputs them.
 fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
-    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
+    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(1);
 
     // Find a `NodeData` in `inputs` that matches the current `Edge`.
     for edge in edges {
@@ -125,7 +129,7 @@ fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc
         new_node_datas.push(Arc::new(new_node_data));
     }
 
-    assert_eq!(new_node_datas.len(), 4);
+    assert_eq!(new_node_datas.len(), 1);
 
     // let mut new_node_datas: Vec<NodeData> = inputs.iter().map(|node_data| (**node_data).clone()).collect();
     // for new_node_data in &mut new_node_datas {
@@ -140,8 +144,14 @@ fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc
 /// If there is no `NodeData` associated with this node, just send an empty `Vec`, otherwise send a
 /// `Vec` with the associated `NodeData`.
 fn input_gray(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
-    unimplemented!();
-    Vec::new()
+    if inputs.len() > 0 {
+        vec![Arc::clone(&inputs[0])]
+    } else {
+        Vec::new()
+    }
+
+    // unimplemented!();
+    // Vec::new()
 }
 
 /// If there is no `NodeData` associated with this node, just send an empty `Vec`, otherwise send a
@@ -162,8 +172,12 @@ fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &Nod
     for input_id in tex_pro.node_graph.input_ids() {
         // Get the output `NodeId` for the `NodeData` whose buffer should be given to this
         // `input_id`.
+
         let input_slot = tex_pro.node_graph.input_slot(input_id);
-        let output_id: NodeId = edges.iter().find(|edge| edge.input_id == node.node_id && edge.input_slot == input_slot).unwrap().output_id;
+        let output_id: NodeId = edges.iter().find(
+            |edge| edge.input_id == node.node_id
+                && edge.input_slot == input_slot)
+                    .unwrap().output_id;
         let output_data = inputs.iter().find(|node_data| node_data.node_id == output_id).unwrap();
 
         tex_pro.node_datas.push(
@@ -173,11 +187,22 @@ fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &Nod
             );
     }
 
+    // dbg!(&graph);
+    // dbg!(&tex_pro.node_graph);
+    // dbg!(inputs.len());
+    // dbg!(&tex_pro.node_datas);
+
+    println!("Before");
     tex_pro.process();
+    println!("After");
 
     // Fill the output vector with `NodeData`.
     for output_id in tex_pro.node_graph.output_ids() {
-        output.push(Arc::clone(&tex_pro.node_datas(output_id)[0]));
+        // pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Arc<Buffer>) -> Self {
+
+        let new_node_data = NodeData::new(node.node_id, tex_pro.node_datas(output_id)[0].slot_id, tex_pro.node_datas(output_id)[0].size, Arc::clone(&tex_pro.node_datas(output_id)[0].buffer));
+        output.push(Arc::new(new_node_data));
+        // output.push(Arc::clone(&tex_pro.node_datas(output_id)[0]));
     }
 
     output

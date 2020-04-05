@@ -2,7 +2,7 @@ use std::path::Path;
 use texture_processor::{
     dag::TextureProcessor,
     node::{Node, NodeType},
-    node_graph::{NodeGraph, SlotId},
+    node_graph::{NodeGraph, SlotId, NodeId},
 };
 
 #[test]
@@ -23,6 +23,44 @@ fn input_output() {
         .unwrap();
     tex_pro.node_graph
         .connect(input_node, output_node, SlotId(3), SlotId(3))
+        .unwrap();
+
+    tex_pro.process();
+
+    image::save_buffer(
+        &Path::new(&"out/input_output.png"),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
+            .unwrap(),
+        256,
+        256,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
+#[test]
+fn input_output_longer() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
+    let middle_node = tex_pro.node_graph.add_node(Node::new(NodeType::Output)).unwrap();
+    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro.node_graph
+        .connect(input_node, middle_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.node_graph
+        .connect(middle_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(middle_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(middle_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(middle_node, output_node, SlotId(0), SlotId(3))
         .unwrap();
 
     tex_pro.process();
@@ -90,7 +128,7 @@ fn nested_graph_passthrough() {
     let mut nested_graph = NodeGraph::new();
 
     let nested_input_node = nested_graph.add_node_input(SlotId(0)).unwrap();
-    let nested_output_node = nested_graph.add_node(Node::new(NodeType::Output)).unwrap();
+    let nested_output_node = nested_graph.add_node_with_id(Node::new(NodeType::Output), NodeId(10)).unwrap();
 
     nested_graph.connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0)).unwrap();
 
@@ -98,11 +136,12 @@ fn nested_graph_passthrough() {
     // Texture Processor
     let mut tex_pro = TextureProcessor::new();
 
-    let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
-    let graph_node = tex_pro.node_graph.add_node(Node::new(NodeType::Graph(nested_graph))).unwrap();
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let input_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::Read("data/image_2.png".to_string())), NodeId(1)).unwrap();
+    let graph_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::Graph(nested_graph)), NodeId(2)).unwrap();
+    let output_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(3)).unwrap();
 
     tex_pro.node_graph.connect(input_node, graph_node, SlotId(0), SlotId(0)).unwrap();
+
     tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(0)).unwrap();
     tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(1)).unwrap();
     tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(2)).unwrap();
