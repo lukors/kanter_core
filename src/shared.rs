@@ -8,6 +8,15 @@ use std::{
     u32,
 };
 
+pub fn has_dup<T: PartialEq>(slice: &[T]) -> bool {
+    for i in 1..slice.len() {
+        if slice[i..].contains(&slice[i - 1]) {
+            return true
+        }
+    }
+    false
+}
+
 pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
     // dbg!(channels.len());
     if channels.len() != 4 {

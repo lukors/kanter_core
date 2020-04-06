@@ -127,16 +127,13 @@ fn nested_graph_rgba() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
-    let nested_input_node = nested_graph.add_node_input_rgba(SlotId(0)).unwrap();
+    let nested_input_node = nested_graph.add_external_input_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)]).unwrap();
     let nested_output_node = nested_graph.add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(10)).unwrap();
 
     nested_graph.connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0)).unwrap();
     nested_graph.connect(nested_input_node, nested_output_node, SlotId(1), SlotId(1)).unwrap();
     nested_graph.connect(nested_input_node, nested_output_node, SlotId(2), SlotId(2)).unwrap();
     nested_graph.connect(nested_input_node, nested_output_node, SlotId(3), SlotId(3)).unwrap();
-    // nested_graph.connect(nested_input_node, nested_output_node, SlotId(1), SlotId(1)).unwrap();
-    // nested_graph.connect(nested_input_node, nested_output_node, SlotId(2), SlotId(2)).unwrap();
-    // nested_graph.connect(nested_input_node, nested_output_node, SlotId(3), SlotId(3)).unwrap();
 
 
     // Texture Processor
@@ -175,7 +172,7 @@ fn nested_graph_grayscale() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
-    let nested_input_node = nested_graph.add_node_input(SlotId(0)).unwrap();
+    let nested_input_node = nested_graph.add_external_input_gray(SlotId(0)).unwrap();
     let nested_output_node = nested_graph.add_node_with_id(Node::new(NodeType::Output), NodeId(10)).unwrap();
 
     nested_graph.connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0)).unwrap();

@@ -41,7 +41,7 @@ pub fn process_node(
     //     .map(|buffer| buffer.expect("No NodeData found when expected."))
     //     .collect();
 
-    // dbg!(&edges);
+    dbg!(&edges);
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::InputRgba => input_rgba(&input_node_datas, &node),
@@ -92,16 +92,9 @@ fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
     dbg!(inputs.len());
     dbg!(edges.len());
 
-    // dbg!(&edges);
+    dbg!(&edges);
     // dbg!(&inputs);
     assert_eq!(new_node_datas.len(), 4);
-
-    // let mut new_node_datas: Vec<NodeData> = inputs.iter().map(|node_data| (**node_data).clone()).collect();
-    // for new_node_data in &mut new_node_datas {
-    //     new_node_data.node_id = new_node_id;
-    //     new_node_data.slot_id = edges.iter().
-
-    // }
 
     new_node_datas
 }
@@ -167,37 +160,64 @@ fn input_rgba(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
 fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
     let mut output: Vec<Arc<NodeData>> = Vec::new();
 
+    // println!("# # # # EXECUTE GRAPH");
+    // for node_data in inputs {
+    //     dbg!(node_data.node_id.0);
+    //     dbg!(node_data.slot_id.0);
+    //     println!("");
+    // }
+
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = (*graph).clone();
 
 
-    // Put the relevant `NodeData` into the input nodes for this graph.
-    for input_id in tex_pro.node_graph.input_ids() {
-        // Get the output `NodeId` for the `NodeData` whose buffer should be given to this
-        // `input_id`.
-
-        let input_slot = tex_pro.node_graph.input_slot(input_id);
-        let output_id: NodeId = edges.iter().find(
-            |edge| edge.input_id == node.node_id
-                && edge.input_slot == input_slot)
-                    .unwrap().output_id;
-        let output_data = inputs.iter().find(|node_data| node_data.node_id == output_id).unwrap();
+    // Take the `NodeData`s that are fed into this node from the external node and associate
+    // them with the correct outputs on the input nodes in the child graph.
+    for node_data in inputs {
+        let (target_node, target_slot) = tex_pro.node_graph.input_mapping(node_data.slot_id).unwrap();
 
         tex_pro.node_datas.push(
             Arc::new(
-                NodeData::new(input_id, SlotId(0), output_data.size, Arc::clone(&output_data.buffer))
+                NodeData::new(target_node, target_slot, node_data.size, Arc::clone(&node_data.buffer))
                 )
             );
     }
+
+
+
+    // Put the relevant `NodeData` into the input nodes for this graph.
+    // for input_id in tex_pro.node_graph.graph_input_ids() {
+    //     // Get the output `NodeId` for the `NodeData` whose buffer should be given to this
+    //     // `input_id`.
+    //     for input_slot in tex_pro.node_graph.node_input_slots(input_id) {
+    //         println!("# # # # # # # # # # # # RAN IT");
+    //         println!("before");
+
+    //         let input_id: NodeId = edges.iter().find(
+    //             |edge| edge.input_id == node.node_id
+    //                 && edge.input_slot == input_slot)
+    //                     .unwrap().input_id;
+    //         println!("after");
+
+    //         let output_data = inputs.iter().find(|node_data| node_data.node_id == input_id).unwrap();
+    //         tex_pro.node_datas.push(
+    //             Arc::new(
+    //                 NodeData::new(input_id, input_slot, output_data.size, Arc::clone(&output_data.buffer))
+    //                 )
+    //             );
+    //     }
+    // }
 
     println!("Before");
     tex_pro.process();
     println!("After");
 
     // Fill the output vector with `NodeData`.
-    for output_id in tex_pro.node_graph.output_ids() {
+    for output_id in tex_pro.node_graph.external_output_ids() {
         // Remapping the node id from the nested graph to the parent graph so the node data ends up
         // in the right place when the parent graph tries to access it. Then return it.
+        
+        
         let new_node_data = NodeData::new(
             node.node_id,
             tex_pro.node_datas(output_id)[0].slot_id,

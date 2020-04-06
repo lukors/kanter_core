@@ -90,20 +90,29 @@ impl TextureProcessor {
                     }
                 }
             }
-            relevant_ids.sort_unstable();
-            relevant_ids.dedup();
+            // relevant_ids.sort_unstable();
+            // relevant_ids.dedup();
 
-            if current_id == NodeId(1) {
-                println!("INPUT");
-                dbg!(&self.node_graph.edges);
-                for node_data in &self.node_datas {
-                    dbg!(node_data.node_id.0);
-                    dbg!(node_data.slot_id.0);
-                    println!("");
-                }
-            }
-            if current_id == NodeId(3) {
-                println!("OUTPUT");
+            // if current_id == NodeId(1) {
+            //     println!("INPUT");
+            //     dbg!(&self.node_graph.edges);
+            //     for node_data in &self.node_datas {
+            //         dbg!(node_data.node_id.0);
+            //         dbg!(node_data.slot_id.0);
+            //         println!("");
+            //     }
+            // }
+            // if current_id == NodeId(3) {
+            //     println!("OUTPUT");
+            //     dbg!(&self.node_graph.edges);
+            //     for node_data in &self.node_datas {
+            //         dbg!(node_data.node_id.0);
+            //         dbg!(node_data.slot_id.0);
+            //         println!("");
+            //     }
+            // }
+            if current_id == NodeId(10) {
+                println!("# # # # NESTED OUTPUT");
                 dbg!(&self.node_graph.edges);
                 for node_data in &self.node_datas {
                     dbg!(node_data.node_id.0);
@@ -122,16 +131,20 @@ impl TextureProcessor {
                     continue;
                 }
                 for edge in &self.node_graph.edges {
-                    
+                    // println!("\n# # # BEGIN");
                     if node_data.slot_id == edge.output_slot {
+                        // println!("edge output slot == node_data slot");
                         if node_data.node_id == edge.output_id {
-                            if current_id == edge.input_id
-                            {
+                            // println!("edge output node id == node_data node id");
+                            if current_id == edge.input_id {
+                                // println!("edge input node id == current node id");
                                 input_data.push(Arc::clone(node_data));
                                 relevant_edges.push(edge.clone());
+                                // println!("pushing");
                             }
                         }
                     }
+                    // println!("# # # END");
                 }
             }
 

@@ -1,24 +1,24 @@
-use crate::{error::*, node::*};
+use crate::{error::*, node::*, shared::has_dup};
 use std::{collections::hash_map::HashMap, fmt, sync::Arc};
 
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Default, Clone)]
 pub struct NodeGraph {
-    input_slots: Vec<(SlotId, NodeId)>,
+    input_mappings: Vec<InputMapping>,
     nodes: Vec<Arc<Node>>,
     pub edges: Vec<Edge>,
 }
 
 impl fmt::Debug for NodeGraph {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "NodeGraph {{ input_slots: {:?}, edges: {:?} }}", self.input_slots, self.edges)
+        write!(f, "NodeGraph {{ input_mappings: {:?}, edges: {:?} }}", self.input_mappings, self.edges)
     }
 }
 
 impl NodeGraph {
     pub fn new() -> Self {
         Self {
-            input_slots: Vec::new(),
+            input_mappings: Vec::new(),
             nodes: Vec::new(),
             edges: Vec::new(),
         }
@@ -33,8 +33,32 @@ impl NodeGraph {
         }
     }
 
-    pub fn input_slot(&self, node_id: NodeId) -> SlotId {
-        self.input_slots.iter().find(|(_, i_node_id)| node_id == *i_node_id).unwrap().0
+    // COMMENTED OUT DUE TO TOTALLY WRONG IMPLEMENTATION
+    /// Returns all input `SlotId`s associated with the given `NodeId`.
+    // pub fn node_input_slots(&self, node_id: NodeId) -> Vec<SlotId> {
+    //     self.input_slots.iter()
+    //         .filter(|(_, i_node_id)| node_id == *i_node_id)
+    //         .map(|node_id| node_id.0)
+    //         .collect()
+    // }
+
+    /// Returns all input `SlotId`s associated with the given `NodeId`.
+    // pub fn external_input_slots(&self) -> Vec<SlotId> {
+    //     self.input_mappings.iter()
+    //         .map(|input_mapping| input_mapping.external_slot)
+    //         .collect()
+    // }
+
+    /// Returns the `NodeId` and `SlotId` associated with the given
+    /// external `SlotId` in `input_mappings`.
+    pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
+        let input_mapping = self.input_mappings.iter()
+            .find(|input_mapping| input_mapping.external_slot == external_slot);
+        
+        match input_mapping {
+            Some(input_mapping) => Ok((input_mapping.input_id, input_mapping.input_slot)),
+            None => Err(TexProError::InvalidSlotId),
+        }
     }
 
     fn has_node_with_id(&self, node_id: NodeId) -> bool {
@@ -58,34 +82,50 @@ impl NodeGraph {
         self.nodes.push(Arc::new(node));
     }
 
-    /// Adds an input so that you can decide which slot the input should map to.
-    pub fn add_node_input(&mut self, slot_id: SlotId) -> Result<NodeId> {
-        if self.input_slot_occupied(slot_id) {
+    /// Adds an external grayscale input at the given `SlotId`.
+    pub fn add_external_input_gray(&mut self, external_slot: SlotId) -> Result<NodeId> {
+        if self.external_slot_occupied(external_slot) {
             return Err(TexProError::SlotOccupied)
         }
 
-        let node_id = self.new_id();
-        self.add_node_internal(Node::new(NodeType::InputGray), node_id);
-        self.input_slots.push((slot_id, node_id));
+        let input_id = self.new_id();
+        self.add_node_internal(Node::new(NodeType::InputGray), input_id);
 
-        Ok(node_id)
+        self.input_mappings.push(InputMapping {
+            external_slot,
+            input_id,
+            input_slot: SlotId(0),
+        });
+
+        Ok(input_id)
     }
 
     /// Adds an input so that you can decide which slot the input should map to.
-    pub fn add_node_input_rgba(&mut self, slot_id: SlotId) -> Result<NodeId> {
-        if self.input_slot_occupied(slot_id) {
-            return Err(TexProError::SlotOccupied)
+    pub fn add_external_input_rgba(&mut self, external_slots: Vec<SlotId>) -> Result<NodeId> {
+        if external_slots.len() != 4 || has_dup(&external_slots) {
+            return Err(TexProError::InvalidNodeId)
         }
 
-        let node_id = self.new_id();
-        self.add_node_internal(Node::new(NodeType::InputRgba), node_id);
-        self.input_slots.push((slot_id, node_id));
+        let input_id = self.new_id();
+        self.add_node_internal(Node::new(NodeType::InputRgba), input_id);
 
-        Ok(node_id)
+        for (i, external_slot) in external_slots.to_vec().iter().enumerate() {
+            if self.external_slot_occupied(*external_slot) {
+                return Err(TexProError::SlotOccupied)
+            } else {
+                self.input_mappings.push(InputMapping {
+                    external_slot: *external_slot,
+                    input_id,
+                    input_slot: SlotId(i as u32),
+                });
+            }
+        }
+
+        Ok(input_id)
     }
 
-    fn input_slot_occupied(&self, input_slot_id: SlotId) -> bool {
-        self.input_slots.iter().any(|(slot_id, _node_id)| input_slot_id == *slot_id)
+    fn external_slot_occupied(&self, input_slot_id: SlotId) -> bool {
+        self.input_mappings.iter().any(|input_mapping| input_mapping.external_slot == input_slot_id)
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
@@ -137,7 +177,7 @@ impl NodeGraph {
         output_rgba_count*4 + output_gray_count
     }
 
-    pub fn output_ids(&self) -> Vec<NodeId> {
+    pub fn external_output_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
             .filter(|node| node.node_type == NodeType::OutputRgba || node.node_type == NodeType::Output)
@@ -145,7 +185,7 @@ impl NodeGraph {
             .collect()
     }
 
-    pub fn input_ids(&self) -> Vec<NodeId> {
+    pub fn external_input_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
             .filter(|node| node.node_type == NodeType::InputRgba || node.node_type ==  NodeType::InputGray)
@@ -185,6 +225,13 @@ impl NodeGraph {
                 .any(|edge| edge.output_id == id && edge.output_slot == slot),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct InputMapping {
+    external_slot: SlotId,
+    input_id: NodeId,
+    input_slot: SlotId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
