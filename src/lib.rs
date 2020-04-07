@@ -1,7 +1,12 @@
 // TODO:
 // - Make sure all current tests work
+// - Fix all warnings
 // - Update to latest Rust
-// - Restore basic functionality (add node etc)
+// - Fix all warnings
+// - Restore invert node
+// - Restore add node
+// - Restore multiply node
+
 // - Add a resize node, though nodes are able to output a different size than their input, but only
 //   with a default filter (Bilinear?) and ResizePolicy (LargestAxes) then.
 // - Implement same features as Channel Shuffle 1 & 2.

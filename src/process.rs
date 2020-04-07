@@ -15,11 +15,9 @@ pub fn process_node(
     let input_node_datas: Vec<Arc<NodeData>> =
         resize_buffers(&input_node_datas, node.resize_policy, node.filter_type)?;
 
-    dbg!(&edges);
-
     let output: Vec<Arc<NodeData>> = match node.node_type {
-        NodeType::InputRgba => input_rgba(&input_node_datas, &node),
-        NodeType::InputGray => input_gray(&input_node_datas, &node),
+        NodeType::InputRgba => Vec::new(),
+        NodeType::InputGray => Vec::new(),
         NodeType::OutputRgba => output_rgba(&input_node_datas, edges, &node),
         NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, edges, &node, node_graph),
@@ -36,8 +34,6 @@ pub fn process_node(
     assert!(output.len() <= node.capacity(Side::Output));
     Ok(output)
 }
-
-// TODO: Re-implement the deactivated node type process functions.
 
 /// Finds the `NodeData`s relevant for this `Node` and outputs them.
 fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
@@ -63,11 +59,6 @@ fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 
         new_node_datas.push(Arc::new(new_node_data));
     }
-    // dbg!(inputs.len());
-    // dbg!(edges.len());
-
-    // dbg!(&edges);
-    // dbg!(&inputs);
     assert_eq!(new_node_datas.len(), 4);
 
     new_node_datas
@@ -100,34 +91,7 @@ fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 
     assert_eq!(new_node_datas.len(), 1);
 
-    // let mut new_node_datas: Vec<NodeData> = inputs.iter().map(|node_data| (**node_data).clone()).collect();
-    // for new_node_data in &mut new_node_datas {
-    //     new_node_data.node_id = new_node_id;
-    //     new_node_data.slot_id = edges.iter().
-
-    // }
-
     new_node_datas
-}
-
-/// If there is no `NodeData` associated with this node, just send an empty `Vec`, otherwise send a
-/// `Vec` with the associated `NodeData`.
-fn input_gray(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
-    if inputs.len() > 0 {
-        vec![Arc::clone(&inputs[0])]
-    } else {
-        Vec::new()
-    }
-
-    // unimplemented!();
-    // Vec::new()
-}
-
-/// If there is no `NodeData` associated with this node, just send an empty `Vec`, otherwise send a
-/// `Vec` with the associated `NodeData`.
-fn input_rgba(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
-    unimplemented!();
-    Vec::new()
 }
 
 /// Executes the node graph contained in the node.
@@ -164,24 +128,6 @@ fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &Nod
         }
     }
 
-    //     let output_node = tex_pro.node_graph.node_with_id(output_id).unwrap()
-    //     for output_slot in 
-    //     // Ensure there is a `NodeData` for the given 
-
-    //     // Remapping the node id from the nested graph to the parent graph so the node data ends up
-    //     // in the right place when the parent graph tries to access it. Then return it.
-        
-    //     for output_slot in tex_pro.node_graph.
-    //     let new_node_data = NodeData::new(
-    //         node.node_id,
-    //         tex_pro.node_datas(output_id)[0].slot_id,
-    //         tex_pro.node_datas(output_id)[0].size,
-    //         Arc::clone(&tex_pro.node_datas(output_id)[0].buffer)
-    //     );
-    //     output.push(Arc::new(new_node_data));
-    //     // output.push(Arc::clone(&tex_pro.node_datas(output_id)[0]));
-    // }
-
     output
 }
 
@@ -191,7 +137,6 @@ fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
         width: buffers[0].width(),
         height: buffers[0].height(),
     };
-    // Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
 
     let mut output: Vec<Arc<NodeData>> = Vec::with_capacity(4);
     for (channel, buffer) in buffers.into_iter().enumerate() {
@@ -201,13 +146,6 @@ fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
             size,
             Arc::new(buffer),
         )));
-
-        // output.push(NodeData::new(
-        //     None,
-        //     Slot(channel),
-        //     Size::new(image.width, image.height),
-        //     Arc::new(buffer),
-        // ));
     }
 
     Ok(output)

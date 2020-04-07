@@ -90,37 +90,6 @@ impl TextureProcessor {
                     }
                 }
             }
-            // relevant_ids.sort_unstable();
-            // relevant_ids.dedup();
-
-            // if current_id == NodeId(1) {
-            //     println!("INPUT");
-            //     dbg!(&self.node_graph.edges);
-            //     for node_data in &self.node_datas {
-            //         dbg!(node_data.node_id.0);
-            //         dbg!(node_data.slot_id.0);
-            //         println!("");
-            //     }
-            // }
-            // if current_id == NodeId(3) {
-            //     println!("OUTPUT");
-            //     dbg!(&self.node_graph.edges);
-            //     for node_data in &self.node_datas {
-            //         dbg!(node_data.node_id.0);
-            //         dbg!(node_data.slot_id.0);
-            //         println!("");
-            //     }
-            // }
-            if current_id == NodeId(10) {
-                println!("# # # # NESTED OUTPUT");
-                dbg!(&self.node_graph.edges);
-                for node_data in &self.node_datas {
-                    dbg!(node_data.node_id.0);
-                    dbg!(node_data.slot_id.0);
-                    println!("");
-                }
-            }
-
 
             // Put the `Arc<Buffer>`s and `Edge`s relevant for the calculation of this node into
             // lists.
@@ -131,27 +100,14 @@ impl TextureProcessor {
                     continue;
                 }
                 for edge in &self.node_graph.edges {
-                    // println!("\n# # # BEGIN");
-                    if node_data.slot_id == edge.output_slot {
-                        // println!("edge output slot == node_data slot");
-                        if node_data.node_id == edge.output_id {
-                            // println!("edge output node id == node_data node id");
-                            if current_id == edge.input_id {
-                                // println!("edge input node id == current node id");
-                                input_data.push(Arc::clone(node_data));
-                                relevant_edges.push(edge.clone());
-                                // println!("pushing");
-                            }
-                        }
+                    if node_data.slot_id == edge.output_slot
+                    && node_data.node_id == edge.output_id
+                    && current_id == edge.input_id {
+                        input_data.push(Arc::clone(node_data));
+                        relevant_edges.push(edge.clone());
                     }
-                    // println!("# # # END");
                 }
             }
-
-            // dbg!(&relevant_ids);
-            // dbg!(&self.node_graph.edges);
-            // dbg!(input_data.len());
-            // dbg!(&relevant_edges);
 
             // Spawn a thread and calculate the node in it and send back the new `node_data`s for
             // each slot in the node.
@@ -173,17 +129,12 @@ impl TextureProcessor {
         }
     }
 
-    // fn process_node(node: Arc<Node>, data: &mut Vec<Arc<NodeData>>, edges: Vec<Edge>) -> Vec<Arc<NodeData>> {
-    //     unimplemented!()
-    // }
-
     /// Takes a node and the data it generated, marks it as finished and puts the data in the
     /// `TextureProcessor`'s data vector.
     /// Then it adds any child `NodeId`s of the input `NodeId` to the list of `NodeId`s to process.
     fn set_node_finished(
         &mut self,
         id: NodeId,
-        // For refactoring: Used to be `buffers: Option<Vec<Arc<Buffer>>>`:
         node_datas: &mut Option<Vec<Arc<NodeData>>>,
         started_nodes: &mut HashSet<NodeId>,
         finished_nodes: &mut HashSet<NodeId>,
@@ -193,16 +144,6 @@ impl TextureProcessor {
 
         if let Some(node_datas) = node_datas {
             self.node_datas.append(node_datas);
-            // self.node_datas.push(NodeData::new(node_datas[0].size()));
-            // for node_data in node_datas {
-            // self.node_datas.push(node_data);
-            // self.node_datas
-            //     .get_mut(&id)
-            //     .unwrap()
-            //     .get_buffers_mut()
-            //     .insert(node_data.slot(), node_data.buffer());
-            // }
-            // self.node_datas[&id] = buffers;
         }
 
         // Add any child node to the input `NodeId` to the list of nodes to potentially process.
@@ -215,18 +156,7 @@ impl TextureProcessor {
         }
     }
 
-    // pub fn get_output_u8(&self, id: NodeId) -> Vec<u8> {
-    //     self.node_datas[&id]
-    //         .iter()
-    //         .map(|node_data| &node_data.value)
-    //         .flatten()
-    //         .map(|x| (x * 255.).min(255.) as u8)
-    //         .collect()
-    // }
     pub fn node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
-        // for node_data in &self.node_datas {
-        //     dbg!(node_data.node_id);
-        // }
         self.node_datas
             .iter()
             .filter(|&x| x.node_id == id)
@@ -235,7 +165,6 @@ impl TextureProcessor {
     }
 
     pub fn get_output_rgba(&self, id: NodeId) -> Result<Vec<u8>> {
-        // dbg!(self.node_datas.len());
         let node_datas = self.node_datas(id);
 
         let empty_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::new(0, 0)));
@@ -244,18 +173,6 @@ impl TextureProcessor {
         sorted_value_vecs.push(Arc::clone(&empty_buffer));
         sorted_value_vecs.push(Arc::clone(&empty_buffer));
         sorted_value_vecs.push(Arc::clone(&empty_buffer));
-
-        // for node_data in node_datas {
-        //     match node_data.slot_id {
-        //         SlotId(0) => sorted_value_vecs[0] = &node_data.buffer,
-        //         SlotId(1) => sorted_value_vecs[1] = &node_data.buffer,
-        //         SlotId(2) => sorted_value_vecs[2] = &node_data.buffer,
-        //         SlotId(3) => sorted_value_vecs[3] = &node_data.buffer,
-        //         _ => continue,
-        //     }
-        // }
-
-        // dbg!(node_datas.len());
 
         sorted_value_vecs = node_datas
             .iter()
@@ -267,8 +184,6 @@ impl TextureProcessor {
                 _ => Arc::clone(&empty_buffer),
             })
             .collect();
-
-        // dbg!(sorted_value_vecs.len());
 
         for value_vec in &sorted_value_vecs {
             if value_vec.is_empty() {
@@ -296,13 +211,3 @@ impl TextureProcessor {
             .collect::<Vec<NodeId>>()
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn placeholder() {
-//         ()
-//     }
-// }
