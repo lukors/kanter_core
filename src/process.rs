@@ -152,20 +152,35 @@ fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &Nod
     tex_pro.process();
 
     // Fill the output vector with `NodeData`.
-    for output_id in tex_pro.node_graph.external_output_ids() {
-        // Remapping the node id from the nested graph to the parent graph so the node data ends up
-        // in the right place when the parent graph tries to access it. Then return it.
-        
-        println!("GAG AG OAGO AOG");
-        let new_node_data = NodeData::new(
-            node.node_id,
-            tex_pro.node_datas(output_id)[0].slot_id,
-            tex_pro.node_datas(output_id)[0].size,
-            Arc::clone(&tex_pro.node_datas(output_id)[0].buffer)
-        );
-        output.push(Arc::new(new_node_data));
-        // output.push(Arc::clone(&tex_pro.node_datas(output_id)[0]));
+    for output_node_id in tex_pro.node_graph.external_output_ids() {
+        for node_data in tex_pro.node_datas(output_node_id) {
+            let output_node_data = NodeData::new(
+                node.node_id,
+                node_data.slot_id,
+                node_data.size,
+                Arc::clone(&node_data.buffer)
+            );
+            output.push(Arc::new(output_node_data));
+        }
     }
+
+    //     let output_node = tex_pro.node_graph.node_with_id(output_id).unwrap()
+    //     for output_slot in 
+    //     // Ensure there is a `NodeData` for the given 
+
+    //     // Remapping the node id from the nested graph to the parent graph so the node data ends up
+    //     // in the right place when the parent graph tries to access it. Then return it.
+        
+    //     for output_slot in tex_pro.node_graph.
+    //     let new_node_data = NodeData::new(
+    //         node.node_id,
+    //         tex_pro.node_datas(output_id)[0].slot_id,
+    //         tex_pro.node_datas(output_id)[0].size,
+    //         Arc::clone(&tex_pro.node_datas(output_id)[0].buffer)
+    //     );
+    //     output.push(Arc::new(new_node_data));
+    //     // output.push(Arc::clone(&tex_pro.node_datas(output_id)[0]));
+    // }
 
     output
 }
