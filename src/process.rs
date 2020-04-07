@@ -1,5 +1,5 @@
 use std::{path::Path, sync::Arc};
-use image::ImageBuffer;
+use image::{FilterType, ImageBuffer};
 use crate::{dag::*, error::Result, node::*, node_data::*, node_graph::*, shared::*};
 
 // TODO: I want to make this function take a node and process it.
@@ -23,6 +23,7 @@ pub fn process_node(
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Value(val) => value(Arc::clone(&node), val),
+        NodeType::Resize(resize_policy, filter_type) => resize(Arc::clone(&node), resize_policy, filter_type),
         NodeType::Add => add(
             Arc::clone(&input_node_datas[0]),
             Arc::clone(&input_node_datas[1]),
@@ -176,6 +177,11 @@ fn value(node: Arc<Node>, value: f32) -> Vec<Arc<NodeData>> {
         Size::new(width, height),
         Arc::new(Box::new(ImageBuffer::from_raw(width, height, vec![value]).unwrap())),
         ))]
+}
+
+fn resize(node: Arc<Node>, resize_policy: ResizePolicy, filter_type: Option<FilterType>) -> Vec<Arc<NodeData>> {
+
+    todo!()
 }
 
 fn add(input_0: Arc<NodeData>, input_1: Arc<NodeData>) -> Vec<Arc<NodeData>> {

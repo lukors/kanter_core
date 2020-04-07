@@ -1,5 +1,6 @@
 use image::FilterType;
 use crate::{node_data::*, node_graph::*};
+use std::fmt;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ResizePolicy {
@@ -17,7 +18,6 @@ pub enum Side {
     Output,
 }
 
-#[derive(Debug)]
 pub enum NodeType {
     InputGray,
     InputRgba,
@@ -27,6 +27,7 @@ pub enum NodeType {
     Read(String),
     Write(String),
     Value(f32),
+    Resize(Option<ResizePolicy>, Option<FilterType>),
     Add,
     Invert,
     Multiply,
@@ -35,6 +36,26 @@ pub enum NodeType {
 impl PartialEq for NodeType {
     fn eq(&self, other: &Self) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+impl fmt::Debug for NodeType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // use NodeType::*;
+        match self {
+            NodeType::InputGray => write!(f, "InputGray"),
+            NodeType::InputRgba => write!(f, "InputRgba"),
+            NodeType::OutputGray => write!(f, "OutputGray"),
+            NodeType::OutputRgba => write!(f, "OutputRgba"),
+            NodeType::Graph(_) => write!(f, "Graph"),
+            NodeType::Read(_) => write!(f, "Read"),
+            NodeType::Write(_) => write!(f, "Write"),
+            NodeType::Value(_) => write!(f, "Value"),
+            NodeType::Resize(_, _) => write!(f, "Resize"),
+            NodeType::Add => write!(f, "Add"),
+            NodeType::Invert => write!(f, "Invert"),
+            NodeType::Multiply => write!(f, "Multiply"),
+        }
     }
 }
 
@@ -66,6 +87,7 @@ impl Node {
                 NodeType::Read(_) => 0,
                 NodeType::Write(_) => 4,
                 NodeType::Value(_) => 0,
+                NodeType::Resize(_, _) => 1,
                 NodeType::Add => 2,
                 NodeType::Invert => 1,
                 NodeType::Multiply => 2,
@@ -79,6 +101,7 @@ impl Node {
                 NodeType::Read(_) => 4,
                 NodeType::Write(_) => 0,
                 NodeType::Value(_) => 1,
+                NodeType::Resize(_, _) => 1,
                 NodeType::Add => 1,
                 NodeType::Invert => 1,
                 NodeType::Multiply => 1,

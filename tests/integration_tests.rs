@@ -121,6 +121,44 @@ fn value_node() {
     .unwrap();
 }
 
+#[test]
+fn resize_node() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.5))).unwrap();
+    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(256, 256, None, None))).unwrap();
+    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro.node_graph
+        .connect(value_node, resize_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.node_graph
+        .connect(resize_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(resize_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(resize_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(resize_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+
+    tex_pro.process();
+
+    image::save_buffer(
+        &Path::new(&"out/value_node.png"),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
+            .unwrap(),
+        256,
+        256,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
 // #[test]
 // fn add_node() {
 //     let mut tex_pro = TextureProcessor::new();
