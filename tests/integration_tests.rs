@@ -39,44 +39,6 @@ fn input_output() {
 }
 
 #[test]
-fn input_output_longer() {
-    let mut tex_pro = TextureProcessor::new();
-
-    let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
-    let middle_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-    tex_pro.node_graph
-        .connect(input_node, middle_node, SlotId(0), SlotId(0))
-        .unwrap();
-
-    tex_pro.node_graph
-        .connect(middle_node, output_node, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro.node_graph
-        .connect(middle_node, output_node, SlotId(0), SlotId(1))
-        .unwrap();
-    tex_pro.node_graph
-        .connect(middle_node, output_node, SlotId(0), SlotId(2))
-        .unwrap();
-    tex_pro.node_graph
-        .connect(middle_node, output_node, SlotId(0), SlotId(3))
-        .unwrap();
-
-    tex_pro.process();
-
-    image::save_buffer(
-        &Path::new(&"out/input_output.png"),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
-        256,
-        256,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
-}
-
-#[test]
 fn input_output_2() {
     let tex_pro_compare = input_output_2_internal();
 
@@ -123,7 +85,7 @@ fn input_output_2_internal() -> TextureProcessor {
 }
 
 #[test]
-fn nested_graph_rgba() {
+fn nested_graph_passthrough_rgba() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
@@ -157,7 +119,7 @@ fn nested_graph_rgba() {
 
     // Output
     image::save_buffer(
-        &Path::new(&"out/nested_graph_passthrough.png"),
+        &Path::new(&"out/nested_graph_passthrough_rgba.png"),
         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
             .unwrap(),
         256,
@@ -168,7 +130,7 @@ fn nested_graph_rgba() {
 }
 
 #[test]
-fn nested_graph_grayscale() {
+fn nested_graph_passthrough_grayscale() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
@@ -196,7 +158,7 @@ fn nested_graph_grayscale() {
 
     // Output
     image::save_buffer(
-        &Path::new(&"out/nested_graph_passthrough.png"),
+        &Path::new(&"out/nested_graph_passthrough_grayscale.png"),
         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
             .unwrap(),
         256,
