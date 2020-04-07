@@ -1,5 +1,4 @@
-use image::{FilterType, ImageBuffer, Luma};
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use crate::{dag::*, error::Result, node::*, node_data::*, node_graph::*, shared::*};
 
@@ -20,7 +19,7 @@ pub fn process_node(
         NodeType::InputGray => Vec::new(),
         NodeType::OutputRgba => output_rgba(&input_node_datas, edges, &node),
         NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
-        NodeType::Graph(ref node_graph) => graph(&input_node_datas, edges, &node, node_graph),
+        NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Invert => invert(&input_node_datas),
@@ -95,7 +94,7 @@ fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 }
 
 /// Executes the node graph contained in the node.
-fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
+fn graph(inputs: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
     let mut output: Vec<Arc<NodeData>> = Vec::new();
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = (*graph).clone();

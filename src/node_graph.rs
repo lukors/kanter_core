@@ -1,5 +1,5 @@
 use crate::{error::*, node::*, shared::has_dup};
-use std::{collections::hash_map::HashMap, fmt, sync::Arc};
+use std::{fmt, sync::Arc};
 
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Default, Clone)]
@@ -69,10 +69,6 @@ impl NodeGraph {
 
     pub fn node_with_id(&self, node_id: NodeId) -> Option<&Arc<Node>> {
         self.nodes.iter().find(|node| node.node_id == node_id)
-    }
-
-    fn edges(&self) -> &[Edge] {
-        &self.edges
     }
 
     fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) {
