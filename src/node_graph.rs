@@ -4,7 +4,8 @@ use std::{collections::hash_map::HashMap, fmt, sync::Arc};
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Default, Clone)]
 pub struct NodeGraph {
-    input_mappings: Vec<InputMapping>,
+    input_mappings: Vec<ExternalMapping>,
+    output_mappings: Vec<ExternalMapping>,
     nodes: Vec<Arc<Node>>,
     pub edges: Vec<Edge>,
 }
@@ -19,6 +20,7 @@ impl NodeGraph {
     pub fn new() -> Self {
         Self {
             input_mappings: Vec::new(),
+            output_mappings: Vec::new(),
             nodes: Vec::new(),
             edges: Vec::new(),
         }
@@ -33,30 +35,26 @@ impl NodeGraph {
         }
     }
 
-    // COMMENTED OUT DUE TO TOTALLY WRONG IMPLEMENTATION
-    /// Returns all input `SlotId`s associated with the given `NodeId`.
-    // pub fn node_input_slots(&self, node_id: NodeId) -> Vec<SlotId> {
-    //     self.input_slots.iter()
-    //         .filter(|(_, i_node_id)| node_id == *i_node_id)
-    //         .map(|node_id| node_id.0)
-    //         .collect()
-    // }
-
-    /// Returns all input `SlotId`s associated with the given `NodeId`.
-    // pub fn external_input_slots(&self) -> Vec<SlotId> {
-    //     self.input_mappings.iter()
-    //         .map(|input_mapping| input_mapping.external_slot)
-    //         .collect()
-    // }
-
     /// Returns the `NodeId` and `SlotId` associated with the given
     /// external `SlotId` in `input_mappings`.
     pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
-        let input_mapping = self.input_mappings.iter()
-            .find(|input_mapping| input_mapping.external_slot == external_slot);
+        self.resolve_mapping(external_slot, &self.input_mappings)
+    }
+
+    /// Returns the `NodeId` and `SlotId` associated with the given
+    /// external `SlotId` in `input_mappings`.
+    pub fn output_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
+        self.resolve_mapping(external_slot, &self.output_mappings)
+    }
+
+    /// Returns the `NodeId` and `SlotId` associated with the given
+    /// external `SlotId` in the given `ExternalMapping`.
+    fn resolve_mapping(&self, external_slot: SlotId, external_mappings: &[ExternalMapping]) -> Result<(NodeId, SlotId)> {
+        let external_mapping = external_mappings.iter()
+            .find(|external_mapping| external_mapping.external_slot == external_slot);
         
-        match input_mapping {
-            Some(input_mapping) => Ok((input_mapping.input_id, input_mapping.input_slot)),
+        match external_mapping {
+            Some(external_mapping) => Ok((external_mapping.internal_node, external_mapping.internal_slot)),
             None => Err(TexProError::InvalidSlotId),
         }
     }
@@ -82,50 +80,100 @@ impl NodeGraph {
         self.nodes.push(Arc::new(node));
     }
 
-    /// Adds an external grayscale input at the given `SlotId`.
+    /// Adds a grayscale input node and exposes its slots externally at the given `SlotId`.
     pub fn add_external_input_gray(&mut self, external_slot: SlotId) -> Result<NodeId> {
-        if self.external_slot_occupied(external_slot) {
+        if self.external_input_occupied(external_slot) {
             return Err(TexProError::SlotOccupied)
         }
 
-        let input_id = self.new_id();
-        self.add_node_internal(Node::new(NodeType::InputGray), input_id);
+        let internal_node = self.new_id();
+        self.add_node_internal(Node::new(NodeType::InputGray), internal_node);
 
-        self.input_mappings.push(InputMapping {
+        self.input_mappings.push(ExternalMapping {
             external_slot,
-            input_id,
-            input_slot: SlotId(0),
+            internal_node,
+            internal_slot: SlotId(0),
         });
 
-        Ok(input_id)
+        Ok(internal_node)
     }
 
-    /// Adds an input so that you can decide which slot the input should map to.
+    /// Adds an rgba input node and exposes its slots externally at the given `SlotId`s.
     pub fn add_external_input_rgba(&mut self, external_slots: Vec<SlotId>) -> Result<NodeId> {
         if external_slots.len() != 4 || has_dup(&external_slots) {
             return Err(TexProError::InvalidNodeId)
         }
-
-        let input_id = self.new_id();
-        self.add_node_internal(Node::new(NodeType::InputRgba), input_id);
-
-        for (i, external_slot) in external_slots.to_vec().iter().enumerate() {
-            if self.external_slot_occupied(*external_slot) {
+        for external_slot in &external_slots {
+            if self.external_input_occupied(*external_slot) {
                 return Err(TexProError::SlotOccupied)
-            } else {
-                self.input_mappings.push(InputMapping {
-                    external_slot: *external_slot,
-                    input_id,
-                    input_slot: SlotId(i as u32),
-                });
             }
         }
 
-        Ok(input_id)
+        let internal_node = self.new_id();
+        self.add_node_internal(Node::new(NodeType::InputRgba), internal_node);
+
+        for (i, external_slot) in external_slots.iter().enumerate() {
+            self.input_mappings.push(ExternalMapping {
+                external_slot: *external_slot,
+                internal_node,
+                internal_slot: SlotId(i as u32),
+            });
+        }
+
+        Ok(internal_node)
     }
 
-    fn external_slot_occupied(&self, input_slot_id: SlotId) -> bool {
-        self.input_mappings.iter().any(|input_mapping| input_mapping.external_slot == input_slot_id)
+    /// Adds a grayscale output node and exposes its slots externally at the given `SlotId`.
+    pub fn add_external_output_gray(&mut self, external_slot: SlotId) -> Result<NodeId> {
+        if self.external_output_occupied(external_slot) {
+            return Err(TexProError::SlotOccupied)
+        }
+
+        let internal_node = self.new_id();
+        self.add_node_internal(Node::new(NodeType::OutputGray), internal_node);
+
+        self.input_mappings.push(ExternalMapping {
+            external_slot,
+            internal_node,
+            internal_slot: SlotId(0),
+        });
+
+        Ok(internal_node)
+    }
+
+    /// Adds an rgba output node and exposes its slots externally at the given `SlotId`s.
+    pub fn add_external_output_rgba(&mut self, external_slots: Vec<SlotId>) -> Result<NodeId> {
+        if external_slots.len() != 4 || has_dup(&external_slots) {
+            return Err(TexProError::InvalidNodeId)
+        }
+        for external_slot in &external_slots {
+            if self.external_output_occupied(*external_slot) {
+                return Err(TexProError::SlotOccupied)
+            }
+        }
+
+        let internal_node = self.new_id();
+        self.add_node_internal(Node::new(NodeType::OutputRgba), internal_node);
+        
+        for (i, external_slot) in external_slots.iter().enumerate() {
+            self.output_mappings.push(ExternalMapping {
+                external_slot: *external_slot,
+                internal_node,
+                internal_slot: SlotId(i as u32),
+            });
+        }
+
+        Ok(internal_node)
+    }
+
+    /// Checks if the given external input `SlotId` is occupied.
+    fn external_input_occupied(&self, external_slot_check: SlotId) -> bool {
+        self.input_mappings.iter().any(|input_mapping| input_mapping.external_slot == external_slot_check)
+    }
+
+    /// Checks if the given external output `SlotId` is occupied.
+    fn external_output_occupied(&self, external_slot_check: SlotId) -> bool {
+        self.output_mappings.iter().any(|output_mapping| output_mapping.external_slot == external_slot_check)
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
@@ -171,7 +219,7 @@ impl NodeGraph {
 
         let output_gray_count = self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::Output)
+            .filter(|node| node.node_type == NodeType::OutputGray)
             .count();
 
         output_rgba_count*4 + output_gray_count
@@ -180,7 +228,7 @@ impl NodeGraph {
     pub fn external_output_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::OutputRgba || node.node_type == NodeType::Output)
+            .filter(|node| node.node_type == NodeType::OutputRgba || node.node_type == NodeType::OutputGray)
             .map(|node| node.node_id)
             .collect()
     }
@@ -228,10 +276,10 @@ impl NodeGraph {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct InputMapping {
+struct ExternalMapping {
     external_slot: SlotId,
-    input_id: NodeId,
-    input_slot: SlotId,
+    internal_node: NodeId,
+    internal_slot: SlotId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]

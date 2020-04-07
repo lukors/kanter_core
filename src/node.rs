@@ -24,7 +24,7 @@ pub enum Side {
 pub enum NodeType {
     InputGray,
     InputRgba,
-    Output,
+    OutputGray,
     OutputRgba,
     Graph(NodeGraph),
     Read(String),
@@ -62,7 +62,7 @@ impl Node {
             Side::Input => match self.node_type {
                 NodeType::InputGray => 1,
                 NodeType::InputRgba => 0,
-                NodeType::Output => 1,
+                NodeType::OutputGray => 1,
                 NodeType::OutputRgba => 4,
                 NodeType::Graph(ref graph) => graph.input_count(),
                 NodeType::Read(_) => 0,
@@ -74,7 +74,7 @@ impl Node {
             Side::Output => match self.node_type {
                 NodeType::InputGray => 1,
                 NodeType::InputRgba => 4,
-                NodeType::Output => 1,
+                NodeType::OutputGray => 1,
                 NodeType::OutputRgba => 4,
                 NodeType::Graph(ref graph) => graph.output_count(),
                 NodeType::Read(_) => 4,

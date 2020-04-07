@@ -9,37 +9,11 @@ pub fn process_node(
     input_node_datas: &[Arc<NodeData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<NodeData>>> {
-    // dbg!(&node.node_type);
-    // dbg!(input_node_datas.len());
-    // dbg!(node.capacity(Side::Input));
     assert!(input_node_datas.len() <= node.capacity(Side::Input));
     assert_eq!(edges.len(), input_node_datas.len());
 
     let input_node_datas: Vec<Arc<NodeData>> =
         resize_buffers(&input_node_datas, node.resize_policy, node.filter_type)?;
-
-    // NOTE: I believe this code is no longer needed because it used to be that I sent in buffers,
-    // which meant I needed to sort them in the order they were supposed to be in for the
-    // calculations to be correct before doing the calculations.
-
-    // Now I send in `NodeData`s instead, which contain the node and slot they belong to, so there
-    // should be no need for any sorting now.
-
-    // let mut sorted_input: Vec<Arc<NodeData>> = Vec::new();
-    // for node_data in input_node_datas {
-    //     for edge in edges.iter() {
-    //         if node_data.node_id == edge.output_id()
-    //             && node_data.slot_id == edge.output_slot()
-    //         {
-    //             sorted_input[edge.input_slot().as_usize()] = Arc::clone(&node_data);
-    //         }
-    //     }
-    // }
-
-    // let sorted_input: Vec<NodeData> = sorted_input
-    //     .into_iter()
-    //     .map(|buffer| buffer.expect("No NodeData found when expected."))
-    //     .collect();
 
     dbg!(&edges);
 
@@ -47,7 +21,7 @@ pub fn process_node(
         NodeType::InputRgba => input_rgba(&input_node_datas, &node),
         NodeType::InputGray => input_gray(&input_node_datas, &node),
         NodeType::OutputRgba => output_rgba(&input_node_datas, edges, &node),
-        NodeType::Output => output(&input_node_datas, edges, &node),
+        NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, edges, &node, node_graph),
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
@@ -89,10 +63,10 @@ fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 
         new_node_datas.push(Arc::new(new_node_data));
     }
-    dbg!(inputs.len());
-    dbg!(edges.len());
+    // dbg!(inputs.len());
+    // dbg!(edges.len());
 
-    dbg!(&edges);
+    // dbg!(&edges);
     // dbg!(&inputs);
     assert_eq!(new_node_datas.len(), 4);
 
@@ -100,7 +74,7 @@ fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 }
 
 /// Finds the `NodeData` relevant for this `Node` and outputs them.
-fn output(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
+fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(1);
 
     // Find a `NodeData` in `inputs` that matches the current `Edge`.
@@ -159,14 +133,6 @@ fn input_rgba(inputs: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
 /// Executes the node graph contained in the node.
 fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
     let mut output: Vec<Arc<NodeData>> = Vec::new();
-
-    // println!("# # # # EXECUTE GRAPH");
-    // for node_data in inputs {
-    //     dbg!(node_data.node_id.0);
-    //     dbg!(node_data.slot_id.0);
-    //     println!("");
-    // }
-
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = (*graph).clone();
 
@@ -183,41 +149,14 @@ fn graph(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>, graph: &Nod
             );
     }
 
-
-
-    // Put the relevant `NodeData` into the input nodes for this graph.
-    // for input_id in tex_pro.node_graph.graph_input_ids() {
-    //     // Get the output `NodeId` for the `NodeData` whose buffer should be given to this
-    //     // `input_id`.
-    //     for input_slot in tex_pro.node_graph.node_input_slots(input_id) {
-    //         println!("# # # # # # # # # # # # RAN IT");
-    //         println!("before");
-
-    //         let input_id: NodeId = edges.iter().find(
-    //             |edge| edge.input_id == node.node_id
-    //                 && edge.input_slot == input_slot)
-    //                     .unwrap().input_id;
-    //         println!("after");
-
-    //         let output_data = inputs.iter().find(|node_data| node_data.node_id == input_id).unwrap();
-    //         tex_pro.node_datas.push(
-    //             Arc::new(
-    //                 NodeData::new(input_id, input_slot, output_data.size, Arc::clone(&output_data.buffer))
-    //                 )
-    //             );
-    //     }
-    // }
-
-    println!("Before");
     tex_pro.process();
-    println!("After");
 
     // Fill the output vector with `NodeData`.
     for output_id in tex_pro.node_graph.external_output_ids() {
         // Remapping the node id from the nested graph to the parent graph so the node data ends up
         // in the right place when the parent graph tries to access it. Then return it.
         
-        
+        println!("GAG AG OAGO AOG");
         let new_node_data = NodeData::new(
             node.node_id,
             tex_pro.node_datas(output_id)[0].slot_id,
