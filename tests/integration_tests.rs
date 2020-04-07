@@ -85,7 +85,82 @@ fn input_output_2_internal() -> TextureProcessor {
 }
 
 #[test]
-fn nested_graph_passthrough_rgba() {
+fn value_node() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let red_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.2))).unwrap();
+    let green_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.5))).unwrap();
+    let blue_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.7))).unwrap();
+    let alpha_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(1.))).unwrap();
+
+    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro.node_graph
+        .connect(red_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(green_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(blue_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(alpha_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+
+    tex_pro.process();
+
+    image::save_buffer(
+        &Path::new(&"out/value_node.png"),
+        &image::RgbaImage::from_vec(1, 1, tex_pro.get_output_rgba(output_node).unwrap())
+            .unwrap(),
+        1,
+        1,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
+// #[test]
+// fn add_node() {
+//     let mut tex_pro = TextureProcessor::new();
+
+//     let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
+//     let add_node = tex_pro.node_graph.add_node(Node::new(NodeType::Add)).unwrap();
+//     let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+//     tex_pro.node_graph
+//         .connect(input_node, add_node, SlotId(0), SlotId(0))
+//         .unwrap();
+
+//     tex_pro.node_graph
+//         .connect(add_node, output_node, SlotId(0), SlotId(0))
+//         .unwrap();
+//     tex_pro.node_graph
+//         .connect(add_node, output_node, SlotId(0), SlotId(1))
+//         .unwrap();
+//     tex_pro.node_graph
+//         .connect(add_node, output_node, SlotId(0), SlotId(2))
+//         .unwrap();
+//     tex_pro.node_graph
+//         .connect(add_node, output_node, SlotId(0), SlotId(3))
+//         .unwrap();
+
+//     tex_pro.process();
+
+//     image::save_buffer(
+//         &Path::new(&"out/input_output.png"),
+//         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
+//             .unwrap(),
+//         256,
+//         256,
+//         image::ColorType::RGBA(8),
+//     )
+//     .unwrap();
+// }
+
+#[test]
+fn graph_node_rgba() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
@@ -119,7 +194,7 @@ fn nested_graph_passthrough_rgba() {
 
     // Output
     image::save_buffer(
-        &Path::new(&"out/nested_graph_passthrough_rgba.png"),
+        &Path::new(&"out/graph_node_rgba.png"),
         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
             .unwrap(),
         256,
@@ -130,7 +205,7 @@ fn nested_graph_passthrough_rgba() {
 }
 
 #[test]
-fn nested_graph_passthrough_grayscale() {
+fn graph_node_gray() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
@@ -158,7 +233,7 @@ fn nested_graph_passthrough_grayscale() {
 
     // Output
     image::save_buffer(
-        &Path::new(&"out/nested_graph_passthrough_grayscale.png"),
+        &Path::new(&"out/graph_node_gray.png"),
         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
             .unwrap(),
         256,

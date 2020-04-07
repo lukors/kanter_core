@@ -26,8 +26,9 @@ pub enum NodeType {
     Graph(NodeGraph),
     Read(String),
     Write(String),
-    Invert,
+    Value(f32),
     Add,
+    Invert,
     Multiply,
 }
 
@@ -64,8 +65,9 @@ impl Node {
                 NodeType::Graph(ref graph) => graph.input_count(),
                 NodeType::Read(_) => 0,
                 NodeType::Write(_) => 4,
-                NodeType::Invert => 1,
+                NodeType::Value(_) => 0,
                 NodeType::Add => 2,
+                NodeType::Invert => 1,
                 NodeType::Multiply => 2,
             },
             Side::Output => match self.node_type {
@@ -76,8 +78,9 @@ impl Node {
                 NodeType::Graph(ref graph) => graph.output_count(),
                 NodeType::Read(_) => 4,
                 NodeType::Write(_) => 0,
-                NodeType::Invert => 1,
+                NodeType::Value(_) => 1,
                 NodeType::Add => 1,
+                NodeType::Invert => 1,
                 NodeType::Multiply => 1,
             },
         }

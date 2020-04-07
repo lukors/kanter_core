@@ -163,17 +163,6 @@ pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {
     let image = image::open(path)?;
     let buffers = deconstruct_image(&image);
 
-    // let mut output = Vec::new();
-
-    // for buffer in buffers.into_iter() {
-    //     output.push(NodeData::new(
-    //         None,
-    //         Slot(channel),
-    //         Size::new(image.width, image.height),
-    //         Arc::new(buffer),
-    //     ));
-    // }
-
     Ok(buffers)
 }
 

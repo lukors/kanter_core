@@ -1,5 +1,5 @@
 use std::{path::Path, sync::Arc};
-
+use image::ImageBuffer;
 use crate::{dag::*, error::Result, node::*, node_data::*, node_graph::*, shared::*};
 
 // TODO: I want to make this function take a node and process it.
@@ -22,11 +22,12 @@ pub fn process_node(
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
-        NodeType::Invert => invert(&input_node_datas),
+        NodeType::Value(val) => value(Arc::clone(&node), val),
         NodeType::Add => add(
             Arc::clone(&input_node_datas[0]),
             Arc::clone(&input_node_datas[1]),
         ), // TODO: These should take the entire vector and not two arguments
+        NodeType::Invert => invert(&input_node_datas),
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
     };
 
@@ -166,20 +167,15 @@ fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {
     Ok(Vec::new())
 }
 
-fn invert(input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
-    unimplemented!()
-    // let input = &input[0];
-    // let (width, height) = (input.size.width, input.size.height);
-    // let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
-    //     Luma([(input.buffer.get_pixel(x, y).data[0] * -1.) + 1.])
-    // });
+fn value(node: Arc<Node>, value: f32) -> Vec<Arc<NodeData>> {
+    let (width, height) = (1, 1);
 
-    // vec![NodeData {
-    //     id: None,
-    //     slot: Slot(0),
-    //     size: input.size,
-    //     buffer: Arc::new(buffer),
-    // }]
+    vec![Arc::new(NodeData::new(
+        node.node_id,
+        SlotId(0),
+        Size::new(width, height),
+        Arc::new(Box::new(ImageBuffer::from_raw(width, height, vec![value]).unwrap())),
+        ))]
 }
 
 fn add(input_0: Arc<NodeData>, input_1: Arc<NodeData>) -> Vec<Arc<NodeData>> {
@@ -194,6 +190,22 @@ fn add(input_0: Arc<NodeData>, input_1: Arc<NodeData>) -> Vec<Arc<NodeData>> {
     //     id: None,
     //     slot: Slot(0),
     //     size: input_0.size,
+    //     buffer: Arc::new(buffer),
+    // }]
+}
+
+fn invert(input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+    unimplemented!()
+    // let input = &input[0];
+    // let (width, height) = (input.size.width, input.size.height);
+    // let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
+    //     Luma([(input.buffer.get_pixel(x, y).data[0] * -1.) + 1.])
+    // });
+
+    // vec![NodeData {
+    //     id: None,
+    //     slot: Slot(0),
+    //     size: input.size,
     //     buffer: Arc::new(buffer),
     // }]
 }
