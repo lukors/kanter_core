@@ -8,7 +8,7 @@ pub enum ResizePolicy {
     LeastPixels,
     LargestAxes,
     SmallestAxes,
-    SpecificNode(NodeId),
+    SpecificSlot(SlotId),
     SpecificSize(Size),
 }
 

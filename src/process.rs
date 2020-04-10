@@ -179,6 +179,7 @@ fn value(node: Arc<Node>, value: f32) -> Vec<Arc<NodeData>> {
         ))]
 }
 
+// The different `ResizePolicy`s need tests.
 fn process_resize(node_datas: &[Arc<NodeData>], node: Arc<Node>, resize_policy: Option<ResizePolicy>, filter_type: Option<FilterType>) -> Result<Vec<Arc<NodeData>>> {
     let size: Option<Size> = match resize_policy.unwrap_or(Default::default()) {
         ResizePolicy::MostPixels => {
@@ -186,10 +187,40 @@ fn process_resize(node_datas: &[Arc<NodeData>], node: Arc<Node>, resize_policy: 
                 .map(|node_data| node_data.size)
                 .max_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count()))
         },
-        ResizePolicy::LeastPixels => todo!(),
-        ResizePolicy::LargestAxes => todo!(),
-        ResizePolicy::SmallestAxes => todo!(),
-        ResizePolicy::SpecificNode(_node_id) => todo!(),
+        ResizePolicy::LeastPixels => {
+            node_datas.iter()
+                .map(|node_data| node_data.size)
+                .min_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count()))
+        },
+        ResizePolicy::LargestAxes => {
+            Some(Size::new(
+                node_datas.iter()
+                    .map(|node_data| node_data.size.width)
+                    .max_by(|width_1, width_2| width_1.cmp(&width_2))
+                    .unwrap(),
+                node_datas.iter()
+                    .map(|node_data| node_data.size.height)
+                    .max_by(|height_1, height_2| height_1.cmp(&height_2))
+                    .unwrap(),
+            ))
+        },
+        ResizePolicy::SmallestAxes => {
+            Some(Size::new(
+                node_datas.iter()
+                    .map(|node_data| node_data.size.width)
+                    .min_by(|width_1, width_2| width_1.cmp(&width_2))
+                    .unwrap(),
+                node_datas.iter()
+                    .map(|node_data| node_data.size.height)
+                    .min_by(|height_1, height_2| height_1.cmp(&height_2))
+                    .unwrap(),
+            ))
+        },
+        ResizePolicy::SpecificSlot(slot_id) => {
+            node_datas.iter()
+                .find(|node_data| node_data.slot_id == slot_id)
+                .map(|node_data| node_data.size)
+        },
         ResizePolicy::SpecificSize(size) => Some(size),
     };
 

@@ -119,10 +119,10 @@ pub fn resize_buffers(
             .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
                 Size::new(min(a.width, b.size.width), min(a.height, b.size.height))
             }),
-        ResizePolicy::SpecificNode(node_id) => {
+        ResizePolicy::SpecificSlot(slot_id) => {
             node_datas
                 .iter()
-                .find(|node_data| node_data.node_id == node_id)
+                .find(|node_data| node_data.slot_id == slot_id)
                 .expect("Couldn't find a buffer with the given `NodeId` while resizing")
                 .size
         }
