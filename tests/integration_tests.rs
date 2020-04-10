@@ -1,7 +1,8 @@
 use std::path::Path;
 use texture_processor::{
     dag::TextureProcessor,
-    node::{Node, NodeType},
+    node::{Node, NodeType, ResizePolicy},
+    node_data::Size,
     node_graph::{NodeGraph, SlotId, NodeId},
 };
 
@@ -123,10 +124,12 @@ fn value_node() {
 
 #[test]
 fn resize_node() {
+    let size = Size::new(256, 256);
+
     let mut tex_pro = TextureProcessor::new();
 
     let value_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.5))).unwrap();
-    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(256, 256, None, None))).unwrap();
+    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::SpecificSize(size)), None))).unwrap();
     let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     tex_pro.node_graph
@@ -149,11 +152,11 @@ fn resize_node() {
     tex_pro.process();
 
     image::save_buffer(
-        &Path::new(&"out/value_node.png"),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
+        &Path::new(&"out/resize_node.png"),
+        &image::RgbaImage::from_vec(size.width, size.height, tex_pro.get_output_rgba(output_node).unwrap())
             .unwrap(),
-        256,
-        256,
+        size.width,
+        size.height,
         image::ColorType::RGBA(8),
     )
     .unwrap();

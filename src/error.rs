@@ -11,6 +11,7 @@ pub enum TexProError {
     InvalidNodeType,
     InvalidSlotId,
     SlotOccupied,
+    NodeProcessing,
     Io(io::Error),
 }
 
@@ -24,6 +25,7 @@ impl fmt::Display for TexProError {
             TexProError::InvalidNodeType => f.write_str("InvalidNodeType"),
             TexProError::InvalidSlotId => f.write_str("InvalidSlotId"),
             TexProError::SlotOccupied => f.write_str("SlotOccupied"),
+            TexProError::NodeProcessing => f.write_str("NodeProcessing"),
             TexProError::Io(_) => f.write_str("Io"),
         }
     }
@@ -39,6 +41,7 @@ impl error::Error for TexProError {
             TexProError::InvalidNodeType => "Invalid `NodeType`",
             TexProError::InvalidSlotId => "Invalid `SlotId`",
             TexProError::SlotOccupied => "Slot is already in use",
+            TexProError::NodeProcessing => "Error during node processing",
             TexProError::Io(ref e) => e.description(),
         }
     }

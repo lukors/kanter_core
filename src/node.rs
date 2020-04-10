@@ -12,6 +12,10 @@ pub enum ResizePolicy {
     SpecificSize(Size),
 }
 
+impl Default for ResizePolicy {
+    fn default() -> Self { ResizePolicy::MostPixels }
+}
+
 #[derive(Clone, Copy)]
 pub enum Side {
     Input,

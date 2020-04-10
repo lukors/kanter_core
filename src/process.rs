@@ -1,6 +1,6 @@
 use std::{path::Path, sync::Arc};
-use image::{FilterType, ImageBuffer};
-use crate::{dag::*, error::Result, node::*, node_data::*, node_graph::*, shared::*};
+use image::{imageops::resize, FilterType, ImageBuffer};
+use crate::{dag::*, error::{TexProError, Result}, node::*, node_data::*, node_graph::*, shared::*};
 
 // TODO: I want to make this function take a node and process it.
 pub fn process_node(
@@ -23,7 +23,7 @@ pub fn process_node(
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Value(val) => value(Arc::clone(&node), val),
-        NodeType::Resize(resize_policy, filter_type) => resize(Arc::clone(&node), resize_policy, filter_type),
+        NodeType::Resize(resize_policy, filter_type) => process_resize(&input_node_datas, Arc::clone(&node), resize_policy, filter_type)?,
         NodeType::Add => add(
             Arc::clone(&input_node_datas[0]),
             Arc::clone(&input_node_datas[1]),
@@ -179,9 +179,51 @@ fn value(node: Arc<Node>, value: f32) -> Vec<Arc<NodeData>> {
         ))]
 }
 
-fn resize(node: Arc<Node>, resize_policy: ResizePolicy, filter_type: Option<FilterType>) -> Vec<Arc<NodeData>> {
+fn process_resize(node_datas: &[Arc<NodeData>], node: Arc<Node>, resize_policy: Option<ResizePolicy>, filter_type: Option<FilterType>) -> Result<Vec<Arc<NodeData>>> {
+    let size: Option<Size> = match resize_policy.unwrap_or(Default::default()) {
+        ResizePolicy::MostPixels => {
+            node_datas.iter()
+                .map(|node_data| node_data.size)
+                .max_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count()))
+        },
+        ResizePolicy::LeastPixels => todo!(),
+        ResizePolicy::LargestAxes => todo!(),
+        ResizePolicy::SmallestAxes => todo!(),
+        ResizePolicy::SpecificNode(_node_id) => todo!(),
+        ResizePolicy::SpecificSize(size) => Some(size),
+    };
 
-    todo!()
+    let size = if size.is_none() {
+        return Err(TexProError::NodeProcessing)
+    } else {
+        size.unwrap()
+    };
+
+
+    let filter_type = filter_type.unwrap_or(FilterType::Triangle);
+
+
+    let mut output_node_datas: Vec<Arc<NodeData>> = Vec::new();
+
+    for node_data in node_datas {
+        if node_data.size == size {
+            output_node_datas.push(Arc::new(NodeData::new(
+                node.node_id,
+                node_data.slot_id,
+                size,
+                Arc::clone(&node_data.buffer)
+            )));
+        } else {
+            output_node_datas.push(Arc::new(NodeData::new(
+                node.node_id,
+                node_data.slot_id,
+                size,
+                Arc::new(Box::new(resize(&**node_data.buffer, size.width, size.height, filter_type))),
+            )));
+        }
+    }
+
+    Ok(output_node_datas)
 }
 
 fn add(input_0: Arc<NodeData>, input_1: Arc<NodeData>) -> Vec<Arc<NodeData>> {
