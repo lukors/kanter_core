@@ -162,6 +162,78 @@ fn resize_node() {
     .unwrap();
 }
 
+#[test]
+fn resize_policy() {
+    // MostPixels,
+    let mut tex_pro = TextureProcessor::new();
+
+    let node_128 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_128.png".to_string()))).unwrap();
+    let node_256 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string()))).unwrap();
+    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::MostPixels), None))).unwrap();
+    let output_128 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_256 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+
+    tex_pro.node_graph
+        .connect(node_128, resize_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(node_256, resize_node, SlotId(1), SlotId(1))
+        .unwrap();
+
+    tex_pro.node_graph
+        .connect(resize_node, output_128, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(resize_node, output_256, SlotId(1), SlotId(0))
+        .unwrap();
+
+    tex_pro.process();
+
+    assert!(tex_pro.node_datas(output_128)[0].size == tex_pro.node_datas(node_256)[0].size);
+    // LeastPixels,
+    // LargestAxes,
+    // SmallestAxes,
+    // SpecificSlot(SlotId),
+    // SpecificSize(Size),
+
+    // let size = Size::new(256, 256);
+
+    // let mut tex_pro = TextureProcessor::new();
+
+    // let value_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.5))).unwrap();
+    // let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::SpecificSize(size)), None))).unwrap();
+    // let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    // tex_pro.node_graph
+    //     .connect(value_node, resize_node, SlotId(0), SlotId(0))
+    //     .unwrap();
+
+    // tex_pro.node_graph
+    //     .connect(resize_node, output_node, SlotId(0), SlotId(0))
+    //     .unwrap();
+    // tex_pro.node_graph
+    //     .connect(resize_node, output_node, SlotId(0), SlotId(1))
+    //     .unwrap();
+    // tex_pro.node_graph
+    //     .connect(resize_node, output_node, SlotId(0), SlotId(2))
+    //     .unwrap();
+    // tex_pro.node_graph
+    //     .connect(resize_node, output_node, SlotId(0), SlotId(3))
+    //     .unwrap();
+
+    // tex_pro.process();
+
+    // image::save_buffer(
+    //     &Path::new(&"out/resize_node.png"),
+    //     &image::RgbaImage::from_vec(size.width, size.height, tex_pro.get_output_rgba(output_node).unwrap())
+    //         .unwrap(),
+    //     size.width,
+    //     size.height,
+    //     image::ColorType::RGBA(8),
+    // )
+    // .unwrap();
+}
+
 // #[test]
 // fn add_node() {
 //     let mut tex_pro = TextureProcessor::new();
