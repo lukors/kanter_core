@@ -203,7 +203,7 @@ fn process_resize(
     resize_policy: Option<ResizePolicy>,
     filter_type: Option<FilterType>,
 ) -> Result<Vec<Arc<NodeData>>> {
-    let size: Option<Size> = match resize_policy.unwrap_or(Default::default()) {
+    let size: Size = match resize_policy.unwrap_or(Default::default()) {
         ResizePolicy::MostPixels => node_datas
             .iter()
             .map(|node_data| node_data.size)
@@ -241,13 +241,7 @@ fn process_resize(
             .find(|node_data| node_data.slot_id == slot_id)
             .map(|node_data| node_data.size),
         ResizePolicy::SpecificSize(size) => Some(size),
-    };
-
-    let size = if size.is_none() {
-        return Err(TexProError::NodeProcessing);
-    } else {
-        size.unwrap()
-    };
+    }.ok_or(TexProError::NodeProcessing)?;
 
     let filter_type = filter_type.unwrap_or(FilterType::Triangle);
 

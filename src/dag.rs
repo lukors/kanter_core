@@ -55,7 +55,7 @@ impl TextureProcessor {
             };
 
             // I'm reading this as "If there is ANY `NodeData` for the current node, set the node
-            // as finished. That makes no sense, that's why it's commented out.
+            // as finished. That makes no sense, so I commented it out.
             // if self.node_datas.iter().any(|node_data| node_data.node_id == current_id) {
             //     self.set_node_finished(
             //         current_id,
