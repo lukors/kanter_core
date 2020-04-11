@@ -50,6 +50,53 @@ fn input_output() {
 }
 
 #[test]
+fn mix_images() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let input_1 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/image_1.png".to_string())))
+        .unwrap();
+    let input_2 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(input_1, output_node, SlotId(3), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_1, output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_2, output_node, SlotId(2), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_2, output_node, SlotId(3), SlotId(3))
+        .unwrap();
+
+    tex_pro.process();
+
+    image::save_buffer(
+        &Path::new(&"out/mix_images.png"),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
+            .unwrap(),
+        256,
+        256,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
+#[test]
 fn input_output_2() {
     let tex_pro_compare = input_output_2_internal();
 

@@ -65,15 +65,15 @@ impl TextureProcessor {
                 continue;
             }
 
-            let parent_ids = self
+            let parent_node_ids = self
                 .node_graph
                 .edges
                 .iter()
                 .filter(|edge| edge.input_id == current_id)
                 .map(|edge| edge.output_id);
 
-            for id in parent_ids {
-                if !finished_nodes.contains(&id) {
+            for parent_node_id in parent_node_ids {
+                if !finished_nodes.contains(&parent_node_id) {
                     queued_ids.push_back(current_id);
                     continue 'outer;
                 }

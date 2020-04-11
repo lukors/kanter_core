@@ -24,7 +24,7 @@ pub fn process_node(
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::InputRgba => Vec::new(),
         NodeType::InputGray => Vec::new(),
-        NodeType::OutputRgba => output_rgba(&input_node_datas, edges, &node)?,
+        NodeType::OutputRgba => output_rgba(&input_node_datas, edges, Arc::clone(&node))?,
         NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
@@ -49,7 +49,7 @@ pub fn process_node(
 fn output_rgba(
     node_datas: &[Arc<NodeData>],
     edges: &[Edge],
-    node: &Arc<Node>,
+    node: Arc<Node>,
 ) -> Result<Vec<Arc<NodeData>>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
 
@@ -57,7 +57,9 @@ fn output_rgba(
         let relevant_edge = edges
             .iter()
             .find(|edge| {
-                edge.output_id == node_data.node_id && edge.output_slot == node_data.slot_id
+                edge.output_id == node_data.node_id
+                    && edge.output_slot == node_data.slot_id
+                    && edge.input_id == node.node_id
             })
             .ok_or(TexProError::NodeProcessing)?;
 
