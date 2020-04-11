@@ -276,7 +276,8 @@ impl NodeGraph {
             return Err(TexProError::SlotOccupied);
         }
 
-        self.edges.push(Edge::new(output_node, input_node, output_slot, input_slot));
+        self.edges
+            .push(Edge::new(output_node, input_node, output_slot, input_slot));
 
         Ok(())
     }

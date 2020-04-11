@@ -3,26 +3,36 @@ use texture_processor::{
     dag::TextureProcessor,
     node::{Node, NodeType, ResizePolicy},
     node_data::Size,
-    node_graph::{NodeGraph, SlotId, NodeId},
+    node_graph::{NodeGraph, NodeId, SlotId},
 };
 
 #[test]
 fn input_output() {
     let mut tex_pro = TextureProcessor::new();
 
-    let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let input_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(input_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(input_node, output_node, SlotId(1), SlotId(1))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(input_node, output_node, SlotId(2), SlotId(2))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(input_node, output_node, SlotId(3), SlotId(3))
         .unwrap();
 
@@ -47,7 +57,10 @@ fn input_output_2() {
         let tex_pro = input_output_2_internal();
 
         for node_data_cmp in &tex_pro_compare.node_datas {
-            assert!(tex_pro.node_datas.iter().any(|node_data| *node_data == *node_data_cmp));
+            assert!(tex_pro
+                .node_datas
+                .iter()
+                .any(|node_data| *node_data == *node_data_cmp));
         }
     }
 }
@@ -57,11 +70,16 @@ fn input_output_2_internal() -> TextureProcessor {
 
     let input_node_1 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string()))).unwrap();
+        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string())))
+        .unwrap();
     let input_node_2 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string()))).unwrap();
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string())))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
 
     tex_pro
         .node_graph
@@ -89,23 +107,42 @@ fn input_output_2_internal() -> TextureProcessor {
 fn value_node() {
     let mut tex_pro = TextureProcessor::new();
 
-    let red_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.2))).unwrap();
-    let green_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.5))).unwrap();
-    let blue_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.7))).unwrap();
-    let alpha_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(1.))).unwrap();
+    let red_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.2)))
+        .unwrap();
+    let green_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.5)))
+        .unwrap();
+    let blue_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.7)))
+        .unwrap();
+    let alpha_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(1.)))
+        .unwrap();
 
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(red_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(green_node, output_node, SlotId(0), SlotId(1))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(blue_node, output_node, SlotId(0), SlotId(2))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(alpha_node, output_node, SlotId(0), SlotId(3))
         .unwrap();
 
@@ -113,8 +150,7 @@ fn value_node() {
 
     image::save_buffer(
         &Path::new(&"out/value_node.png"),
-        &image::RgbaImage::from_vec(1, 1, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(1, 1, tex_pro.get_output_rgba(output_node).unwrap()).unwrap(),
         1,
         1,
         image::ColorType::RGBA(8),
@@ -128,24 +164,41 @@ fn resize_node() {
 
     let mut tex_pro = TextureProcessor::new();
 
-    let value_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.5))).unwrap();
-    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::SpecificSize(size)), None))).unwrap();
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let value_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.5)))
+        .unwrap();
+    let resize_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Resize(
+            Some(ResizePolicy::SpecificSize(size)),
+            None,
+        )))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(value_node, resize_node, SlotId(0), SlotId(0))
         .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_node, SlotId(0), SlotId(1))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_node, SlotId(0), SlotId(2))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_node, SlotId(0), SlotId(3))
         .unwrap();
 
@@ -153,8 +206,12 @@ fn resize_node() {
 
     image::save_buffer(
         &Path::new(&"out/resize_node.png"),
-        &image::RgbaImage::from_vec(size.width, size.height, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(
+            size.width,
+            size.height,
+            tex_pro.get_output_rgba(output_node).unwrap(),
+        )
+        .unwrap(),
         size.width,
         size.height,
         image::ColorType::RGBA(8),
@@ -166,23 +223,45 @@ fn resize_node() {
 fn resize_policy_most_pixels() {
     let mut tex_pro = TextureProcessor::new();
 
-    let node_128 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_128.png".to_string()))).unwrap();
-    let node_256 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string()))).unwrap();
-    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::MostPixels), None))).unwrap();
-    let output_128 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
-    let output_256 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let node_128 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/heart_128.png".to_string())))
+        .unwrap();
+    let node_256 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
+        .unwrap();
+    let resize_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Resize(
+            Some(ResizePolicy::MostPixels),
+            None,
+        )))
+        .unwrap();
+    let output_128 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
+    let output_256 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(node_128, resize_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(node_256, resize_node, SlotId(1), SlotId(1))
         .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_128, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_256, SlotId(1), SlotId(0))
         .unwrap();
 
@@ -195,23 +274,45 @@ fn resize_policy_most_pixels() {
 fn resize_policy_least_pixels() {
     let mut tex_pro = TextureProcessor::new();
 
-    let node_128 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_128.png".to_string()))).unwrap();
-    let node_256 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string()))).unwrap();
-    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::LeastPixels), None))).unwrap();
-    let output_128 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
-    let output_256 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let node_128 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/heart_128.png".to_string())))
+        .unwrap();
+    let node_256 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
+        .unwrap();
+    let resize_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Resize(
+            Some(ResizePolicy::LeastPixels),
+            None,
+        )))
+        .unwrap();
+    let output_128 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
+    let output_256 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(node_128, resize_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(node_256, resize_node, SlotId(1), SlotId(1))
         .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_128, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_256, SlotId(1), SlotId(0))
         .unwrap();
 
@@ -224,23 +325,45 @@ fn resize_policy_least_pixels() {
 fn resize_policy_largest_axes() {
     let mut tex_pro = TextureProcessor::new();
 
-    let node_256x128 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_wide.png".to_string()))).unwrap();
-    let node_128x256 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_tall.png".to_string()))).unwrap();
-    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::LargestAxes), None))).unwrap();
-    let output_256x128 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
-    let output_128x256 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let node_256x128 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/heart_wide.png".to_string())))
+        .unwrap();
+    let node_128x256 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/heart_tall.png".to_string())))
+        .unwrap();
+    let resize_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Resize(
+            Some(ResizePolicy::LargestAxes),
+            None,
+        )))
+        .unwrap();
+    let output_256x128 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
+    let output_128x256 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(node_256x128, resize_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(node_128x256, resize_node, SlotId(1), SlotId(1))
         .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_256x128, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(resize_node, output_128x256, SlotId(1), SlotId(0))
         .unwrap();
 
@@ -248,16 +371,16 @@ fn resize_policy_largest_axes() {
 
     let target_size = Size::new(
         tex_pro.node_datas(node_256x128)[0].size.width,
-        tex_pro.node_datas(node_128x256)[0].size.height
+        tex_pro.node_datas(node_128x256)[0].size.height,
     );
 
     assert!(tex_pro.node_datas(output_128x256)[0].size == target_size);
     assert!(tex_pro.node_datas(output_256x128)[0].size == target_size);
 }
 
-    // SmallestAxes,
-    // SpecificSlot(SlotId),
-    // SpecificSize(Size),
+// SmallestAxes,
+// SpecificSlot(SlotId),
+// SpecificSize(Size),
 
 #[test]
 fn add_node() {
@@ -265,30 +388,44 @@ fn add_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
+        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .unwrap();
     let white_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/white.png".to_string()))).unwrap();
-    let add_node = tex_pro.node_graph.add_node(Node::new(NodeType::Add)).unwrap();
-    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+        .add_node(Node::new(NodeType::Read("data/white.png".to_string())))
+        .unwrap();
+    let add_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Add))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(image_node, add_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(image_node, add_node, SlotId(1), SlotId(1))
         .unwrap();
 
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(add_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(white_node, output_node, SlotId(0), SlotId(1))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(white_node, output_node, SlotId(0), SlotId(2))
         .unwrap();
-    tex_pro.node_graph
+    tex_pro
+        .node_graph
         .connect(white_node, output_node, SlotId(0), SlotId(3))
         .unwrap();
 
@@ -311,31 +448,78 @@ fn graph_node_rgba() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
-    let nested_input_node = nested_graph.add_external_input_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)]).unwrap();
-    let nested_output_node = nested_graph.add_external_output_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)]).unwrap();
+    let nested_input_node = nested_graph
+        .add_external_input_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)])
+        .unwrap();
+    let nested_output_node = nested_graph
+        .add_external_output_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)])
+        .unwrap();
 
-    nested_graph.connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0)).unwrap();
-    nested_graph.connect(nested_input_node, nested_output_node, SlotId(1), SlotId(1)).unwrap();
-    nested_graph.connect(nested_input_node, nested_output_node, SlotId(2), SlotId(2)).unwrap();
-    nested_graph.connect(nested_input_node, nested_output_node, SlotId(3), SlotId(3)).unwrap();
-
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(2), SlotId(2))
+        .unwrap();
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(3), SlotId(3))
+        .unwrap();
 
     // Texture Processor
     let mut tex_pro = TextureProcessor::new();
 
-    let input_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::Read("data/image_2.png".to_string())), NodeId(1)).unwrap();
-    let graph_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::Graph(nested_graph)), NodeId(2)).unwrap();
-    let output_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(3)).unwrap();
+    let input_node = tex_pro
+        .node_graph
+        .add_node_with_id(
+            Node::new(NodeType::Read("data/image_2.png".to_string())),
+            NodeId(1),
+        )
+        .unwrap();
+    let graph_node = tex_pro
+        .node_graph
+        .add_node_with_id(Node::new(NodeType::Graph(nested_graph)), NodeId(2))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(3))
+        .unwrap();
 
-    tex_pro.node_graph.connect(input_node, graph_node, SlotId(0), SlotId(0)).unwrap();
-    tex_pro.node_graph.connect(input_node, graph_node, SlotId(1), SlotId(1)).unwrap();
-    tex_pro.node_graph.connect(input_node, graph_node, SlotId(2), SlotId(2)).unwrap();
-    tex_pro.node_graph.connect(input_node, graph_node, SlotId(3), SlotId(3)).unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_node, graph_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_node, graph_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_node, graph_node, SlotId(2), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_node, graph_node, SlotId(3), SlotId(3))
+        .unwrap();
 
-    tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(0)).unwrap();
-    tex_pro.node_graph.connect(graph_node, output_node, SlotId(1), SlotId(1)).unwrap();
-    tex_pro.node_graph.connect(graph_node, output_node, SlotId(2), SlotId(2)).unwrap();
-    tex_pro.node_graph.connect(graph_node, output_node, SlotId(3), SlotId(3)).unwrap();
+    tex_pro
+        .node_graph
+        .connect(graph_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(graph_node, output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(graph_node, output_node, SlotId(2), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(graph_node, output_node, SlotId(3), SlotId(3))
+        .unwrap();
 
     tex_pro.process();
 
@@ -357,24 +541,54 @@ fn graph_node_gray() {
     let mut nested_graph = NodeGraph::new();
 
     let nested_input_node = nested_graph.add_external_input_gray(SlotId(0)).unwrap();
-    let nested_output_node = nested_graph.add_node_with_id(Node::new(NodeType::OutputGray), NodeId(10)).unwrap();
+    let nested_output_node = nested_graph
+        .add_node_with_id(Node::new(NodeType::OutputGray), NodeId(10))
+        .unwrap();
 
-    nested_graph.connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0)).unwrap();
-
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
+        .unwrap();
 
     // Texture Processor
     let mut tex_pro = TextureProcessor::new();
 
-    let input_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::Read("data/image_2.png".to_string())), NodeId(1)).unwrap();
-    let graph_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::Graph(nested_graph)), NodeId(2)).unwrap();
-    let output_node = tex_pro.node_graph.add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(3)).unwrap();
+    let input_node = tex_pro
+        .node_graph
+        .add_node_with_id(
+            Node::new(NodeType::Read("data/image_2.png".to_string())),
+            NodeId(1),
+        )
+        .unwrap();
+    let graph_node = tex_pro
+        .node_graph
+        .add_node_with_id(Node::new(NodeType::Graph(nested_graph)), NodeId(2))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(3))
+        .unwrap();
 
-    tex_pro.node_graph.connect(input_node, graph_node, SlotId(0), SlotId(0)).unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_node, graph_node, SlotId(0), SlotId(0))
+        .unwrap();
 
-    tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(0)).unwrap();
-    tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(1)).unwrap();
-    tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(2)).unwrap();
-    tex_pro.node_graph.connect(graph_node, output_node, SlotId(0), SlotId(3)).unwrap();
+    tex_pro
+        .node_graph
+        .connect(graph_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(graph_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(graph_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(graph_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
 
     tex_pro.process();
 

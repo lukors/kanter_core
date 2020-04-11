@@ -1,6 +1,13 @@
-use std::{path::Path, sync::Arc};
+use crate::{
+    dag::*,
+    error::{Result, TexProError},
+    node::*,
+    node_data::*,
+    node_graph::*,
+    shared::*,
+};
 use image::{imageops::resize, FilterType, ImageBuffer, Luma};
-use crate::{dag::*, error::{TexProError, Result}, node::*, node_data::*, node_graph::*, shared::*};
+use std::{path::Path, sync::Arc};
 
 // TODO: I want to make this function take a node and process it.
 pub fn process_node(
@@ -23,7 +30,12 @@ pub fn process_node(
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Value(val) => value(Arc::clone(&node), val),
-        NodeType::Resize(resize_policy, filter_type) => process_resize(&input_node_datas, Arc::clone(&node), resize_policy, filter_type)?,
+        NodeType::Resize(resize_policy, filter_type) => process_resize(
+            &input_node_datas,
+            Arc::clone(&node),
+            resize_policy,
+            filter_type,
+        )?,
         NodeType::Add => process_add(&input_node_datas, Arc::clone(&node))?,
         NodeType::Invert => invert(&input_node_datas),
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
@@ -98,17 +110,18 @@ fn graph(inputs: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<A
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = (*graph).clone();
 
-
     // Take the `NodeData`s that are fed into this node from the external node and associate
     // them with the correct outputs on the input nodes in the child graph.
     for node_data in inputs {
-        let (target_node, target_slot) = tex_pro.node_graph.input_mapping(node_data.slot_id).unwrap();
+        let (target_node, target_slot) =
+            tex_pro.node_graph.input_mapping(node_data.slot_id).unwrap();
 
-        tex_pro.node_datas.push(
-            Arc::new(
-                NodeData::new(target_node, target_slot, node_data.size, Arc::clone(&node_data.buffer))
-                )
-            );
+        tex_pro.node_datas.push(Arc::new(NodeData::new(
+            target_node,
+            target_slot,
+            node_data.size,
+            Arc::clone(&node_data.buffer),
+        )));
     }
 
     tex_pro.process();
@@ -120,7 +133,7 @@ fn graph(inputs: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<A
                 node.node_id,
                 node_data.slot_id,
                 node_data.size,
-                Arc::clone(&node_data.buffer)
+                Arc::clone(&node_data.buffer),
             );
             output.push(Arc::new(output_node_data));
         }
@@ -150,7 +163,10 @@ fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
 }
 
 fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {
-    let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| Arc::clone(&node_data.buffer)).collect();
+    let channel_vec: Vec<Arc<Buffer>> = inputs
+        .iter()
+        .map(|node_data| Arc::clone(&node_data.buffer))
+        .collect();
     let (width, height) = (inputs[0].size.width, inputs[0].size.height);
 
     image::save_buffer(
@@ -172,64 +188,66 @@ fn value(node: Arc<Node>, value: f32) -> Vec<Arc<NodeData>> {
         node.node_id,
         SlotId(0),
         Size::new(width, height),
-        Arc::new(Box::new(ImageBuffer::from_raw(width, height, vec![value]).unwrap())),
-        ))]
+        Arc::new(Box::new(
+            ImageBuffer::from_raw(width, height, vec![value]).unwrap(),
+        )),
+    ))]
 }
 
 // The different `ResizePolicy`s need tests.
-fn process_resize(node_datas: &[Arc<NodeData>], node: Arc<Node>, resize_policy: Option<ResizePolicy>, filter_type: Option<FilterType>) -> Result<Vec<Arc<NodeData>>> {
+fn process_resize(
+    node_datas: &[Arc<NodeData>],
+    node: Arc<Node>,
+    resize_policy: Option<ResizePolicy>,
+    filter_type: Option<FilterType>,
+) -> Result<Vec<Arc<NodeData>>> {
     let size: Option<Size> = match resize_policy.unwrap_or(Default::default()) {
-        ResizePolicy::MostPixels => {
-            node_datas.iter()
-                .map(|node_data| node_data.size)
-                .max_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count()))
-        },
-        ResizePolicy::LeastPixels => {
-            node_datas.iter()
-                .map(|node_data| node_data.size)
-                .min_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count()))
-        },
-        ResizePolicy::LargestAxes => {
-            Some(Size::new(
-                node_datas.iter()
-                    .map(|node_data| node_data.size.width)
-                    .max_by(|width_1, width_2| width_1.cmp(&width_2))
-                    .unwrap(),
-                node_datas.iter()
-                    .map(|node_data| node_data.size.height)
-                    .max_by(|height_1, height_2| height_1.cmp(&height_2))
-                    .unwrap(),
-            ))
-        },
-        ResizePolicy::SmallestAxes => {
-            Some(Size::new(
-                node_datas.iter()
-                    .map(|node_data| node_data.size.width)
-                    .min_by(|width_1, width_2| width_1.cmp(&width_2))
-                    .unwrap(),
-                node_datas.iter()
-                    .map(|node_data| node_data.size.height)
-                    .min_by(|height_1, height_2| height_1.cmp(&height_2))
-                    .unwrap(),
-            ))
-        },
-        ResizePolicy::SpecificSlot(slot_id) => {
-            node_datas.iter()
-                .find(|node_data| node_data.slot_id == slot_id)
-                .map(|node_data| node_data.size)
-        },
+        ResizePolicy::MostPixels => node_datas
+            .iter()
+            .map(|node_data| node_data.size)
+            .max_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count())),
+        ResizePolicy::LeastPixels => node_datas
+            .iter()
+            .map(|node_data| node_data.size)
+            .min_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count())),
+        ResizePolicy::LargestAxes => Some(Size::new(
+            node_datas
+                .iter()
+                .map(|node_data| node_data.size.width)
+                .max_by(|width_1, width_2| width_1.cmp(&width_2))
+                .unwrap(),
+            node_datas
+                .iter()
+                .map(|node_data| node_data.size.height)
+                .max_by(|height_1, height_2| height_1.cmp(&height_2))
+                .unwrap(),
+        )),
+        ResizePolicy::SmallestAxes => Some(Size::new(
+            node_datas
+                .iter()
+                .map(|node_data| node_data.size.width)
+                .min_by(|width_1, width_2| width_1.cmp(&width_2))
+                .unwrap(),
+            node_datas
+                .iter()
+                .map(|node_data| node_data.size.height)
+                .min_by(|height_1, height_2| height_1.cmp(&height_2))
+                .unwrap(),
+        )),
+        ResizePolicy::SpecificSlot(slot_id) => node_datas
+            .iter()
+            .find(|node_data| node_data.slot_id == slot_id)
+            .map(|node_data| node_data.size),
         ResizePolicy::SpecificSize(size) => Some(size),
     };
 
     let size = if size.is_none() {
-        return Err(TexProError::NodeProcessing)
+        return Err(TexProError::NodeProcessing);
     } else {
         size.unwrap()
     };
 
-
     let filter_type = filter_type.unwrap_or(FilterType::Triangle);
-
 
     let mut output_node_datas: Vec<Arc<NodeData>> = Vec::new();
 
@@ -239,14 +257,19 @@ fn process_resize(node_datas: &[Arc<NodeData>], node: Arc<Node>, resize_policy: 
                 node.node_id,
                 node_data.slot_id,
                 size,
-                Arc::clone(&node_data.buffer)
+                Arc::clone(&node_data.buffer),
             )));
         } else {
             output_node_datas.push(Arc::new(NodeData::new(
                 node.node_id,
                 node_data.slot_id,
                 size,
-                Arc::new(Box::new(resize(&**node_data.buffer, size.width, size.height, filter_type))),
+                Arc::new(Box::new(resize(
+                    &**node_data.buffer,
+                    size.width,
+                    size.height,
+                    filter_type,
+                ))),
             )));
         }
     }
@@ -258,25 +281,21 @@ fn process_resize(node_datas: &[Arc<NodeData>], node: Arc<Node>, resize_policy: 
 // resizing the image before adding.
 fn process_add(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec<Arc<NodeData>>> {
     if node_datas.len() != 2 {
-        return Err(TexProError::InvalidBufferCount)
+        return Err(TexProError::InvalidBufferCount);
     }
     let node_datas = process_resize(&node_datas, Arc::clone(&node), None, None)?;
     let size = node_datas[0].size;
 
-    let buffer: Arc<Buffer> = Arc::new(Box::new(
-        ImageBuffer::from_fn(size.width, size.height, |x, y| {
+    let buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
             Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
-                + node_datas[1].buffer.get_pixel(x, y).data[0]
-            ])
-        })
-    ));
+                + node_datas[1].buffer.get_pixel(x, y).data[0]])
+        },
+    )));
 
-    let node_data = Arc::new(NodeData::new(
-        node.node_id,
-        SlotId(0),
-        size,
-        buffer,
-    ));
+    let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
 
     Ok(vec![node_data])
 }
