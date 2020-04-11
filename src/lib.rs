@@ -2,13 +2,11 @@
 // - Restore add node
 // - Restore subtract node
 
-// - Create an invert graph to nest
+// - Create a nested invert graph test
+// - Create a system to save and load graphs
 
 // - Restore multiply node
 
-
-// - Add a resize node, though nodes are able to output a different size than their input, but only
-//   with a default filter (Bilinear?) and ResizePolicy (LargestAxes) then.
 // - Implement same features as Channel Shuffle 1 & 2.
 // - Implement CLI.
 // - Make randomly generated test to try finding corner cases.
