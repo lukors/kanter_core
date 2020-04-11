@@ -193,11 +193,7 @@ impl TextureProcessor {
             }
         }
 
-        let sorted_value_vecs_refs: Vec<Arc<Buffer>> = sorted_value_vecs
-            .iter()
-            .map(|buf| Arc::clone(buf))
-            .collect();
-        channels_to_rgba(&sorted_value_vecs_refs)
+        channels_to_rgba(&sorted_value_vecs)
     }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {

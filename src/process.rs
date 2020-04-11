@@ -53,19 +53,17 @@ fn output_rgba(
 ) -> Result<Vec<Arc<NodeData>>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
 
-    for node_data in node_datas {
-        let relevant_edge = edges
+    for edge in edges {
+        let node_data = node_datas
             .iter()
-            .find(|edge| {
-                edge.output_id == node_data.node_id
-                    && edge.output_slot == node_data.slot_id
-                    && edge.input_id == node.node_id
+            .find(|node_data| {
+                node_data.node_id == edge.output_id && node_data.slot_id == edge.output_slot
             })
             .ok_or(TexProError::NodeProcessing)?;
 
         new_node_datas.push(Arc::new(NodeData::new(
-            node.node_id,
-            relevant_edge.input_slot,
+            edge.input_id,
+            edge.input_slot,
             node_data.size,
             Arc::clone(&node_data.buffer),
         )));
@@ -241,7 +239,8 @@ fn process_resize(
             .find(|node_data| node_data.slot_id == slot_id)
             .map(|node_data| node_data.size),
         ResizePolicy::SpecificSize(size) => Some(size),
-    }.ok_or(TexProError::NodeProcessing)?;
+    }
+    .ok_or(TexProError::NodeProcessing)?;
 
     let filter_type = filter_type.unwrap_or(FilterType::Triangle);
 
