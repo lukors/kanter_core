@@ -1,5 +1,5 @@
 use std::{path::Path, sync::Arc};
-use image::{imageops::resize, FilterType, ImageBuffer};
+use image::{imageops::resize, FilterType, ImageBuffer, Luma};
 use crate::{dag::*, error::{TexProError, Result}, node::*, node_data::*, node_graph::*, shared::*};
 
 // TODO: I want to make this function take a node and process it.
@@ -24,10 +24,7 @@ pub fn process_node(
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Value(val) => value(Arc::clone(&node), val),
         NodeType::Resize(resize_policy, filter_type) => process_resize(&input_node_datas, Arc::clone(&node), resize_policy, filter_type)?,
-        NodeType::Add => add(
-            Arc::clone(&input_node_datas[0]),
-            Arc::clone(&input_node_datas[1]),
-        ), // TODO: These should take the entire vector and not two arguments
+        NodeType::Add => process_add(&input_node_datas, Arc::clone(&node))?,
         NodeType::Invert => invert(&input_node_datas),
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
     };
@@ -257,20 +254,31 @@ fn process_resize(node_datas: &[Arc<NodeData>], node: Arc<Node>, resize_policy: 
     Ok(output_node_datas)
 }
 
-fn add(input_0: Arc<NodeData>, input_1: Arc<NodeData>) -> Vec<Arc<NodeData>> {
-    unimplemented!()
-    // let (width, height) = (input_0.size.width, input_1.size.height);
+// TODO: Look into optimizing this by sampling straight into the un-resized image instead of
+// resizing the image before adding.
+fn process_add(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec<Arc<NodeData>>> {
+    if node_datas.len() != 2 {
+        return Err(TexProError::InvalidBufferCount)
+    }
+    let node_datas = process_resize(&node_datas, Arc::clone(&node), None, None)?;
+    let size = node_datas[0].size;
 
-    // let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
-    //     Luma([input_0.buffer.get_pixel(x, y).data[0] + input_1.buffer.get_pixel(x, y).data[0]])
-    // });
+    let buffer: Arc<Buffer> = Arc::new(Box::new(
+        ImageBuffer::from_fn(size.width, size.height, |x, y| {
+            Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
+                + node_datas[1].buffer.get_pixel(x, y).data[0]
+            ])
+        })
+    ));
 
-    // vec![DetachedBuffer {
-    //     id: None,
-    //     slot: Slot(0),
-    //     size: input_0.size,
-    //     buffer: Arc::new(buffer),
-    // }]
+    let node_data = Arc::new(NodeData::new(
+        node.node_id,
+        SlotId(0),
+        size,
+        buffer,
+    ));
+
+    Ok(vec![node_data])
 }
 
 fn invert(input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {

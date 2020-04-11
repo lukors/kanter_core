@@ -259,80 +259,52 @@ fn resize_policy_largest_axes() {
     // SpecificSlot(SlotId),
     // SpecificSize(Size),
 
-    // let size = Size::new(256, 256);
+#[test]
+fn add_node() {
+    let mut tex_pro = TextureProcessor::new();
 
-    // let mut tex_pro = TextureProcessor::new();
+    let image_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
+    let white_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/white.png".to_string()))).unwrap();
+    let add_node = tex_pro.node_graph.add_node(Node::new(NodeType::Add)).unwrap();
+    let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
-    // let value_node = tex_pro.node_graph.add_node(Node::new(NodeType::Value(0.5))).unwrap();
-    // let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::SpecificSize(size)), None))).unwrap();
-    // let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    tex_pro.node_graph
+        .connect(image_node, add_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(image_node, add_node, SlotId(1), SlotId(1))
+        .unwrap();
 
-    // tex_pro.node_graph
-    //     .connect(value_node, resize_node, SlotId(0), SlotId(0))
-    //     .unwrap();
+    tex_pro.node_graph
+        .connect(add_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(white_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(white_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(white_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
 
-    // tex_pro.node_graph
-    //     .connect(resize_node, output_node, SlotId(0), SlotId(0))
-    //     .unwrap();
-    // tex_pro.node_graph
-    //     .connect(resize_node, output_node, SlotId(0), SlotId(1))
-    //     .unwrap();
-    // tex_pro.node_graph
-    //     .connect(resize_node, output_node, SlotId(0), SlotId(2))
-    //     .unwrap();
-    // tex_pro.node_graph
-    //     .connect(resize_node, output_node, SlotId(0), SlotId(3))
-    //     .unwrap();
+    tex_pro.process();
 
-    // tex_pro.process();
-
-    // image::save_buffer(
-    //     &Path::new(&"out/resize_node.png"),
-    //     &image::RgbaImage::from_vec(size.width, size.height, tex_pro.get_output_rgba(output_node).unwrap())
-    //         .unwrap(),
-    //     size.width,
-    //     size.height,
-    //     image::ColorType::RGBA(8),
-    // )
-    // .unwrap();
-
-// #[test]
-// fn add_node() {
-//     let mut tex_pro = TextureProcessor::new();
-
-//     let input_node = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/image_2.png".to_string()))).unwrap();
-//     let add_node = tex_pro.node_graph.add_node(Node::new(NodeType::Add)).unwrap();
-//     let output_node = tex_pro.node_graph.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-//     tex_pro.node_graph
-//         .connect(input_node, add_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     tex_pro.node_graph
-//         .connect(add_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro.node_graph
-//         .connect(add_node, output_node, SlotId(0), SlotId(1))
-//         .unwrap();
-//     tex_pro.node_graph
-//         .connect(add_node, output_node, SlotId(0), SlotId(2))
-//         .unwrap();
-//     tex_pro.node_graph
-//         .connect(add_node, output_node, SlotId(0), SlotId(3))
-//         .unwrap();
-
-//     tex_pro.process();
-
-//     image::save_buffer(
-//         &Path::new(&"out/input_output.png"),
-//         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
-//             .unwrap(),
-//         256,
-//         256,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-// }
+    let size = 256;
+    image::save_buffer(
+        &Path::new(&"out/add_node.png"),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output_rgba(output_node).unwrap())
+            .unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
 
 #[test]
 fn graph_node_rgba() {

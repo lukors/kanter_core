@@ -1,5 +1,5 @@
-use image::FilterType;
 use crate::{node_data::*, node_graph::*};
+use image::FilterType;
 use std::fmt;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -13,7 +13,9 @@ pub enum ResizePolicy {
 }
 
 impl Default for ResizePolicy {
-    fn default() -> Self { ResizePolicy::MostPixels }
+    fn default() -> Self {
+        ResizePolicy::MostPixels
+    }
 }
 
 #[derive(Clone, Copy)]

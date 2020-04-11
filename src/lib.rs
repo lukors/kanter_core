@@ -5,6 +5,8 @@
 // - Create a nested invert graph test
 // - Create a system to save and load graphs
 
+// - Run Clippy
+
 // - Restore multiply node
 
 // - Implement same features as Channel Shuffle 1 & 2.

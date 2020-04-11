@@ -11,7 +11,7 @@ use std::{
 pub fn has_dup<T: PartialEq>(slice: &[T]) -> bool {
     for i in 1..slice.len() {
         if slice[i..].contains(&slice[i - 1]) {
-            return true
+            return true;
         }
     }
     false
@@ -135,14 +135,12 @@ pub fn resize_buffers(
         .map(|ref node_data| {
             if node_data.size != size {
                 // Needs to be resized
-                let resized_buffer: Arc<Buffer> = Arc::new(
-                    Box::new(imageops::resize(
-                        &**node_data.buffer,
-                        size.width,
-                        size.height,
-                        filter,
-                    ))
-                );
+                let resized_buffer: Arc<Buffer> = Arc::new(Box::new(imageops::resize(
+                    &**node_data.buffer,
+                    size.width,
+                    size.height,
+                    filter,
+                )));
                 Arc::new(NodeData::new(
                     node_data.node_id,
                     node_data.slot_id,
@@ -167,7 +165,10 @@ pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {
 }
 
 pub fn write_image<P: AsRef<Path>>(inputs: &[Arc<NodeData>], path: P) -> Result<()> {
-    let channel_vec: Vec<Arc<Buffer>> = inputs.iter().map(|node_data| Arc::clone(&node_data.buffer)).collect();
+    let channel_vec: Vec<Arc<Buffer>> = inputs
+        .iter()
+        .map(|node_data| Arc::clone(&node_data.buffer))
+        .collect();
     let (width, height) = (inputs[0].size.width, inputs[0].size.height);
     let img = {
         if let Some(img) =

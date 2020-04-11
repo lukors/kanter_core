@@ -12,7 +12,11 @@ pub struct NodeGraph {
 
 impl fmt::Debug for NodeGraph {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "NodeGraph {{ input_mappings: {:?}, edges: {:?} }}", self.input_mappings, self.edges)
+        write!(
+            f,
+            "NodeGraph {{ input_mappings: {:?}, edges: {:?} }}",
+            self.input_mappings, self.edges
+        )
     }
 }
 
@@ -49,12 +53,20 @@ impl NodeGraph {
 
     /// Returns the `NodeId` and `SlotId` associated with the given
     /// external `SlotId` in the given `ExternalMapping`.
-    fn resolve_mapping(&self, external_slot: SlotId, external_mappings: &[ExternalMapping]) -> Result<(NodeId, SlotId)> {
-        let external_mapping = external_mappings.iter()
+    fn resolve_mapping(
+        &self,
+        external_slot: SlotId,
+        external_mappings: &[ExternalMapping],
+    ) -> Result<(NodeId, SlotId)> {
+        let external_mapping = external_mappings
+            .iter()
             .find(|external_mapping| external_mapping.external_slot == external_slot);
-        
+
         match external_mapping {
-            Some(external_mapping) => Ok((external_mapping.internal_node, external_mapping.internal_slot)),
+            Some(external_mapping) => Ok((
+                external_mapping.internal_node,
+                external_mapping.internal_slot,
+            )),
             None => Err(TexProError::InvalidSlotId),
         }
     }
@@ -79,7 +91,7 @@ impl NodeGraph {
     /// Adds a grayscale input node and exposes its slots externally at the given `SlotId`.
     pub fn add_external_input_gray(&mut self, external_slot: SlotId) -> Result<NodeId> {
         if self.external_input_occupied(external_slot) {
-            return Err(TexProError::SlotOccupied)
+            return Err(TexProError::SlotOccupied);
         }
 
         let internal_node = self.new_id();
@@ -97,11 +109,11 @@ impl NodeGraph {
     /// Adds an rgba input node and exposes its slots externally at the given `SlotId`s.
     pub fn add_external_input_rgba(&mut self, external_slots: Vec<SlotId>) -> Result<NodeId> {
         if external_slots.len() != 4 || has_dup(&external_slots) {
-            return Err(TexProError::InvalidNodeId)
+            return Err(TexProError::InvalidNodeId);
         }
         for external_slot in &external_slots {
             if self.external_input_occupied(*external_slot) {
-                return Err(TexProError::SlotOccupied)
+                return Err(TexProError::SlotOccupied);
             }
         }
 
@@ -122,7 +134,7 @@ impl NodeGraph {
     /// Adds a grayscale output node and exposes its slots externally at the given `SlotId`.
     pub fn add_external_output_gray(&mut self, external_slot: SlotId) -> Result<NodeId> {
         if self.external_output_occupied(external_slot) {
-            return Err(TexProError::SlotOccupied)
+            return Err(TexProError::SlotOccupied);
         }
 
         let internal_node = self.new_id();
@@ -140,17 +152,17 @@ impl NodeGraph {
     /// Adds an rgba output node and exposes its slots externally at the given `SlotId`s.
     pub fn add_external_output_rgba(&mut self, external_slots: Vec<SlotId>) -> Result<NodeId> {
         if external_slots.len() != 4 || has_dup(&external_slots) {
-            return Err(TexProError::InvalidNodeId)
+            return Err(TexProError::InvalidNodeId);
         }
         for external_slot in &external_slots {
             if self.external_output_occupied(*external_slot) {
-                return Err(TexProError::SlotOccupied)
+                return Err(TexProError::SlotOccupied);
             }
         }
 
         let internal_node = self.new_id();
         self.add_node_internal(Node::new(NodeType::OutputRgba), internal_node);
-        
+
         for (i, external_slot) in external_slots.iter().enumerate() {
             self.output_mappings.push(ExternalMapping {
                 external_slot: *external_slot,
@@ -164,67 +176,77 @@ impl NodeGraph {
 
     /// Checks if the given external input `SlotId` is occupied.
     fn external_input_occupied(&self, external_slot_check: SlotId) -> bool {
-        self.input_mappings.iter().any(|input_mapping| input_mapping.external_slot == external_slot_check)
+        self.input_mappings
+            .iter()
+            .any(|input_mapping| input_mapping.external_slot == external_slot_check)
     }
 
     /// Checks if the given external output `SlotId` is occupied.
     fn external_output_occupied(&self, external_slot_check: SlotId) -> bool {
-        self.output_mappings.iter().any(|output_mapping| output_mapping.external_slot == external_slot_check)
+        self.output_mappings
+            .iter()
+            .any(|output_mapping| output_mapping.external_slot == external_slot_check)
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
         if node.node_type == NodeType::InputRgba || node.node_type == NodeType::InputGray {
-            return Err(TexProError::InvalidNodeType)
+            return Err(TexProError::InvalidNodeType);
         }
 
         let node_id = self.new_id();
         self.add_node_internal(node, node_id);
-        
+
         Ok(node_id)
     }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
         if self.node_with_id(node_id).is_some() {
-            return Err(TexProError::InvalidNodeId)
+            return Err(TexProError::InvalidNodeId);
         }
 
         self.add_node_internal(node, node_id);
-        
+
         Ok(node_id)
     }
 
     pub fn input_count(&self) -> usize {
-        let input_rgba_count = self.nodes
+        let input_rgba_count = self
+            .nodes
             .iter()
             .filter(|node| node.node_type == NodeType::InputRgba)
             .count();
 
-        let input_gray_count = self.nodes
+        let input_gray_count = self
+            .nodes
             .iter()
             .filter(|node| node.node_type == NodeType::InputGray)
             .count();
 
-        input_rgba_count*4 + input_gray_count
+        input_rgba_count * 4 + input_gray_count
     }
 
     pub fn output_count(&self) -> usize {
-        let output_rgba_count = self.nodes
+        let output_rgba_count = self
+            .nodes
             .iter()
             .filter(|node| node.node_type == NodeType::OutputRgba)
             .count();
 
-        let output_gray_count = self.nodes
+        let output_gray_count = self
+            .nodes
             .iter()
             .filter(|node| node.node_type == NodeType::OutputGray)
             .count();
 
-        output_rgba_count*4 + output_gray_count
+        output_rgba_count * 4 + output_gray_count
     }
 
     pub fn external_output_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::OutputRgba || node.node_type == NodeType::OutputGray)
+            .filter(|node| {
+                node.node_type == NodeType::OutputRgba || node.node_type == NodeType::OutputGray
+            })
             .map(|node| node.node_id)
             .collect()
     }
@@ -232,27 +254,29 @@ impl NodeGraph {
     pub fn external_input_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| node.node_type == NodeType::InputRgba || node.node_type ==  NodeType::InputGray)
+            .filter(|node| {
+                node.node_type == NodeType::InputRgba || node.node_type == NodeType::InputGray
+            })
             .map(|node| node.node_id)
             .collect()
     }
 
     pub fn connect(
         &mut self,
-        id_1: NodeId,
-        id_2: NodeId,
-        slot_1: SlotId,
-        slot_2: SlotId,
+        output_node: NodeId,
+        input_node: NodeId,
+        output_slot: SlotId,
+        input_slot: SlotId,
     ) -> Result<()> {
-        if !self.has_node_with_id(id_1) || !self.has_node_with_id(id_2) {
+        if !self.has_node_with_id(output_node) || !self.has_node_with_id(input_node) {
             return Err(TexProError::InvalidNodeId);
         }
 
-        if self.slot_occupied(id_2, Side::Input, slot_2) {
+        if self.slot_occupied(input_node, Side::Input, input_slot) {
             return Err(TexProError::SlotOccupied);
         }
 
-        self.edges.push(Edge::new(id_1, id_2, slot_1, slot_2));
+        self.edges.push(Edge::new(output_node, input_node, output_slot, input_slot));
 
         Ok(())
     }

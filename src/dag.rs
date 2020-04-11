@@ -100,8 +100,9 @@ impl TextureProcessor {
                 }
                 for edge in &self.node_graph.edges {
                     if node_data.slot_id == edge.output_slot
-                    && node_data.node_id == edge.output_id
-                    && current_id == edge.input_id {
+                        && node_data.node_id == edge.output_id
+                        && current_id == edge.input_id
+                    {
                         input_data.push(Arc::clone(node_data));
                         relevant_edges.push(edge.clone());
                     }
@@ -190,8 +191,10 @@ impl TextureProcessor {
             }
         }
 
-        let sorted_value_vecs_refs: Vec<Arc<Buffer>> =
-            sorted_value_vecs.iter().map(|buf| Arc::clone(buf)).collect();
+        let sorted_value_vecs_refs: Vec<Arc<Buffer>> = sorted_value_vecs
+            .iter()
+            .map(|buf| Arc::clone(buf))
+            .collect();
         channels_to_rgba(&sorted_value_vecs_refs)
     }
 
