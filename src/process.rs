@@ -24,7 +24,7 @@ pub fn process_node(
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::InputRgba => Vec::new(),
         NodeType::InputGray => Vec::new(),
-        NodeType::OutputRgba => output_rgba(&input_node_datas, edges, &node),
+        NodeType::OutputRgba => output_rgba(&input_node_datas, edges, &node)?,
         NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
@@ -46,32 +46,32 @@ pub fn process_node(
 }
 
 /// Finds the `NodeData`s relevant for this `Node` and outputs them.
-fn output_rgba(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
+fn output_rgba(
+    node_datas: &[Arc<NodeData>],
+    edges: &[Edge],
+    node: &Arc<Node>,
+) -> Result<Vec<Arc<NodeData>>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
 
-    // Find a `NodeData` in `inputs` that matches the current `Edge`.
-    for edge in edges {
-        // Clone the `NodeData` when you find the right one. We don't want to clone the
-        // `Arc<NodeData>`, because we want to make an entirely new `NodeData` which we can then
-        // modify and put in a new `Arc<NodeData>` and return from the function.
-        let mut new_node_data = (**inputs
+    for node_data in node_datas {
+        let relevant_edge = edges
             .iter()
-            .find(|node_data| {
-                node.node_id == edge.input_id
-                    && node_data.node_id == edge.output_id
-                    && node_data.slot_id == edge.output_slot
+            .find(|edge| {
+                edge.output_id == node_data.node_id && edge.output_slot == node_data.slot_id
             })
-            .unwrap())
-        .clone();
+            .ok_or(TexProError::NodeProcessing)?;
 
-        new_node_data.node_id = node.node_id;
-        new_node_data.slot_id = edge.input_slot;
-
-        new_node_datas.push(Arc::new(new_node_data));
+        new_node_datas.push(Arc::new(NodeData::new(
+            node.node_id,
+            relevant_edge.input_slot,
+            node_data.size,
+            Arc::clone(&node_data.buffer),
+        )));
     }
+
     assert_eq!(new_node_datas.len(), 4);
 
-    new_node_datas
+    Ok(new_node_datas)
 }
 
 /// Finds the `NodeData` relevant for this `Node` and outputs them.
