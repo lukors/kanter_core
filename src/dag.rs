@@ -54,16 +54,18 @@ impl TextureProcessor {
                 None => continue,
             };
 
-            if self.node_datas.iter().any(|x| x.node_id == current_id) {
-                self.set_node_finished(
-                    current_id,
-                    &mut None,
-                    &mut started_nodes,
-                    &mut finished_nodes,
-                    &mut queued_ids,
-                );
-                continue;
-            }
+            // I'm reading this as "If there is ANY `NodeData` for the current node, set the node
+            // as finished. That makes no sense, that's why it's commented out.
+            // if self.node_datas.iter().any(|node_data| node_data.node_id == current_id) {
+            //     self.set_node_finished(
+            //         current_id,
+            //         &mut None,
+            //         &mut started_nodes,
+            //         &mut finished_nodes,
+            //         &mut queued_ids,
+            //     );
+            //     continue;
+            // }
 
             let parent_node_ids = self
                 .node_graph
