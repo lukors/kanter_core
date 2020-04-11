@@ -1,6 +1,4 @@
 // TODO:
-// - Add resize node
-
 // - Restore add node
 // - Restore subtract node
 

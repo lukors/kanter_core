@@ -163,8 +163,7 @@ fn resize_node() {
 }
 
 #[test]
-fn resize_policy() {
-    // MostPixels,
+fn resize_policy_most_pixels() {
     let mut tex_pro = TextureProcessor::new();
 
     let node_128 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_128.png".to_string()))).unwrap();
@@ -190,8 +189,72 @@ fn resize_policy() {
     tex_pro.process();
 
     assert!(tex_pro.node_datas(output_128)[0].size == tex_pro.node_datas(node_256)[0].size);
-    // LeastPixels,
-    // LargestAxes,
+}
+
+#[test]
+fn resize_policy_least_pixels() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let node_128 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_128.png".to_string()))).unwrap();
+    let node_256 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string()))).unwrap();
+    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::LeastPixels), None))).unwrap();
+    let output_128 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_256 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+
+    tex_pro.node_graph
+        .connect(node_128, resize_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(node_256, resize_node, SlotId(1), SlotId(1))
+        .unwrap();
+
+    tex_pro.node_graph
+        .connect(resize_node, output_128, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(resize_node, output_256, SlotId(1), SlotId(0))
+        .unwrap();
+
+    tex_pro.process();
+
+    assert!(tex_pro.node_datas(output_256)[0].size == tex_pro.node_datas(node_128)[0].size);
+}
+
+#[test]
+fn resize_policy_largest_axes() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let node_256x128 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_wide.png".to_string()))).unwrap();
+    let node_128x256 = tex_pro.node_graph.add_node(Node::new(NodeType::Read("data/heart_tall.png".to_string()))).unwrap();
+    let resize_node = tex_pro.node_graph.add_node(Node::new(NodeType::Resize(Some(ResizePolicy::LargestAxes), None))).unwrap();
+    let output_256x128 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_128x256 = tex_pro.node_graph.add_node(Node::new(NodeType::OutputGray)).unwrap();
+
+    tex_pro.node_graph
+        .connect(node_256x128, resize_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(node_128x256, resize_node, SlotId(1), SlotId(1))
+        .unwrap();
+
+    tex_pro.node_graph
+        .connect(resize_node, output_256x128, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro.node_graph
+        .connect(resize_node, output_128x256, SlotId(1), SlotId(0))
+        .unwrap();
+
+    tex_pro.process();
+
+    let target_size = Size::new(
+        tex_pro.node_datas(node_256x128)[0].size.width,
+        tex_pro.node_datas(node_128x256)[0].size.height
+    );
+
+    assert!(tex_pro.node_datas(output_128x256)[0].size == target_size);
+    assert!(tex_pro.node_datas(output_256x128)[0].size == target_size);
+}
+
     // SmallestAxes,
     // SpecificSlot(SlotId),
     // SpecificSize(Size),
@@ -232,7 +295,6 @@ fn resize_policy() {
     //     image::ColorType::RGBA(8),
     // )
     // .unwrap();
-}
 
 // #[test]
 // fn add_node() {
