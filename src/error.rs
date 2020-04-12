@@ -5,7 +5,6 @@ pub type Result<T> = result::Result<T, TexProError>;
 #[derive(Debug)]
 pub enum TexProError {
     Image(image::ImageError),
-    InconsistentVectorLengths,
     InvalidBufferCount,
     InvalidNodeId,
     InvalidNodeType,
@@ -19,9 +18,6 @@ impl fmt::Display for TexProError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TexProError::Image(ref e) => e.fmt(f),
-            TexProError::InconsistentVectorLengths => {
-                f.write_str("Lengths of vectors are not consistent")
-            }
             TexProError::InvalidBufferCount => f.write_str("Invalid number of channels"),
             TexProError::InvalidNodeId => f.write_str("Invalid `NodeId`"),
             TexProError::InvalidNodeType => f.write_str("Invalid `NodeType`"),
