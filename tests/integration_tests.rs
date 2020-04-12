@@ -156,24 +156,24 @@ fn value_node() {
 
     let red_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Value(0.2)))
+        .add_node_with_id(Node::new(NodeType::Value(0.)), NodeId(0))
         .unwrap();
     let green_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Value(0.5)))
+        .add_node_with_id(Node::new(NodeType::Value(0.33)), NodeId(1))
         .unwrap();
     let blue_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Value(0.7)))
+        .add_node_with_id(Node::new(NodeType::Value(0.66)), NodeId(2))
         .unwrap();
     let alpha_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Value(1.)))
+        .add_node_with_id(Node::new(NodeType::Value(1.)), NodeId(3))
         .unwrap();
 
     let output_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::OutputRgba))
+        .add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(5))
         .unwrap();
 
     tex_pro
@@ -520,18 +520,17 @@ fn graph_node_rgba() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node_with_id(
+        .add_node(
             Node::new(NodeType::Read("data/image_2.png".to_string())),
-            NodeId(1),
         )
         .unwrap();
     let graph_node = tex_pro
         .node_graph
-        .add_node_with_id(Node::new(NodeType::Graph(nested_graph)), NodeId(2))
+        .add_node(Node::new(NodeType::Graph(nested_graph)))
         .unwrap();
     let output_node = tex_pro
         .node_graph
-        .add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(3))
+        .add_node(Node::new(NodeType::OutputRgba))
         .unwrap();
 
     tex_pro
@@ -589,7 +588,7 @@ fn graph_node_gray() {
 
     let nested_input_node = nested_graph.add_external_input_gray(SlotId(0)).unwrap();
     let nested_output_node = nested_graph
-        .add_node_with_id(Node::new(NodeType::OutputGray), NodeId(10))
+        .add_node(Node::new(NodeType::OutputGray))
         .unwrap();
 
     nested_graph
@@ -601,18 +600,17 @@ fn graph_node_gray() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node_with_id(
+        .add_node(
             Node::new(NodeType::Read("data/image_2.png".to_string())),
-            NodeId(1),
         )
         .unwrap();
     let graph_node = tex_pro
         .node_graph
-        .add_node_with_id(Node::new(NodeType::Graph(nested_graph)), NodeId(2))
+        .add_node(Node::new(NodeType::Graph(nested_graph)))
         .unwrap();
     let output_node = tex_pro
         .node_graph
-        .add_node_with_id(Node::new(NodeType::OutputRgba), NodeId(3))
+        .add_node(Node::new(NodeType::OutputRgba))
         .unwrap();
 
     tex_pro

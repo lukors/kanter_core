@@ -176,21 +176,19 @@ impl TextureProcessor {
         sorted_value_vecs.push(Arc::clone(&empty_buffer));
         sorted_value_vecs.push(Arc::clone(&empty_buffer));
 
-        sorted_value_vecs = node_datas
-            .iter()
-            .map(|node_data| match node_data.slot_id {
-                SlotId(0) => Arc::clone(&node_data.buffer),
-                SlotId(1) => Arc::clone(&node_data.buffer),
-                SlotId(2) => Arc::clone(&node_data.buffer),
-                SlotId(3) => Arc::clone(&node_data.buffer),
-                _ => Arc::clone(&empty_buffer),
-            })
-            .collect();
+        for node_data in node_datas {
+            sorted_value_vecs[node_data.slot_id.0 as usize] = Arc::clone(&node_data.buffer);
+        }
 
         for value_vec in &sorted_value_vecs {
             if value_vec.is_empty() {
                 panic!("Too few channels when trying to output rgba image");
             }
+        }
+
+        let debugging = id.0 < 6;
+        if debugging {
+            dbg!(&sorted_value_vecs);
         }
 
         channels_to_rgba(&sorted_value_vecs)

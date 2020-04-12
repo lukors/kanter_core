@@ -18,7 +18,6 @@ pub fn has_dup<T: PartialEq>(slice: &[T]) -> bool {
 }
 
 pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
-    // dbg!(channels.len());
     if channels.len() != 4 {
         return Err(TexProError::InvalidBufferCount);
     }
