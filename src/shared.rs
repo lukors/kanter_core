@@ -24,11 +24,11 @@ pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
 
     fn clamp_float(input: f32) -> f32 {
         if input < 0. {
-            return 0.
+            return 0.;
         } else if input > 1. {
-            return 1.
+            return 1.;
         } else {
-            return input
+            return input;
         }
     }
 

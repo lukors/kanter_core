@@ -559,21 +559,11 @@ fn invert_graph_node() {
     let white_node_nested = invert_graph
         .add_node(Node::new(NodeType::Read("data/white.png".to_string())))
         .unwrap();
-    let nested_input_node = invert_graph
-        .add_external_input_gray(SlotId(0))
-        .unwrap();
-    // let value_node = invert_graph
-    //     .add_node(Node::new(NodeType::Value(1.)))
-    //     .unwrap();
+    let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
     let subtract_node = invert_graph
         .add_node(Node::new(NodeType::Subtract))
         .unwrap();
-    // let nested_output_node = invert_graph
-    //     .add_external_output_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)])
-    //     .unwrap();
-    let nested_output_node = invert_graph
-        .add_external_output_gray(SlotId(0))
-        .unwrap();
+    let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
 
     invert_graph
         .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
@@ -581,19 +571,10 @@ fn invert_graph_node() {
     invert_graph
         .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
         .unwrap();
-        
+
     invert_graph
         .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
         .unwrap();
-    // invert_graph
-    //     .connect(subtract_node, nested_output_node, SlotId(0), SlotId(1))
-    //     .unwrap();
-    // invert_graph
-    //     .connect(subtract_node, nested_output_node, SlotId(0), SlotId(2))
-    //     .unwrap();
-    // invert_graph
-    //     .connect(white_node_nested, nested_output_node, SlotId(0), SlotId(3))
-    //     .unwrap();
 
     // Main graph
     let mut tex_pro = TextureProcessor::new();
@@ -651,66 +632,66 @@ fn invert_graph_node() {
     .unwrap();
 }
 
-#[test]
-fn invert_graph() {
-    let mut tex_pro = TextureProcessor::new();
+// #[test]
+// fn invert_graph() {
+//     let mut tex_pro = TextureProcessor::new();
 
-    let image_node = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
-        .unwrap();
-    let white_image_node = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::Read("data/white.png".to_string())))
-        .unwrap();
-    let subtract_node = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::Subtract))
-        .unwrap();
-    let output_node = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::OutputRgba))
-        .unwrap();
+//     let image_node = tex_pro
+//         .node_graph
+//         .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
+//         .unwrap();
+//     let white_image_node = tex_pro
+//         .node_graph
+//         .add_node(Node::new(NodeType::Read("data/white.png".to_string())))
+//         .unwrap();
+//     let subtract_node = tex_pro
+//         .node_graph
+//         .add_node(Node::new(NodeType::Subtract))
+//         .unwrap();
+//     let output_node = tex_pro
+//         .node_graph
+//         .add_node(Node::new(NodeType::OutputRgba))
+//         .unwrap();
 
-    tex_pro
-        .node_graph
-        .connect(white_image_node, subtract_node, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .node_graph
-        .connect(image_node, subtract_node, SlotId(0), SlotId(1))
-        .unwrap();
+//     tex_pro
+//         .node_graph
+//         .connect(white_image_node, subtract_node, SlotId(0), SlotId(0))
+//         .unwrap();
+//     tex_pro
+//         .node_graph
+//         .connect(image_node, subtract_node, SlotId(0), SlotId(1))
+//         .unwrap();
 
-    tex_pro
-        .node_graph
-        .connect(subtract_node, output_node, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .node_graph
-        .connect(subtract_node, output_node, SlotId(0), SlotId(1))
-        .unwrap();
-    tex_pro
-        .node_graph
-        .connect(subtract_node, output_node, SlotId(0), SlotId(2))
-        .unwrap();
-    tex_pro
-        .node_graph
-        .connect(white_image_node, output_node, SlotId(0), SlotId(3))
-        .unwrap();
+//     tex_pro
+//         .node_graph
+//         .connect(subtract_node, output_node, SlotId(0), SlotId(0))
+//         .unwrap();
+//     tex_pro
+//         .node_graph
+//         .connect(subtract_node, output_node, SlotId(0), SlotId(1))
+//         .unwrap();
+//     tex_pro
+//         .node_graph
+//         .connect(subtract_node, output_node, SlotId(0), SlotId(2))
+//         .unwrap();
+//     tex_pro
+//         .node_graph
+//         .connect(white_image_node, output_node, SlotId(0), SlotId(3))
+//         .unwrap();
 
-    tex_pro.process();
+//     tex_pro.process();
 
-    let size = 256;
-    image::save_buffer(
-        &Path::new(&"out/invert_graph.png"),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
-        size,
-        size,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
-}
+//     let size = 256;
+//     image::save_buffer(
+//         &Path::new(&"out/invert_graph.png"),
+//         &image::RgbaImage::from_vec(size, size, tex_pro.get_output_rgba(output_node).unwrap())
+//             .unwrap(),
+//         size,
+//         size,
+//         image::ColorType::RGBA(8),
+//     )
+//     .unwrap();
+// }
 
 #[test]
 fn graph_node_rgba() {

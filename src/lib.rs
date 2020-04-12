@@ -1,3 +1,9 @@
+// NAME IDEAS
+// Skyffel
+// Materialistic, Materialism
+// Kanter
+// Materialbilder
+
 // TODO:
 // - Make the nested invert graph test work
 // - Make it so all nodes automatically resize inputs
@@ -6,7 +12,7 @@
 // - Create Normal map node
 // - Run Clippy
 
-// - Automatic grayscale to rgba conversion when exporting from a 
+// - Automatic grayscale to rgba conversion when exporting from a
 // - Restore multiply node
 
 // # CLI
