@@ -612,6 +612,96 @@ fn invert_graph_node() {
 }
 
 #[test]
+fn invert_graph_node_export() {
+    // Nested invert graph
+    let mut invert_graph = NodeGraph::new();
+
+    let white_node_nested = invert_graph
+        .add_node(Node::new(NodeType::Value(1.)))
+        .unwrap();
+    let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
+    let subtract_node = invert_graph
+        .add_node(Node::new(NodeType::Subtract))
+        .unwrap();
+    let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
+
+    invert_graph
+        .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
+        .unwrap();
+    invert_graph
+        .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
+        .unwrap();
+
+    invert_graph
+        .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    invert_graph
+        .export_json("out/invert_graph.json".to_string())
+        .unwrap();
+}
+
+#[test]
+fn invert_graph_node_import() {
+    // Nested invert graph
+    let invert_graph = NodeGraph::from_path("data/invert_graph.json".to_string()).unwrap();
+
+    // Main graph
+    let mut tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
+        .unwrap();
+    let white_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(1.)))
+        .unwrap();
+    let invert_graph_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Graph(invert_graph)))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(image_node, invert_graph_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(white_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+
+    tex_pro.process();
+
+    let size = 256;
+    image::save_buffer(
+        &Path::new(&"out/invert_graph_node_import.png"),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
+#[test]
 fn graph_node_rgba() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();

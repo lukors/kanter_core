@@ -1,6 +1,11 @@
 use crate::{error::*, node::*, shared::has_dup};
 use serde::{Deserialize, Serialize};
-use std::{fmt, sync::Arc};
+use std::{
+    fmt,
+    fs::File,
+    io::{self},
+    sync::Arc,
+};
 
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -31,6 +36,10 @@ impl NodeGraph {
         }
     }
 
+    pub fn from_path(path: String) -> io::Result<Self> {
+        Self::import_json(path)
+    }
+
     fn new_id(&mut self) -> NodeId {
         loop {
             let id = NodeId(rand::random());
@@ -38,6 +47,17 @@ impl NodeGraph {
                 return id;
             }
         }
+    }
+
+    pub fn export_json(&self, path: String) -> io::Result<()> {
+        let file = File::create(path)?;
+        serde_json::to_writer_pretty(&file, self)?;
+        Ok(())
+    }
+
+    fn import_json(path: String) -> io::Result<Self> {
+        let file = File::open(path)?;
+        Ok(serde_json::from_reader(file)?)
     }
 
     /// Returns the `NodeId` and `SlotId` associated with the given
@@ -141,7 +161,7 @@ impl NodeGraph {
         let internal_node = self.new_id();
         self.add_node_internal(Node::new(NodeType::OutputGray), internal_node);
 
-        self.input_mappings.push(ExternalMapping {
+        self.output_mappings.push(ExternalMapping {
             external_slot,
             internal_node,
             internal_slot: SlotId(0),

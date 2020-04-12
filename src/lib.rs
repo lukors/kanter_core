@@ -5,7 +5,6 @@
 // Materialbilder
 
 // TODO:
-// - Create a system to save and load graphs
 // - Create Normal map node
 
 // - Restore multiply node

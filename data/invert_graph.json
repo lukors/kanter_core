@@ -1,0 +1,64 @@
+{
+  "input_mappings": [
+    {
+      "external_slot": 0,
+      "internal_node": 2593336229,
+      "internal_slot": 0
+    }
+  ],
+  "output_mappings": [
+    {
+      "external_slot": 0,
+      "internal_node": 1850218907,
+      "internal_slot": 0
+    }
+  ],
+  "nodes": [
+    {
+      "node_id": 1693519154,
+      "node_type": {
+        "Value": 1.0
+      },
+      "resize_policy": null,
+      "filter_type": null
+    },
+    {
+      "node_id": 2593336229,
+      "node_type": "InputGray",
+      "resize_policy": null,
+      "filter_type": null
+    },
+    {
+      "node_id": 2086049995,
+      "node_type": "Subtract",
+      "resize_policy": null,
+      "filter_type": null
+    },
+    {
+      "node_id": 1850218907,
+      "node_type": "OutputGray",
+      "resize_policy": null,
+      "filter_type": null
+    }
+  ],
+  "edges": [
+    {
+      "output_id": 1693519154,
+      "input_id": 2086049995,
+      "output_slot": 0,
+      "input_slot": 0
+    },
+    {
+      "output_id": 2593336229,
+      "input_id": 2086049995,
+      "output_slot": 0,
+      "input_slot": 1
+    },
+    {
+      "output_id": 2086049995,
+      "input_id": 1850218907,
+      "output_slot": 0,
+      "input_slot": 0
+    }
+  ]
+}
