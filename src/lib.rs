@@ -5,11 +5,11 @@
 // Materialbilder
 
 // TODO:
-// - Run Clippy
+// - Automatic grayscale to rgba conversion when exporting from a gray output
+// - Update errors to include their relevant data
 // - Create a system to save and load graphs
 // - Create Normal map node
 
-// - Automatic grayscale to rgba conversion when exporting from a
 // - Restore multiply node
 // - Add division node
 

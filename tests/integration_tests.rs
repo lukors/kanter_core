@@ -40,8 +40,7 @@ fn input_output() {
 
     image::save_buffer(
         &Path::new(&"out/input_output.png"),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -87,8 +86,7 @@ fn mix_images() {
 
     image::save_buffer(
         &Path::new(&"out/mix_images.png"),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -197,7 +195,7 @@ fn value_node() {
 
     image::save_buffer(
         &Path::new(&"out/value_node.png"),
-        &image::RgbaImage::from_vec(1, 1, tex_pro.get_output_rgba(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(1, 1, tex_pro.get_output(output_node).unwrap()).unwrap(),
         1,
         1,
         image::ColorType::RGBA(8),
@@ -256,7 +254,7 @@ fn resize_node() {
         &image::RgbaImage::from_vec(
             size.width,
             size.height,
-            tex_pro.get_output_rgba(output_node).unwrap(),
+            tex_pro.get_output(output_node).unwrap(),
         )
         .unwrap(),
         size.width,
@@ -481,8 +479,7 @@ fn add_node() {
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/add_node.png"),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -498,17 +495,13 @@ fn subtract_node() {
         .node_graph
         .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
         .unwrap();
-    let white_node = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::Read("data/white.png".to_string())))
-        .unwrap();
     let subtract_node = tex_pro
         .node_graph
         .add_node(Node::new(NodeType::Subtract))
         .unwrap();
     let output_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::OutputRgba))
+        .add_node(Node::new(NodeType::OutputGray))
         .unwrap();
 
     tex_pro
@@ -524,26 +517,13 @@ fn subtract_node() {
         .node_graph
         .connect(subtract_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro
-        .node_graph
-        .connect(subtract_node, output_node, SlotId(0), SlotId(1))
-        .unwrap();
-    tex_pro
-        .node_graph
-        .connect(subtract_node, output_node, SlotId(0), SlotId(2))
-        .unwrap();
-    tex_pro
-        .node_graph
-        .connect(white_node, output_node, SlotId(0), SlotId(3))
-        .unwrap();
 
     tex_pro.process();
 
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/subtract_node.png"),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -623,8 +603,7 @@ fn invert_graph_node() {
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/invert_graph_node.png"),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -712,8 +691,7 @@ fn graph_node_rgba() {
     // Output
     image::save_buffer(
         &Path::new(&"out/graph_node_rgba.png"),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -778,8 +756,7 @@ fn graph_node_gray() {
     // Output
     image::save_buffer(
         &Path::new(&"out/graph_node_gray.png"),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -811,7 +788,7 @@ fn graph_node_gray() {
 
 //     image::save_buffer(
 //         &Path::new(&"out/input_output.png"),
-//         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output_rgba(output_node).unwrap())
+//         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap())
 //             .unwrap(),
 //         256,
 //         256,

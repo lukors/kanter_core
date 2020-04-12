@@ -68,7 +68,7 @@ fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<N
         new_node_datas.push(new_node_data);
     }
 
-    assert_eq!(new_node_datas.len(), 4);
+    // assert_eq!(new_node_datas.len(), 4);
 
     Ok(new_node_datas)
 }
