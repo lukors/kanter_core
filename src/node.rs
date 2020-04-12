@@ -1,8 +1,9 @@
 use crate::{node_data::*, node_graph::*};
 use image::FilterType;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum ResizePolicy {
     MostPixels,
     LeastPixels,
@@ -18,12 +19,46 @@ impl Default for ResizePolicy {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize, Serialize)]
+pub enum ResizeFilter {
+    Nearest,
+    Triangle,
+    CatmullRom,
+    Gaussian,
+    Lanczos3,
+}
+
+impl From<FilterType> for ResizeFilter {
+    fn from(filter_type: FilterType) -> Self {
+        match filter_type {
+            FilterType::Nearest => ResizeFilter::Nearest,
+            FilterType::Triangle => ResizeFilter::Triangle,
+            FilterType::CatmullRom => ResizeFilter::CatmullRom,
+            FilterType::Gaussian => ResizeFilter::Gaussian,
+            FilterType::Lanczos3 => ResizeFilter::Lanczos3,
+        }
+    }
+}
+
+impl Into<FilterType> for ResizeFilter {
+    fn into(self) -> FilterType {
+        match self {
+            ResizeFilter::Nearest => FilterType::Nearest,
+            ResizeFilter::Triangle => FilterType::Triangle,
+            ResizeFilter::CatmullRom => FilterType::CatmullRom,
+            ResizeFilter::Gaussian => FilterType::Gaussian,
+            ResizeFilter::Lanczos3 => FilterType::Lanczos3,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum Side {
     Input,
     Output,
 }
 
+#[derive(Deserialize, Serialize)]
 pub enum NodeType {
     InputGray,
     InputRgba,
@@ -33,7 +68,7 @@ pub enum NodeType {
     Read(String),
     Write(String),
     Value(f32),
-    Resize(Option<ResizePolicy>, Option<FilterType>),
+    Resize(Option<ResizePolicy>, Option<ResizeFilter>),
     Add,
     Subtract,
     Invert,
@@ -67,11 +102,12 @@ impl fmt::Debug for NodeType {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Node {
     pub node_id: NodeId,
     pub node_type: NodeType,
     pub resize_policy: Option<ResizePolicy>,
-    pub filter_type: Option<FilterType>,
+    pub filter_type: Option<ResizeFilter>,
 }
 
 impl Node {

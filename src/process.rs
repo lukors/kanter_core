@@ -6,7 +6,7 @@ use crate::{
     node_graph::*,
     shared::*,
 };
-use image::{imageops::resize, FilterType, ImageBuffer, Luma};
+use image::{imageops::resize, ImageBuffer, Luma};
 use std::{path::Path, sync::Arc};
 
 // TODO: I want to make this function take a node and process it.
@@ -197,7 +197,7 @@ fn value(node: Arc<Node>, value: f32) -> Vec<Arc<NodeData>> {
 fn resize_only(
     node_datas: &[Arc<NodeData>],
     resize_policy: Option<ResizePolicy>,
-    filter_type: Option<FilterType>,
+    filter_type: Option<ResizeFilter>,
 ) -> Result<Vec<Arc<NodeData>>> {
     let size: Size = match resize_policy.unwrap_or_default() {
         ResizePolicy::MostPixels => node_datas
@@ -240,7 +240,7 @@ fn resize_only(
     }
     .ok_or(TexProError::NodeProcessing)?;
 
-    let filter_type = filter_type.unwrap_or(FilterType::Triangle);
+    let filter_type = filter_type.unwrap_or(ResizeFilter::Triangle);
 
     let mut output_node_datas: Vec<Arc<NodeData>> = Vec::new();
 
@@ -261,7 +261,7 @@ fn resize_only(
                     &**node_data.buffer,
                     size.width,
                     size.height,
-                    filter_type,
+                    filter_type.into(),
                 ))),
             )));
         }
@@ -274,7 +274,7 @@ fn process_resize(
     node_datas: &[Arc<NodeData>],
     node: Arc<Node>,
     resize_policy: Option<ResizePolicy>,
-    filter_type: Option<FilterType>,
+    filter_type: Option<ResizeFilter>,
 ) -> Result<Vec<Arc<NodeData>>> {
     let node_datas = resize_only(node_datas, resize_policy, filter_type)?;
 

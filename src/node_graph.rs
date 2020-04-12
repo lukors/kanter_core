@@ -1,8 +1,9 @@
 use crate::{error::*, node::*, shared::has_dup};
+use serde::{Deserialize, Serialize};
 use std::{fmt, sync::Arc};
 
 /// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
-#[derive(Default, Clone)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct NodeGraph {
     input_mappings: Vec<ExternalMapping>,
     output_mappings: Vec<ExternalMapping>,
@@ -296,14 +297,14 @@ impl NodeGraph {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 struct ExternalMapping {
     external_slot: SlotId,
     internal_node: NodeId,
     internal_slot: SlotId,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct NodeId(pub u32);
 
 impl NodeId {
@@ -312,7 +313,7 @@ impl NodeId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct SlotId(pub u32);
 
 impl SlotId {
@@ -321,7 +322,7 @@ impl SlotId {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Edge {
     pub output_id: NodeId,
     pub input_id: NodeId,

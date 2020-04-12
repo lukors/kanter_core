@@ -1,6 +1,6 @@
 use crate::error::{Result, TexProError};
 use crate::{node::*, node_data::*};
-use image::{imageops, DynamicImage, FilterType, GenericImageView, ImageBuffer};
+use image::{imageops, DynamicImage, GenericImageView, ImageBuffer};
 use std::{
     cmp::{max, min},
     path::Path,
@@ -104,10 +104,10 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 pub fn resize_buffers(
     node_datas: &[Arc<NodeData>],
     policy: Option<ResizePolicy>,
-    filter: Option<FilterType>,
+    filter: Option<ResizeFilter>,
 ) -> Result<Vec<Arc<NodeData>>> {
     let policy = policy.unwrap_or(ResizePolicy::LargestAxes);
-    let filter = filter.unwrap_or(FilterType::Triangle);
+    let filter = filter.unwrap_or(ResizeFilter::Triangle);
 
     let size = match policy {
         ResizePolicy::MostPixels => node_datas
@@ -148,7 +148,7 @@ pub fn resize_buffers(
                     &**node_data.buffer,
                     size.width,
                     size.height,
-                    filter,
+                    filter.into(),
                 )));
                 Arc::new(NodeData::new(
                     node_data.node_id,

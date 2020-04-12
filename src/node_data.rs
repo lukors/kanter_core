@@ -1,5 +1,6 @@
 use crate::node_graph::*;
 use image::{ImageBuffer, Luma};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -12,7 +13,7 @@ pub struct NodeData {
 
 pub type Buffer = Box<ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>>;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Size {
     pub width: u32,
     pub height: u32,
