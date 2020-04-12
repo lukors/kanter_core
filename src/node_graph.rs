@@ -307,7 +307,7 @@ struct ExternalMapping {
 pub struct NodeId(pub u32);
 
 impl NodeId {
-    pub fn as_usize(&self) -> usize {
+    pub fn as_usize(self) -> usize {
         self.0 as usize
     }
 }
@@ -316,7 +316,7 @@ impl NodeId {
 pub struct SlotId(pub u32);
 
 impl SlotId {
-    pub fn as_usize(&self) -> usize {
+    pub fn as_usize(self) -> usize {
         self.0 as usize
     }
 }

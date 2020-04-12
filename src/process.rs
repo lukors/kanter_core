@@ -24,7 +24,7 @@ pub fn process_node(
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::InputRgba => Vec::new(),
         NodeType::InputGray => Vec::new(),
-        NodeType::OutputRgba => output_rgba(&input_node_datas, edges, Arc::clone(&node))?,
+        NodeType::OutputRgba => output_rgba(&input_node_datas, edges)?,
         NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
         NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
@@ -47,11 +47,7 @@ pub fn process_node(
 }
 
 /// Finds the `NodeData`s relevant for this `Node` and outputs them.
-fn output_rgba(
-    node_datas: &[Arc<NodeData>],
-    edges: &[Edge],
-    node: Arc<Node>,
-) -> Result<Vec<Arc<NodeData>>> {
+fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<NodeData>>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
 
     for edge in edges {
@@ -203,7 +199,7 @@ fn resize_only(
     resize_policy: Option<ResizePolicy>,
     filter_type: Option<FilterType>,
 ) -> Result<Vec<Arc<NodeData>>> {
-    let size: Size = match resize_policy.unwrap_or(Default::default()) {
+    let size: Size = match resize_policy.unwrap_or_default() {
         ResizePolicy::MostPixels => node_datas
             .iter()
             .map(|node_data| node_data.size)
@@ -357,8 +353,9 @@ fn process_subtract(
         size.width,
         size.height,
         |x, y| {
-            Luma([left_side_node_data.buffer.get_pixel(x, y).data[0]
-                - right_side_node_data.buffer.get_pixel(x, y).data[0]])
+            let left_side_pixel = left_side_node_data.buffer.get_pixel(x, y).data[0];
+            let right_side_pixel = right_side_node_data.buffer.get_pixel(x, y).data[0];
+            Luma([left_side_pixel - right_side_pixel])
         },
     )));
 
@@ -366,7 +363,7 @@ fn process_subtract(
     Ok(vec![node_data])
 }
 
-fn invert(input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+fn invert(_input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
     unimplemented!()
     // let input = &input[0];
     // let (width, height) = (input.size.width, input.size.height);
@@ -382,7 +379,7 @@ fn invert(input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
     // }]
 }
 
-fn multiply(input_0: &Arc<NodeData>, input_1: &Arc<NodeData>) -> Vec<Arc<NodeData>> {
+fn multiply(_input_0: &Arc<NodeData>, _input_1: &Arc<NodeData>) -> Vec<Arc<NodeData>> {
     unimplemented!()
     // let (width, height) = (input_0.size.width, input_1.size.height);
 

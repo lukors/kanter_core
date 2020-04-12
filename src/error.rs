@@ -1,4 +1,4 @@
-use std::{error, fmt, io, result};
+use std::{fmt, io, result};
 
 pub type Result<T> = result::Result<T, TexProError>;
 
@@ -18,31 +18,17 @@ pub enum TexProError {
 impl fmt::Display for TexProError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TexProError::Image(_) => f.write_str("Image"),
-            TexProError::InconsistentVectorLengths => f.write_str("InconsistentVectorLengths"),
-            TexProError::InvalidBufferCount => f.write_str("InvalidBufferCount"),
-            TexProError::InvalidNodeId => f.write_str("InvalidNodeId"),
-            TexProError::InvalidNodeType => f.write_str("InvalidNodeType"),
-            TexProError::InvalidSlotId => f.write_str("InvalidSlotId"),
-            TexProError::SlotOccupied => f.write_str("SlotOccupied"),
-            TexProError::NodeProcessing => f.write_str("NodeProcessing"),
-            TexProError::Io(_) => f.write_str("Io"),
-        }
-    }
-}
-
-impl error::Error for TexProError {
-    fn description(&self) -> &str {
-        match *self {
-            TexProError::Image(ref e) => e.description(),
-            TexProError::InconsistentVectorLengths => "Lengths of vectors are not consistent",
-            TexProError::InvalidBufferCount => "Invalid number of channels",
-            TexProError::InvalidNodeId => "Invalid `NodeId`",
-            TexProError::InvalidNodeType => "Invalid `NodeType`",
-            TexProError::InvalidSlotId => "Invalid `SlotId`",
-            TexProError::SlotOccupied => "Slot is already in use",
-            TexProError::NodeProcessing => "Error during node processing",
-            TexProError::Io(ref e) => e.description(),
+            TexProError::Image(ref e) => e.fmt(f),
+            TexProError::InconsistentVectorLengths => {
+                f.write_str("Lengths of vectors are not consistent")
+            }
+            TexProError::InvalidBufferCount => f.write_str("Invalid number of channels"),
+            TexProError::InvalidNodeId => f.write_str("Invalid `NodeId`"),
+            TexProError::InvalidNodeType => f.write_str("Invalid `NodeType`"),
+            TexProError::InvalidSlotId => f.write_str("Invalid `SlotId`"),
+            TexProError::SlotOccupied => f.write_str("`SlotId` is already in use"),
+            TexProError::NodeProcessing => f.write_str("Error during node processing"),
+            TexProError::Io(ref e) => e.fmt(f),
         }
     }
 }

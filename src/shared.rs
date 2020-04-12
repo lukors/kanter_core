@@ -24,11 +24,11 @@ pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
 
     fn clamp_float(input: f32) -> f32 {
         if input < 0. {
-            return 0.;
+            0.
         } else if input > 1. {
-            return 1.;
+            1.
         } else {
-            return input;
+            input
         }
     }
 
@@ -43,21 +43,21 @@ pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
         .collect())
 }
 
-pub fn channels_to_rgba_arc(channels: &[&Buffer]) -> Result<Vec<u8>> {
-    if channels.len() != 4 {
-        return Err(TexProError::InvalidBufferCount);
-    }
+// pub fn channels_to_rgba_arc(channels: &[&Buffer]) -> Result<Vec<u8>> {
+//     if channels.len() != 4 {
+//         return Err(TexProError::InvalidBufferCount);
+//     }
 
-    Ok(channels[0]
-        .pixels()
-        .zip(channels[1].pixels())
-        .zip(channels[2].pixels())
-        .zip(channels[3].pixels())
-        .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
-        .flatten()
-        .map(|x| (x[0] * 255.).min(255.) as u8)
-        .collect())
-}
+//     Ok(channels[0]
+//         .pixels()
+//         .zip(channels[1].pixels())
+//         .zip(channels[2].pixels())
+//         .zip(channels[3].pixels())
+//         .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
+//         .flatten()
+//         .map(|x| (x[0] * 255.).min(255.) as u8)
+//         .collect())
+// }
 
 pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
     let raw_pixels = image.raw_pixels();
@@ -173,26 +173,26 @@ pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {
     Ok(buffers)
 }
 
-pub fn write_image<P: AsRef<Path>>(inputs: &[Arc<NodeData>], path: P) -> Result<()> {
-    let channel_vec: Vec<Arc<Buffer>> = inputs
-        .iter()
-        .map(|node_data| Arc::clone(&node_data.buffer))
-        .collect();
-    let (width, height) = (inputs[0].size.width, inputs[0].size.height);
-    let img = {
-        if let Some(img) =
-            image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)?)
-        {
-            img
-        } else {
-            return Err(TexProError::InconsistentVectorLengths);
-        }
-    };
+// pub fn write_image<P: AsRef<Path>>(inputs: &[Arc<NodeData>], path: P) -> Result<()> {
+//     let channel_vec: Vec<Arc<Buffer>> = inputs
+//         .iter()
+//         .map(|node_data| Arc::clone(&node_data.buffer))
+//         .collect();
+//     let (width, height) = (inputs[0].size.width, inputs[0].size.height);
+//     let img = {
+//         if let Some(img) =
+//             image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)?)
+//         {
+//             img
+//         } else {
+//             return Err(TexProError::InconsistentVectorLengths);
+//         }
+//     };
 
-    image::save_buffer(path, &img, width, height, image::ColorType::RGBA(8))?;
+//     image::save_buffer(path, &img, width, height, image::ColorType::RGBA(8))?;
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 #[cfg(test)]
 mod tests {
