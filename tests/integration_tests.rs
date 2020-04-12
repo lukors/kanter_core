@@ -491,6 +491,67 @@ fn add_node() {
 }
 
 #[test]
+fn subtract_node() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .unwrap();
+    let white_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/white.png".to_string())))
+        .unwrap();
+    let add_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Subtract))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(image_node, add_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(image_node, add_node, SlotId(1), SlotId(1))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(add_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(add_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(add_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(white_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+
+    tex_pro.process();
+
+    let size = 256;
+    image::save_buffer(
+        &Path::new(&"out/subtract_node.png"),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output_rgba(output_node).unwrap())
+            .unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
+#[test]
 fn graph_node_rgba() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();

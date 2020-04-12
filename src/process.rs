@@ -37,6 +37,7 @@ pub fn process_node(
             filter_type,
         )?,
         NodeType::Add => process_add(&input_node_datas, Arc::clone(&node))?,
+        NodeType::Subtract => process_subtract(&input_node_datas, Arc::clone(&node))?,
         NodeType::Invert => invert(&input_node_datas),
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
     };
@@ -289,6 +290,29 @@ fn process_add(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec<Arc<
         |x, y| {
             Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
                 + node_datas[1].buffer.get_pixel(x, y).data[0]])
+        },
+    )));
+
+    let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
+
+    Ok(vec![node_data])
+}
+
+// TODO: Look into optimizing this by sampling straight into the un-resized image instead of
+// resizing the image before adding.
+fn process_subtract(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec<Arc<NodeData>>> {
+    if node_datas.len() != 2 {
+        return Err(TexProError::InvalidBufferCount);
+    }
+    let node_datas = process_resize(&node_datas, Arc::clone(&node), None, None)?;
+    let size = node_datas[0].size;
+
+    let buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
+            Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
+                - node_datas[1].buffer.get_pixel(x, y).data[0]])
         },
     )));
 

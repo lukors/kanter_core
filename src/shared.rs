@@ -22,6 +22,16 @@ pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
         return Err(TexProError::InvalidBufferCount);
     }
 
+    fn clamp_float(input: f32) -> f32 {
+        if input < 0. {
+            return 0.
+        } else if input > 1. {
+            return 1.
+        } else {
+            return input
+        }
+    }
+
     Ok(channels[0]
         .pixels()
         .zip(channels[1].pixels())
@@ -29,7 +39,7 @@ pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
         .zip(channels[3].pixels())
         .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
         .flatten()
-        .map(|x| (x[0] * 255.).min(255.) as u8)
+        .map(|x| (clamp_float(x[0]) * 255.).min(255.) as u8)
         .collect())
 }
 
