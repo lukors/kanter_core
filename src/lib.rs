@@ -1,8 +1,4 @@
 // TODO:
-// - Fix race condition, doing `cargo test` gives one result, `cargo test mix` gives another on
-//   the same test.
-
-// - Restore add node
 // - Restore subtract node
 
 // - Create a nested invert graph test
