@@ -465,11 +465,11 @@ fn add_node() {
         .unwrap();
     tex_pro
         .node_graph
-        .connect(white_node, output_node, SlotId(0), SlotId(1))
+        .connect(add_node, output_node, SlotId(0), SlotId(1))
         .unwrap();
     tex_pro
         .node_graph
-        .connect(white_node, output_node, SlotId(0), SlotId(2))
+        .connect(add_node, output_node, SlotId(0), SlotId(2))
         .unwrap();
     tex_pro
         .node_graph
@@ -520,9 +520,7 @@ fn graph_node_rgba() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(
-            Node::new(NodeType::Read("data/image_2.png".to_string())),
-        )
+        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
         .unwrap();
     let graph_node = tex_pro
         .node_graph
@@ -600,9 +598,7 @@ fn graph_node_gray() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(
-            Node::new(NodeType::Read("data/image_2.png".to_string())),
-        )
+        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
         .unwrap();
     let graph_node = tex_pro
         .node_graph

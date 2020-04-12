@@ -53,15 +53,7 @@ fn output_rgba(
 ) -> Result<Vec<Arc<NodeData>>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
 
-    let debugging = edges.iter().any(|edge| edge.output_id.0 < 6);
-
     for edge in edges {
-        if debugging {
-            println!("\n{:?}", edge.output_id);
-            // dbg!(edge.output_id);
-            // dbg!(edge.input_id);
-            // println!("OutNode({:?}) | OutSlot({:?}) -> InSlot({:?})", edge.output_id, edge.output_slot, edge.input_slot);
-        }
         let node_data = node_datas
             .iter()
             .find(|node_data| {
@@ -69,22 +61,12 @@ fn output_rgba(
             })
             .ok_or(TexProError::NodeProcessing)?;
 
-        if debugging {
-            // dbg!(&node_data.buffer.get_pixel(0, 0)[0]);
-            println!("Pixel: {:?}", &node_data.buffer.get_pixel(0, 0)[0]);
-        }
-
         let new_node_data = Arc::new(NodeData::new(
             edge.input_id,
             edge.input_slot,
             node_data.size,
             Arc::clone(&node_data.buffer),
         ));
-
-        if debugging {
-            println!("# NodeData: SlotId: {:?} | NodeId: {:?} | Pixel: {:?}", 
-                new_node_data.slot_id, new_node_data.node_id, new_node_data.buffer.get_pixel(0, 0)[0]);
-        }
 
         new_node_datas.push(new_node_data);
     }

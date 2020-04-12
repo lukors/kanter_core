@@ -186,11 +186,6 @@ impl TextureProcessor {
             }
         }
 
-        let debugging = id.0 < 6;
-        if debugging {
-            dbg!(&sorted_value_vecs);
-        }
-
         channels_to_rgba(&sorted_value_vecs)
     }
 
