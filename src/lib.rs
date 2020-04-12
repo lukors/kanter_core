@@ -5,7 +5,6 @@
 // Materialbilder
 
 // TODO:
-// - Make the nested invert graph test work
 // - Make it so all nodes automatically resize inputs
 
 // - Create a system to save and load graphs
