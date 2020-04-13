@@ -40,6 +40,7 @@ pub fn process_node(
         NodeType::Subtract => process_subtract(&input_node_datas, Arc::clone(&node), edges)?,
         NodeType::Invert => invert(&input_node_datas),
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
+        NodeType::HeightToNormal => process_height_to_normal(&input_node_datas),
     };
 
     assert!(output.len() <= node.capacity(Side::Output));
@@ -361,6 +362,22 @@ fn process_subtract(
 
     let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
     Ok(vec![node_data])
+}
+
+fn process_height_to_normal(
+    node_datas: &[Arc<NodeData>],
+) -> Vec<Arc<NodeData>> {
+    let buffer = &node_datas[0].buffer;
+
+    let output_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
+        buffer.width,
+        buffer.height,
+        |x, y| {
+            Luma([])
+        },
+    ))); = 
+
+    Vec::new()
 }
 
 fn invert(_input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
