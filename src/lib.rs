@@ -6,6 +6,7 @@
 
 // TODO:
 // - Create Normal map node
+// - Make area size travel down the node tree
 
 // - Restore multiply node
 // - Add division node
