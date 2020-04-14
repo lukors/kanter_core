@@ -7,6 +7,7 @@ use crate::{
     shared::*,
 };
 use image::{imageops::resize, ImageBuffer, Luma};
+use nalgebra::{Cross, Norm, Vector3};
 use std::{path::Path, sync::Arc};
 
 // TODO: I want to make this function take a node and process it.
@@ -40,7 +41,7 @@ pub fn process_node(
         NodeType::Subtract => process_subtract(&input_node_datas, Arc::clone(&node), edges)?,
         NodeType::Invert => invert(&input_node_datas),
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
-        NodeType::HeightToNormal => process_height_to_normal(&input_node_datas),
+        NodeType::HeightToNormal => process_height_to_normal(&input_node_datas, Arc::clone(&node)),
     };
 
     assert!(output.len() <= node.capacity(Side::Output));
@@ -364,20 +365,95 @@ fn process_subtract(
     Ok(vec![node_data])
 }
 
-fn process_height_to_normal(
-    node_datas: &[Arc<NodeData>],
-) -> Vec<Arc<NodeData>> {
-    let buffer = &node_datas[0].buffer;
+trait Sampling {
+    fn wrapping_sample_add(self, right_side: Self, max: Self) -> Self;
+    fn wrapping_sample_subtract(self, right_side: Self, max: Self) -> Self;
+    fn coordinate_to_fraction(self, size: Self) -> f32;
+}
 
-    let output_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
-        buffer.width,
-        buffer.height,
-        |x, y| {
-            Luma([])
-        },
-    ))); = 
+/// Note that these functions are not checking for values outside of bounds, so they will not
+/// do what's right if they get the wrong data.
+impl Sampling for u32 {
+    fn wrapping_sample_add(self, right_side: Self, max: Self) -> Self {
+        let mut new_value = self;
 
-    Vec::new()
+        new_value += right_side;
+
+        while new_value > max - 1 {
+            new_value -= max;
+        }
+
+        new_value
+    }
+
+    fn wrapping_sample_subtract(self, right_side: Self, max: Self) -> Self {
+        let mut new_value = self;
+
+        while new_value < right_side {
+            new_value += max;
+        }
+
+        new_value - right_side
+    }
+
+    fn coordinate_to_fraction(self, size: Self) -> f32 {
+        self as f32 / size as f32
+    }
+}
+
+fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Vec<Arc<NodeData>> {
+    // let strength = .1;
+    let channel_count = 3;
+    let heightmap = &node_datas[0].buffer;
+    let (width, height) = (heightmap.width(), heightmap.height());
+    let pixel_distance_x = 1. / width as f32;
+    let pixel_distance_y = 1. / height as f32;
+
+    let mut output_buffers: Vec<Buffer> =
+        vec![Box::new(ImageBuffer::new(width, height)); channel_count];
+
+    // TODO: Should iterate over pixel indices in heightmap without grabbing the pixels as well.
+    for (x, y, _px) in heightmap.enumerate_pixels() {
+        // let (px_x, px_y) = (x.coordinate_to_fraction(width), y.coordinate_to_fraction(height));
+        let sample_up = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
+        let sample_down = heightmap.get_pixel(x, y.wrapping_sample_add(1, height))[0];
+        let sample_left = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
+        let sample_right = heightmap.get_pixel(x.wrapping_sample_add(1, width), y)[0];
+
+        let tangent =
+            Vector3::new(pixel_distance_x * 2., 0., sample_right - sample_left).normalize();
+        let bitangent =
+            Vector3::new(0., pixel_distance_y * 2., sample_down - sample_up).normalize();
+        let normal = tangent.cross(&bitangent).normalize();
+
+        for (i, buffer) in output_buffers.iter_mut().enumerate() {
+            // if normal[i] < 0. {
+            //     println!("Less than 0: {:?}", normal[i]);
+            // }
+
+            buffer.put_pixel(x, y, Luma([normal[i] / 2. + 0.5]));
+        }
+    }
+
+    // let output_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
+    //     buffer.width(),
+    //     buffer.height(),
+    //     |x, y| {
+    //         Luma([])
+    //     },
+    // ))); =
+
+    let mut output_node_datas = Vec::with_capacity(channel_count);
+    for (i, buffer) in output_buffers.into_iter().enumerate() {
+        output_node_datas.push(Arc::new(NodeData::new(
+            node.node_id,
+            SlotId(i as u32),
+            Size::new(heightmap.width(), heightmap.height()),
+            Arc::new(buffer),
+        )));
+    }
+
+    output_node_datas
 }
 
 fn invert(_input: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {

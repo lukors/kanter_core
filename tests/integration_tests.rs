@@ -854,6 +854,55 @@ fn graph_node_gray() {
     .unwrap();
 }
 
+#[test]
+fn height_to_normal_node() {
+    // Texture Processor
+    let mut tex_pro = TextureProcessor::new();
+
+    let input_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/clouds.png".to_string())))
+        .unwrap();
+    let h2n_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::HeightToNormal))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(input_node, h2n_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(h2n_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(h2n_node, output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(h2n_node, output_node, SlotId(2), SlotId(2))
+        .unwrap();
+
+    tex_pro.process();
+
+    // Output
+    image::save_buffer(
+        &Path::new(&"out/height_to_normal_node.png"),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        256,
+        256,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
 // #[test]
 // fn input_output() {
 //     let mut tex_pro = TextureProcessor::new();
