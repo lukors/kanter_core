@@ -414,7 +414,6 @@ fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Ve
 
     // TODO: Should iterate over pixel indices in heightmap without grabbing the pixels as well.
     for (x, y, _px) in heightmap.enumerate_pixels() {
-        // let (px_x, px_y) = (x.coordinate_to_fraction(width), y.coordinate_to_fraction(height));
         let sample_up = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
         let sample_down = heightmap.get_pixel(x, y.wrapping_sample_add(1, height))[0];
         let sample_left = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
@@ -427,11 +426,76 @@ fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Ve
         let normal = tangent.cross(&bitangent).normalize();
 
         for (i, buffer) in output_buffers.iter_mut().enumerate() {
+
+            buffer.put_pixel(x, y, Luma([normal[i] / 2. + 0.5]));
+        }
+    }
+
+    let mut output_node_datas = Vec::with_capacity(channel_count);
+    for (i, buffer) in output_buffers.into_iter().enumerate() {
+        output_node_datas.push(Arc::new(NodeData::new(
+            node.node_id,
+            SlotId(i as u32),
+            Size::new(heightmap.width(), heightmap.height()),
+            Arc::new(buffer),
+        )));
+    }
+
+    output_node_datas
+}
+
+fn process_height_to_normal_3x3(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Vec<Arc<NodeData>> {
+    // let strength = .1;
+    let channel_count = 3;
+    let heightmap = &node_datas[0].buffer;
+    let (width, height) = (heightmap.width(), heightmap.height());
+    let pixel_distance_x = 1. / width as f32;
+    let pixel_distance_y = 1. / height as f32;
+
+    let mut output_buffers: Vec<Buffer> =
+        vec![Box::new(ImageBuffer::new(width, height)); channel_count];
+
+    // TODO: Should iterate over pixel indices in heightmap without grabbing the pixels as well.
+    for (x, y, _px) in heightmap.enumerate_pixels() {
+        let sample_1_1 = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y.wrapping_sample_subtract(1, height))[0];
+        let sample_1_2 = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
+        let sample_1_3 = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y.wrapping_sample_add(1, height))[0];
+
+        let sample_2_1 = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
+        let sample_2_3 = heightmap.get_pixel(x, y.wrapping_sample_add(1, height))[0];
+
+        let sample_3_1 = heightmap.get_pixel(x.wrapping_sample_add(1, width), y.wrapping_sample_subtract(1, height))[0];
+        let sample_3_2 = heightmap.get_pixel(x.wrapping_sample_add(1, width), y)[0];
+        let sample_3_3 = heightmap.get_pixel(x.wrapping_sample_add(1, width), y.wrapping_sample_add(1, height))[0];
+
+
+        let left_side = sample_1_1 * sample_1_2 * 2. * sample_1_3;
+        let right_side = sample_3_1 * sample_3_2 * 2. * sample_3_3 * -1.;
+        let convolution_horizontal = left_side + right_side;
+        let tangent =
+            Vector3::new(pixel_distance_x * 2., 0., convolution_horizontal).normalize();
+
+
+        let top_side = sample_1_1 * sample_2_1 * 2. * sample_3_1;
+        let bottom_side = sample_1_3 * sample_2_3 * 2. * sample_3_3 * -1.;
+        let convolution_vertical = top_side + bottom_side;
+
+        let bitangent =
+            Vector3::new(0., pixel_distance_y * 2., sample_2_3 - sample_2_1).normalize();
+
+        let z_vector = 1. - convolution_horizontal - convolution_vertical;
+
+
+        let normal = Vector3::new(convolution_horizontal, convolution_vertical, z_vector).normalize();
+        // let normal = tangent.cross(&bitangent).normalize();
+
+        for (i, buffer) in output_buffers.iter_mut().enumerate() {
             // if normal[i] < 0. {
             //     println!("Less than 0: {:?}", normal[i]);
             // }
 
-            buffer.put_pixel(x, y, Luma([normal[i] / 2. + 0.5]));
+            buffer.put_pixel(x, y, Luma([normal[i] * 0.5 + 0.5]));
+            // buffer.put_pixel(x, y, Luma([normal[i] / 2. + 0.5]));
         }
     }
 
