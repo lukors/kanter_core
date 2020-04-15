@@ -5,17 +5,16 @@
 // Materialbilder
 
 // TODO:
-// - Create Normal map node
-// - Make area size travel down the node tree
+// - Enable variables to travel down a graph
 
 // - Restore multiply node
 // - Add division node
 
-// # CLI
-// - Implement CLI.
-
 // # GUI
 // - Implement GUI
+
+// # CLI
+// - Implement CLI.
 
 // # Tests
 // - Make randomly generated test to try finding corner cases to help ensure there are no bugs
