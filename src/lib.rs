@@ -1,6 +1,4 @@
 // # TODO
-// - Add division node
-
 // # GUI
 // - Implement GUI
 

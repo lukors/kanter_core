@@ -40,6 +40,7 @@ pub fn process_node(
         NodeType::Add => process_add(&input_node_datas, Arc::clone(&node))?,
         NodeType::Subtract => process_subtract(&input_node_datas, Arc::clone(&node), edges)?,
         NodeType::Multiply => process_multiply(&input_node_datas, Arc::clone(&node))?,
+        NodeType::Divide => process_divide(&input_node_datas, Arc::clone(&node), edges)?,
         NodeType::HeightToNormal => process_height_to_normal(&input_node_datas, Arc::clone(&node)),
     };
 
@@ -459,5 +460,54 @@ fn process_multiply(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec
 
     let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
 
+    Ok(vec![node_data])
+}
+
+// TODO: Look into optimizing this by sampling straight into the un-resized image instead of
+// resizing the image before adding.
+fn process_divide(
+    node_datas: &[Arc<NodeData>],
+    node: Arc<Node>,
+    edges: &[Edge],
+) -> Result<Vec<Arc<NodeData>>> {
+    if node_datas.len() != 2 {
+        return Err(TexProError::InvalidBufferCount);
+    }
+    let node_datas = resize_only(&node_datas, None, None)?;
+    let size = node_datas[0].size;
+
+    let left_side_edge = edges
+        .iter()
+        .find(|edge| edge.input_slot == SlotId(0))
+        .ok_or(TexProError::NodeProcessing)?;
+
+    let left_side_node_data = Arc::clone(
+        node_datas
+            .iter()
+            .find(|node_data| {
+                node_data.node_id == left_side_edge.output_id
+                    && node_data.slot_id == left_side_edge.output_slot
+            })
+            .ok_or(TexProError::NodeProcessing)?,
+    );
+
+    let right_side_node_data = Arc::clone(
+        node_datas
+            .iter()
+            .find(|node_data| **node_data != left_side_node_data)
+            .ok_or(TexProError::NodeProcessing)?,
+    );
+
+    let buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
+            let left_side_pixel = left_side_node_data.buffer.get_pixel(x, y).data[0];
+            let right_side_pixel = right_side_node_data.buffer.get_pixel(x, y).data[0];
+            Luma([left_side_pixel / right_side_pixel])
+        },
+    )));
+
+    let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
     Ok(vec![node_data])
 }

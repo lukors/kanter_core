@@ -72,6 +72,7 @@ pub enum NodeType {
     Add,
     Subtract,
     Multiply,
+    Divide,
     HeightToNormal,
 }
 
@@ -97,6 +98,7 @@ impl fmt::Debug for NodeType {
             NodeType::Add => write!(f, "Add"),
             NodeType::Subtract => write!(f, "Subtract"),
             NodeType::Multiply => write!(f, "Multiply"),
+            NodeType::Divide => write!(f, "Divide"),
             NodeType::HeightToNormal => write!(f, "HeightToNormal"),
         }
     }
@@ -135,6 +137,7 @@ impl Node {
                 NodeType::Add => 2,
                 NodeType::Subtract => 2,
                 NodeType::Multiply => 2,
+                NodeType::Divide => 2,
                 NodeType::HeightToNormal => 1,
             },
             Side::Output => match self.node_type {
@@ -150,6 +153,7 @@ impl Node {
                 NodeType::Add => 1,
                 NodeType::Subtract => 1,
                 NodeType::Multiply => 1,
+                NodeType::Divide => 1,
                 NodeType::HeightToNormal => 3,
             },
         }
