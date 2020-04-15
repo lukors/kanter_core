@@ -2,11 +2,13 @@
 // # GUI
 // - Implement GUI
 
-// - Enable variables to travel down a graph
-
 // # Tests
 // - Make randomly generated test to try finding corner cases to help ensure there are no bugs
 //   introduced when optimizing and building out the software.
+
+// # After testing
+// - Enable variables to travel down a graph
+// - Include variables in random testing
 
 // # Optimization
 // - Make benchmark tests.
