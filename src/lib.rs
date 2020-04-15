@@ -1,20 +1,11 @@
-// NAME IDEAS
-// Skyffel
-// Materialistic, Materialism
-// Kanter
-// Materialbilder
-
-// TODO:
-// - Enable variables to travel down a graph
-
+// # TODO
 // - Restore multiply node
 // - Add division node
 
 // # GUI
 // - Implement GUI
 
-// # CLI
-// - Implement CLI.
+// - Enable variables to travel down a graph
 
 // # Tests
 // - Make randomly generated test to try finding corner cases to help ensure there are no bugs
@@ -27,6 +18,10 @@
 // - Make each node save the resized versions of their inputs,
 //   and use them if they are still relevant so they don't have to be resized every time that node
 //   is re-processed. It will make it faster when one input to a node changes, but not the other.
+
+// # CLI
+// - Implement CLI.
+
 
 pub mod dag;
 pub mod error;
