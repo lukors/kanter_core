@@ -71,7 +71,6 @@ pub enum NodeType {
     Resize(Option<ResizePolicy>, Option<ResizeFilter>),
     Add,
     Subtract,
-    Invert,
     Multiply,
     HeightToNormal,
 }
@@ -97,7 +96,6 @@ impl fmt::Debug for NodeType {
             NodeType::Resize(_, _) => write!(f, "Resize"),
             NodeType::Add => write!(f, "Add"),
             NodeType::Subtract => write!(f, "Subtract"),
-            NodeType::Invert => write!(f, "Invert"),
             NodeType::Multiply => write!(f, "Multiply"),
             NodeType::HeightToNormal => write!(f, "HeightToNormal"),
         }
@@ -136,7 +134,6 @@ impl Node {
                 NodeType::Resize(_, _) => 2,
                 NodeType::Add => 2,
                 NodeType::Subtract => 2,
-                NodeType::Invert => 1,
                 NodeType::Multiply => 2,
                 NodeType::HeightToNormal => 1,
             },
@@ -152,7 +149,6 @@ impl Node {
                 NodeType::Resize(_, _) => 2,
                 NodeType::Add => 1,
                 NodeType::Subtract => 1,
-                NodeType::Invert => 1,
                 NodeType::Multiply => 1,
                 NodeType::HeightToNormal => 3,
             },

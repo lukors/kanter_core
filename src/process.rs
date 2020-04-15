@@ -39,7 +39,6 @@ pub fn process_node(
         )?,
         NodeType::Add => process_add(&input_node_datas, Arc::clone(&node))?,
         NodeType::Subtract => process_subtract(&input_node_datas, Arc::clone(&node), edges)?,
-        NodeType::Invert => invert(&input_node_datas),
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
         NodeType::HeightToNormal => process_height_to_normal(&input_node_datas, Arc::clone(&node)),
     };
