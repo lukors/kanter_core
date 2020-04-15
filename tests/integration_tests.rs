@@ -903,6 +903,50 @@ fn height_to_normal_node() {
     .unwrap();
 }
 
+#[test]
+fn multiply_node() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Read("data/image_1.png".to_string())))
+        .unwrap();
+    let multiply_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Multiply))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(image_node, multiply_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(image_node, multiply_node, SlotId(3), SlotId(1))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(multiply_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.process();
+
+    let size = 256;
+    image::save_buffer(
+        &Path::new(&"out/multiply_node.png"),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
 // #[test]
 // fn input_output() {
 //     let mut tex_pro = TextureProcessor::new();

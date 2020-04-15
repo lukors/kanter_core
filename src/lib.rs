@@ -1,5 +1,4 @@
 // # TODO
-// - Restore multiply node
 // - Add division node
 
 // # GUI

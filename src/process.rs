@@ -39,7 +39,7 @@ pub fn process_node(
         )?,
         NodeType::Add => process_add(&input_node_datas, Arc::clone(&node))?,
         NodeType::Subtract => process_subtract(&input_node_datas, Arc::clone(&node), edges)?,
-        NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
+        NodeType::Multiply => process_multiply(&input_node_datas, Arc::clone(&node))?,
         NodeType::HeightToNormal => process_height_to_normal(&input_node_datas, Arc::clone(&node)),
     };
 
@@ -441,18 +441,23 @@ fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Ve
     output_node_datas
 }
 
-fn multiply(_input_0: &Arc<NodeData>, _input_1: &Arc<NodeData>) -> Vec<Arc<NodeData>> {
-    unimplemented!()
-    // let (width, height) = (input_0.size.width, input_1.size.height);
+fn process_multiply(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec<Arc<NodeData>>> {
+    if node_datas.len() != 2 {
+        return Err(TexProError::InvalidBufferCount);
+    }
+    let node_datas = process_resize(&node_datas, Arc::clone(&node), None, None)?;
+    let size = node_datas[0].size;
 
-    // let buffer: Buffer = ImageBuffer::from_fn(width, height, |x, y| {
-    //     Luma([input_0.buffer.get_pixel(x, y).data[0] * input_1.buffer.get_pixel(x, y).data[0]])
-    // });
+    let buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
+            Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
+                * node_datas[1].buffer.get_pixel(x, y).data[0]])
+        },
+    )));
 
-    // vec![DetachedBuffer {
-    //     id: None,
-    //     slot: Slot(0),
-    //     size: input_0.size,
-    //     buffer: Arc::new(buffer),
-    // }]
+    let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
+
+    Ok(vec![node_data])
 }
