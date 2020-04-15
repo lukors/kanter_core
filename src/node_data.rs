@@ -9,6 +9,29 @@ pub struct NodeData {
     pub slot_id: SlotId,
     pub node_id: NodeId,
     pub buffer: Arc<Buffer>,
+    pub physical_size: Option<PhysicalSize>,
+}
+
+/// Physical size in millimeters.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Deserialize, Serialize)]
+pub struct PhysicalSize {
+    pub width: u32,
+    pub height: u32,
+    pub depth: u32,
+}
+
+impl PhysicalSize {
+    pub fn new(width: u32, height: u32, depth: u32) -> Self {
+        Self {
+            width,
+            height,
+            depth,
+        }
+    }
+
+    pub fn area(self) -> u32 {
+        self.width * self.height
+    }
 }
 
 pub type Buffer = Box<ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>>;
@@ -45,49 +68,21 @@ impl PartialEq for NodeData {
 impl Eq for NodeData {}
 
 impl NodeData {
-    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Arc<Buffer>) -> Self {
+    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Arc<Buffer>, physical_size: Option<PhysicalSize>) -> Self {
         Self {
             node_id,
             slot_id,
             size,
             buffer,
+            physical_size,
         }
     }
 
+    // TODO: Create a function like this one and use it where it makes sense.
     // pub fn from_buffer(buffer: Buffer) -> Self {
     //     let (width, height) = buffer.dimensions();
     //     Self {
     //         size: Size::new(width, height),
     //         slot_id:
-    // }
-
-    // pub fn from_buffers(buffers: HashMap<Slot, Arc<Buffer>>) -> Self {
-    //     if buffers.is_empty() {
-    //         panic!("Attempted to create a `NodeData` with empty buffers.");
-    //     }
-
-    //     let (width, height) = buffers.values().next().unwrap().dimensions();
-    //     for buffer in buffers.values() {
-    //         if buffer.dimensions() != (width, height) {
-    //             panic!("Attempted to create `NodeData` with differently sized buffers in slots.");
-    //         }
-    //     }
-
-    //     Self {
-    //         size: Size::new(width, height),
-    //         buffers,
-    //     }
-    // }
-
-    // pub fn get_buffers(&self) -> &HashMap<Slot, Arc<Buffer>> {
-    //     &self.buffers
-    // }
-
-    // pub fn get_buffers_mut(&mut self) -> &mut HashMap<Slot, Arc<Buffer>> {
-    //     &mut self.buffers
-    // }
-
-    // pub fn get_size(&self) -> Size {
-    //     self.size
     // }
 }

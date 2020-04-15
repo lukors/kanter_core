@@ -5,17 +5,17 @@
 // Materialbilder
 
 // TODO:
-// - Create Normal map node
-// - Make area size travel down the node tree
+// - Make area dimensions travel down the node tree in NodeDatas and Nodes, use it
+//   in `height_to_normal` node for testing.
 
 // - Restore multiply node
 // - Add division node
 
-// # CLI
-// - Implement CLI.
-
 // # GUI
 // - Implement GUI
+
+// # CLI
+// - Implement CLI.
 
 // # Tests
 // - Make randomly generated test to try finding corner cases to help ensure there are no bugs

@@ -97,7 +97,6 @@ impl fmt::Debug for NodeType {
             NodeType::Resize(_, _) => write!(f, "Resize"),
             NodeType::Add => write!(f, "Add"),
             NodeType::Subtract => write!(f, "Subtract"),
-            NodeType::Invert => write!(f, "Invert"),
             NodeType::Multiply => write!(f, "Multiply"),
             NodeType::HeightToNormal => write!(f, "HeightToNormal"),
         }
@@ -110,6 +109,7 @@ pub struct Node {
     pub node_type: NodeType,
     pub resize_policy: Option<ResizePolicy>,
     pub filter_type: Option<ResizeFilter>,
+    pub physical_size: Option<PhysicalSize>,
 }
 
 impl Node {
@@ -119,6 +119,7 @@ impl Node {
             node_type,
             resize_policy: None,
             filter_type: None,
+            physical_size: None,
         }
     }
 
@@ -136,7 +137,6 @@ impl Node {
                 NodeType::Resize(_, _) => 2,
                 NodeType::Add => 2,
                 NodeType::Subtract => 2,
-                NodeType::Invert => 1,
                 NodeType::Multiply => 2,
                 NodeType::HeightToNormal => 1,
             },
@@ -152,7 +152,6 @@ impl Node {
                 NodeType::Resize(_, _) => 2,
                 NodeType::Add => 1,
                 NodeType::Subtract => 1,
-                NodeType::Invert => 1,
                 NodeType::Multiply => 1,
                 NodeType::HeightToNormal => 3,
             },

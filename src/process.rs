@@ -39,7 +39,6 @@ pub fn process_node(
         )?,
         NodeType::Add => process_add(&input_node_datas, Arc::clone(&node))?,
         NodeType::Subtract => process_subtract(&input_node_datas, Arc::clone(&node), edges)?,
-        NodeType::Invert => invert(&input_node_datas),
         NodeType::Multiply => multiply(&input_node_datas[0], &input_node_datas[1]),
         NodeType::HeightToNormal => process_height_to_normal(&input_node_datas, Arc::clone(&node)),
     };
@@ -48,9 +47,19 @@ pub fn process_node(
     Ok(output)
 }
 
+fn propagate_physical_size(node_datas: &[Arc<NodeData>]) -> Option<PhysicalSize> {
+    node_datas
+        .iter()
+        .map(|node_data| node_data.physical_size)
+        .filter(|physical_size| physical_size.is_some())
+        .max_by(|ps_a, ps_b| ps_a.unwrap().area().cmp(&ps_b.unwrap().area()))
+        .unwrap_or(None)
+}
+
 /// Finds the `NodeData`s relevant for this `Node` and outputs them.
 fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<NodeData>>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
+    let physical_size = propagate_physical_size(node_datas);
 
     for edge in edges {
         let node_data = node_datas
@@ -65,6 +74,7 @@ fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<N
             edge.input_slot,
             node_data.size,
             Arc::clone(&node_data.buffer),
+            physical_size,
         ));
 
         new_node_datas.push(new_node_data);
@@ -110,7 +120,7 @@ fn graph(inputs: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<A
     let mut output: Vec<Arc<NodeData>> = Vec::new();
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = (*graph).clone();
-
+    
     // Take the `NodeData`s that are fed into this node from the external node and associate
     // them with the correct outputs on the input nodes in the child graph.
     for node_data in inputs {
