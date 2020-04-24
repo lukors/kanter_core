@@ -1,4 +1,4 @@
-# kanter_core
+# Kanter Core
 This is a library for node based image editing created for use in my program [Kanter](https://github.com/lukors/kanter).
 
 ## Features
