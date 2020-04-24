@@ -6,9 +6,12 @@
 // - Make randomly generated test to try finding corner cases to help ensure there are no bugs
 //   introduced when optimizing and building out the software.
 
-// # After testing
-// - Enable variables to travel down a graph
-// - Include variables in random testing
+// # Other
+// - This crate looks interesting to generate noises: https://github.com/jackmott/rust-simd-noise
+
+// # Variables
+// - Consider variable support
+// - Include variables in randomly generated tests
 
 // # Optimization
 // - Make benchmark tests.
