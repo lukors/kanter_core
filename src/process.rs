@@ -417,14 +417,11 @@ fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Ve
         let sample_up = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
         let sample_left = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
 
-        let tangent =
-            Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
-        let bitangent =
-            Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
+        let tangent = Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
+        let bitangent = Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
         let normal = tangent.cross(&bitangent).normalize();
 
         for (i, buffer) in output_buffers.iter_mut().enumerate() {
-
             buffer.put_pixel(x, y, Luma([normal[i] * 0.5 + 0.5]));
         }
     }
@@ -453,8 +450,10 @@ fn process_multiply(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec
         size.width,
         size.height,
         |x, y| {
-            Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
-                * node_datas[1].buffer.get_pixel(x, y).data[0]])
+            let left_side = node_datas[0].buffer.get_pixel(x, y).data[0];
+            let right_side = node_datas[1].buffer.get_pixel(x, y).data[0];
+
+            Luma([left_side * right_side])
         },
     )));
 

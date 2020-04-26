@@ -52,7 +52,7 @@ impl Into<FilterType> for ResizeFilter {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Side {
     Input,
     Output,

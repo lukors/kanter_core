@@ -303,6 +303,25 @@ impl NodeGraph {
         Ok(())
     }
 
+    pub fn connect_arbitrary(
+        &mut self,
+        a_node: NodeId,
+        a_side: Side,
+        a_slot: SlotId,
+        b_node: NodeId,
+        b_side: Side,
+        b_slot: SlotId,
+    ) -> Result<()> {
+        if a_node == b_node || a_side == b_side {
+            return Err(TexProError::Generic);
+        }
+
+        match a_side {
+            Side::Input => self.connect(b_node, a_node, b_slot, a_slot),
+            Side::Output => self.connect(a_node, b_node, a_slot, b_slot),
+        }
+    }
+
     pub fn slot_occupied(&self, id: NodeId, side: Side, slot: SlotId) -> bool {
         match side {
             Side::Input => self
@@ -314,6 +333,25 @@ impl NodeGraph {
                 .iter()
                 .any(|edge| edge.output_id == id && edge.output_slot == slot),
         }
+    }
+
+    pub fn remove_edge(
+        &mut self,
+        output_node: NodeId,
+        input_node: NodeId,
+        output_slot: SlotId,
+        input_slot: SlotId,
+    ) {
+        let edge_compare = Edge::new(output_node, input_node, output_slot, input_slot);
+
+        let index_to_remove = self.edges.iter().position(|edge| *edge == edge_compare);
+
+        if index_to_remove.is_none() {
+            return;
+        }
+        let index_to_remove = index_to_remove.unwrap();
+
+        self.edges.remove(index_to_remove);
     }
 }
 
@@ -342,7 +380,7 @@ impl SlotId {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Serialize)]
 pub struct Edge {
     pub output_id: NodeId,
     pub input_id: NodeId,
