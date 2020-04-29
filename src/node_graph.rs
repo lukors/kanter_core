@@ -282,16 +282,21 @@ impl NodeGraph {
             .collect()
     }
 
-    pub fn disconnect_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) {
-        let mut edge_indices_to_remove: Vec<usize> = self
-            .edges
+    pub fn edges_in_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) -> Vec<(usize, &Edge)> {
+        self.edges
             .iter()
             .enumerate()
             .filter(|(_, edge)| match side {
                 Side::Input => edge.input_id == node_id && edge.input_slot == slot_id,
                 Side::Output => edge.output_id == node_id && edge.output_slot == slot_id,
             })
-            .map(|(i, _)| i)
+            .collect()
+    }
+
+    pub fn disconnect_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) {
+        let mut edge_indices_to_remove: Vec<usize> = self.edges_in_slot(node_id, side, slot_id)
+            .iter()
+            .map(|(i, _)| *i)
             .collect();
 
         edge_indices_to_remove.sort_unstable();
