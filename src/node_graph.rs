@@ -282,7 +282,25 @@ impl NodeGraph {
             .collect()
     }
 
-    pub fn connect(
+    pub fn disconnect_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) {
+        let mut edge_indices_to_remove: Vec<usize> = self
+            .edges
+            .iter()
+            .enumerate()
+            .filter(|(_, edge)| match side {
+                Side::Input => edge.input_id == node_id && edge.input_slot == slot_id,
+                Side::Output => edge.output_id == node_id && edge.output_slot == slot_id,
+            })
+            .map(|(i, _)| i)
+            .collect();
+
+        edge_indices_to_remove.sort_unstable();
+        for i in edge_indices_to_remove.iter().rev() {
+            self.edges.remove(*i);
+        }
+    }
+
+    pub fn try_connect(
         &mut self,
         output_node: NodeId,
         input_node: NodeId,
@@ -301,6 +319,44 @@ impl NodeGraph {
             .push(Edge::new(output_node, input_node, output_slot, input_slot));
 
         Ok(())
+    }
+
+    pub fn connect(
+        &mut self,
+        output_node: NodeId,
+        input_node: NodeId,
+        output_slot: SlotId,
+        input_slot: SlotId,
+    ) -> Result<()> {
+        if !self.has_node_with_id(output_node) || !self.has_node_with_id(input_node) {
+            return Err(TexProError::InvalidNodeId);
+        }
+
+        self.disconnect_slot(input_node, Side::Input, input_slot);
+
+        self.edges
+            .push(Edge::new(output_node, input_node, output_slot, input_slot));
+
+        Ok(())
+    }
+
+    pub fn try_connect_arbitrary(
+        &mut self,
+        a_node: NodeId,
+        a_side: Side,
+        a_slot: SlotId,
+        b_node: NodeId,
+        b_side: Side,
+        b_slot: SlotId,
+    ) -> Result<()> {
+        if a_node == b_node || a_side == b_side {
+            return Err(TexProError::Generic);
+        }
+
+        match a_side {
+            Side::Input => self.try_connect(b_node, a_node, b_slot, a_slot),
+            Side::Output => self.try_connect(a_node, b_node, a_slot, b_slot),
+        }
     }
 
     pub fn connect_arbitrary(
