@@ -1,5 +1,5 @@
 use std::path::Path;
-use texture_processor::{
+use kanter_core::{
     dag::TextureProcessor,
     node::{Node, NodeType, ResizePolicy},
     node_data::Size,
