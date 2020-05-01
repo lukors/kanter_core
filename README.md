@@ -10,7 +10,9 @@ It's not meant to be used yet, but you can use it and it should be easy to see h
 - No concept of colors (except for image export), only operates on grayscale buffers
 
 ## Progress
-Currently I'm working on a GUI for this library over in [Kanter](https://github.com/lukors/kanter), which is likely to require some changes in this library, here are upcoming changes for that:
+Currently I'm working on a GUI for this library over in [Kanter](https://github.com/lukors/kanter), which will require some changes in this library.
+
+Here are some planned tasks:
 
 - [ ] Combine grayscale and rgba variants of input/output nodes
-- [ ] Combine basic operations like `Add` into a `Math` node
+- [ ] Combine basic nodes like `Add` into a `Math` node
