@@ -58,7 +58,7 @@ pub enum Side {
     Output,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub enum NodeType {
     InputGray,
     InputRgba,
@@ -104,7 +104,7 @@ impl fmt::Debug for NodeType {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Node {
     pub node_id: NodeId,
     pub node_type: NodeType,

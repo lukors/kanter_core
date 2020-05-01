@@ -100,6 +100,10 @@ impl NodeGraph {
         &self.nodes
     }
 
+    pub fn node_ids(&self) -> Vec<NodeId> {
+        self.nodes.iter().map(|node| node.node_id).collect()
+    }
+
     pub fn node_with_id(&self, node_id: NodeId) -> Option<&Arc<Node>> {
         self.nodes.iter().find(|node| node.node_id == node_id)
     }
