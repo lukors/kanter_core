@@ -1,10 +1,10 @@
-use std::path::Path;
 use kanter_core::{
     dag::TextureProcessor,
     node::{Node, NodeType, ResizePolicy},
     node_data::Size,
     node_graph::{NodeGraph, NodeId, SlotId},
 };
+use std::path::Path;
 
 #[test]
 fn input_output() {

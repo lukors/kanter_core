@@ -286,7 +286,12 @@ impl NodeGraph {
             .collect()
     }
 
-    pub fn edges_in_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) -> Vec<(usize, &Edge)> {
+    pub fn edges_in_slot(
+        &mut self,
+        node_id: NodeId,
+        side: Side,
+        slot_id: SlotId,
+    ) -> Vec<(usize, &Edge)> {
         self.edges
             .iter()
             .enumerate()
@@ -298,7 +303,8 @@ impl NodeGraph {
     }
 
     pub fn disconnect_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) {
-        let mut edge_indices_to_remove: Vec<usize> = self.edges_in_slot(node_id, side, slot_id)
+        let mut edge_indices_to_remove: Vec<usize> = self
+            .edges_in_slot(node_id, side, slot_id)
             .iter()
             .map(|(i, _)| *i)
             .collect();
@@ -409,14 +415,27 @@ impl NodeGraph {
     ) {
         let edge_compare = Edge::new(output_node, input_node, output_slot, input_slot);
 
-        let index_to_remove = self.edges.iter().position(|edge| *edge == edge_compare);
-
-        if index_to_remove.is_none() {
-            return;
+        if let Some(index_to_remove) = self.edges.iter().position(|edge| *edge == edge_compare) {
+            self.edges.remove(index_to_remove);
         }
-        let index_to_remove = index_to_remove.unwrap();
+    }
 
-        self.edges.remove(index_to_remove);
+    pub fn remove_node(&mut self, node_id: NodeId) {
+        self.disconnect_node(node_id);
+
+        if let Some(index_to_remove) = self.nodes.iter().position(|node| node.node_id == node_id) {
+            self.nodes.remove(index_to_remove);
+        }
+    }
+
+    fn disconnect_node(&mut self, node_id: NodeId) {
+        while let Some(edge_index) = self
+            .edges
+            .iter()
+            .rposition(|edge| edge.output_id == node_id || edge.input_id == node_id)
+        {
+            self.edges.remove(edge_index);
+        }
     }
 }
 
