@@ -14,7 +14,7 @@ Currently I'm working on a GUI for this library called [Kanter](https://github.c
 Here are some planned tasks:
 
 ### General
-- [ ] Combine basic nodes like `Add` into a `Mix` node
+- [x] Combine basic nodes like `Add` into a `Mix` node
 - [ ] Combine grayscale and rgba variants of input/output nodes
 - [ ] Make randomly generated test
 - [ ] Make noise node: https://github.com/jackmott/rust-simd-noise
