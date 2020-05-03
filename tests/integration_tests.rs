@@ -991,6 +991,23 @@ fn divide_node() {
     .unwrap();
 }
 
+#[test]
+fn change_mix_type() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let mix_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
+        .unwrap();
+
+    tex_pro.node_graph.set_mix_type(mix_node, MixType::Subtract);
+
+    assert_eq!(
+        tex_pro.node_graph.node_with_id(mix_node).unwrap().node_type,
+        NodeType::Mix(MixType::Subtract)
+    );
+}
+
 // #[test]
 // fn input_output() {
 //     let mut tex_pro = TextureProcessor::new();

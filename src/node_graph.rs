@@ -4,6 +4,7 @@ use std::{
     fmt,
     fs::File,
     io::{self},
+    mem,
     sync::Arc,
 };
 
@@ -38,6 +39,23 @@ impl NodeGraph {
 
     pub fn from_path(path: String) -> io::Result<Self> {
         Self::import_json(path)
+    }
+
+    pub fn set_mix_type(&mut self, node_id: NodeId, mix_type: MixType) -> Result<()> {
+        if let Some(node_index) = self.index_of_node(node_id) {
+            match self.nodes[node_index].node_type {
+                NodeType::Mix(_) => {
+                    let mut node_clone: Node = (*self.nodes[node_index]).clone();
+                    node_clone.node_type = NodeType::Mix(mix_type);
+
+                    mem::replace(&mut self.nodes[node_index], Arc::new(node_clone));
+                    Ok(())
+                }
+                _ => Err(TexProError::InvalidNodeId),
+            }
+        } else {
+            Err(TexProError::InvalidNodeId)
+        }
     }
 
     fn new_id(&mut self) -> NodeId {
@@ -90,6 +108,10 @@ impl NodeGraph {
             )),
             None => Err(TexProError::InvalidSlotId),
         }
+    }
+
+    fn index_of_node(&self, node_id: NodeId) -> Option<usize> {
+        self.nodes.iter().position(|node| node.node_id == node_id)
     }
 
     fn has_node_with_id(&self, node_id: NodeId) -> bool {
