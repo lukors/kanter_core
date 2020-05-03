@@ -1,6 +1,6 @@
 use kanter_core::{
     dag::TextureProcessor,
-    node::{Node, NodeType, ResizePolicy},
+    node::{MixType, Node, NodeType, ResizePolicy},
     node_data::Size,
     node_graph::{NodeGraph, NodeId, SlotId},
 };
@@ -441,7 +441,7 @@ fn add_node() {
         .unwrap();
     let add_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Add))
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -497,7 +497,7 @@ fn subtract_node() {
         .unwrap();
     let subtract_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Subtract))
+        .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -541,7 +541,7 @@ fn invert_graph_node() {
         .unwrap();
     let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
     let subtract_node = invert_graph
-        .add_node(Node::new(NodeType::Subtract))
+        .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
         .unwrap();
     let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
 
@@ -621,7 +621,7 @@ fn invert_graph_node_export() {
         .unwrap();
     let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
     let subtract_node = invert_graph
-        .add_node(Node::new(NodeType::Subtract))
+        .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
         .unwrap();
     let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
 
@@ -913,7 +913,7 @@ fn multiply_node() {
         .unwrap();
     let multiply_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Multiply))
+        .add_node(Node::new(NodeType::Mix(MixType::Multiply)))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -957,7 +957,7 @@ fn divide_node() {
         .unwrap();
     let divide_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Divide))
+        .add_node(Node::new(NodeType::Mix(MixType::Divide)))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -1133,7 +1133,7 @@ fn divide_node() {
 
 //     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
 //     let input_white = tex_pro.add_node(Node::new(NodeType::Read("data/white.png".to_string())));
-//     let add_node = tex_pro.add_node(Node::new(NodeType::Add));
+//     let add_node = tex_pro.add_node(Node::new(NodeType::Mix(MixType::Add)));
 //     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/add.png".to_string())));
 
 //     tex_pro
@@ -1165,7 +1165,7 @@ fn divide_node() {
 
 //     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
 //     let input_white = tex_pro.add_node(Node::new(NodeType::Read("data/white.png".to_string())));
-//     let multiply_node = tex_pro.add_node(Node::new(NodeType::Multiply));
+//     let multiply_node = tex_pro.add_node(Node::new(NodeType::Mix(MixType::Multiply)));
 //     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/multiply.png".to_string())));
 
 //     tex_pro

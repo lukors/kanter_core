@@ -69,11 +69,22 @@ pub enum NodeType {
     Write(String),
     Value(f32),
     Resize(Option<ResizePolicy>, Option<ResizeFilter>),
+    Mix(MixType),
+    HeightToNormal,
+}
+
+#[derive(Deserialize, Serialize, Copy, Clone)]
+pub enum MixType {
     Add,
     Subtract,
     Multiply,
     Divide,
-    HeightToNormal,
+}
+
+impl Default for MixType {
+    fn default() -> Self {
+        Self::Add
+    }
 }
 
 impl PartialEq for NodeType {
@@ -95,10 +106,7 @@ impl fmt::Debug for NodeType {
             NodeType::Write(_) => write!(f, "Write"),
             NodeType::Value(_) => write!(f, "Value"),
             NodeType::Resize(_, _) => write!(f, "Resize"),
-            NodeType::Add => write!(f, "Add"),
-            NodeType::Subtract => write!(f, "Subtract"),
-            NodeType::Multiply => write!(f, "Multiply"),
-            NodeType::Divide => write!(f, "Divide"),
+            NodeType::Mix(_) => write!(f, "Mix"),
             NodeType::HeightToNormal => write!(f, "HeightToNormal"),
         }
     }
@@ -134,10 +142,7 @@ impl Node {
                 NodeType::Write(_) => 4,
                 NodeType::Value(_) => 0,
                 NodeType::Resize(_, _) => 2,
-                NodeType::Add => 2,
-                NodeType::Subtract => 2,
-                NodeType::Multiply => 2,
-                NodeType::Divide => 2,
+                NodeType::Mix(_) => 2,
                 NodeType::HeightToNormal => 1,
             },
             Side::Output => match self.node_type {
@@ -150,10 +155,7 @@ impl Node {
                 NodeType::Write(_) => 0,
                 NodeType::Value(_) => 1,
                 NodeType::Resize(_, _) => 2,
-                NodeType::Add => 1,
-                NodeType::Subtract => 1,
-                NodeType::Multiply => 1,
-                NodeType::Divide => 1,
+                NodeType::Mix(_) => 1,
                 NodeType::HeightToNormal => 3,
             },
         }

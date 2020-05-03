@@ -37,10 +37,9 @@ pub fn process_node(
             resize_policy,
             filter_type,
         )?,
-        NodeType::Add => process_add(&input_node_datas, Arc::clone(&node))?,
-        NodeType::Subtract => process_subtract(&input_node_datas, Arc::clone(&node), edges)?,
-        NodeType::Multiply => process_multiply(&input_node_datas, Arc::clone(&node))?,
-        NodeType::Divide => process_divide(&input_node_datas, Arc::clone(&node), edges)?,
+        NodeType::Mix(mix_type) => {
+            process_blend(&input_node_datas, Arc::clone(&node), edges, mix_type)?
+        }
         NodeType::HeightToNormal => process_height_to_normal(&input_node_datas, Arc::clone(&node)),
     };
 
@@ -294,40 +293,93 @@ fn process_resize(
 }
 
 // TODO: Look into optimizing this by sampling straight into the un-resized image instead of
-// resizing the image before adding.
-fn process_add(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec<Arc<NodeData>>> {
+// resizing the image before blending.
+fn process_blend(
+    node_datas: &[Arc<NodeData>],
+    node: Arc<Node>,
+    edges: &[Edge],
+    mix_type: MixType,
+) -> Result<Vec<Arc<NodeData>>> {
     if node_datas.len() != 2 {
         return Err(TexProError::InvalidBufferCount);
     }
     let node_datas = process_resize(&node_datas, Arc::clone(&node), None, None)?;
     let size = node_datas[0].size;
 
-    let buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
-                + node_datas[1].buffer.get_pixel(x, y).data[0]])
-        },
-    )));
+    let buffer = match mix_type {
+        MixType::Add => process_add(&node_datas, size),
+        MixType::Subtract => process_subtract(&node_datas, size, edges)?,
+        MixType::Multiply => process_multiply(&node_datas, size),
+        MixType::Divide => process_divide(&node_datas, size, edges)?,
+    };
 
     let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
 
     Ok(vec![node_data])
 }
 
-// TODO: Look into optimizing this by sampling straight into the un-resized image instead of
-// resizing the image before adding.
+fn process_add(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
+    Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
+            Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
+                + node_datas[1].buffer.get_pixel(x, y).data[0]])
+        },
+    )))
+}
+
 fn process_subtract(
     node_datas: &[Arc<NodeData>],
-    node: Arc<Node>,
+    size: Size,
     edges: &[Edge],
-) -> Result<Vec<Arc<NodeData>>> {
+) -> Result<Arc<Buffer>> {
+    let node_datas_ordered = order_node_datas(node_datas, edges)?;
+
+    Ok(Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
+            let left_side_pixel = node_datas_ordered[0].buffer.get_pixel(x, y).data[0];
+            let right_side_pixel = node_datas_ordered[1].buffer.get_pixel(x, y).data[0];
+            Luma([left_side_pixel - right_side_pixel])
+        },
+    ))))
+}
+
+fn process_multiply(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
+    Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
+            let left_side = node_datas[0].buffer.get_pixel(x, y).data[0];
+            let right_side = node_datas[1].buffer.get_pixel(x, y).data[0];
+
+            Luma([left_side * right_side])
+        },
+    )))
+}
+
+fn process_divide(node_datas: &[Arc<NodeData>], size: Size, edges: &[Edge]) -> Result<Arc<Buffer>> {
+    let node_datas_ordered = order_node_datas(node_datas, edges)?;
+
+    Ok(Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
+            let left_side_pixel = node_datas_ordered[0].buffer.get_pixel(x, y).data[0];
+            let right_side_pixel = node_datas_ordered[1].buffer.get_pixel(x, y).data[0];
+            Luma([left_side_pixel / right_side_pixel])
+        },
+    ))))
+}
+
+/// Orders two node datas so they are in the correct order for order-dependent processing.
+/// Todo: Allow an arbitrary number of inputs.
+fn order_node_datas(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<NodeData>>> {
     if node_datas.len() != 2 {
         return Err(TexProError::InvalidBufferCount);
     }
-    let node_datas = resize_only(&node_datas, None, None)?;
-    let size = node_datas[0].size;
 
     let left_side_edge = edges
         .iter()
@@ -338,8 +390,8 @@ fn process_subtract(
         node_datas
             .iter()
             .find(|node_data| {
-                node_data.node_id == left_side_edge.output_id
-                    && node_data.slot_id == left_side_edge.output_slot
+                node_data.node_id == left_side_edge.input_id
+                    && node_data.slot_id == left_side_edge.input_slot
             })
             .ok_or(TexProError::NodeProcessing)?,
     );
@@ -351,18 +403,43 @@ fn process_subtract(
             .ok_or(TexProError::NodeProcessing)?,
     );
 
-    let buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            let left_side_pixel = left_side_node_data.buffer.get_pixel(x, y).data[0];
-            let right_side_pixel = right_side_node_data.buffer.get_pixel(x, y).data[0];
-            Luma([left_side_pixel - right_side_pixel])
-        },
-    )));
+    Ok(vec![left_side_node_data, right_side_node_data])
+}
 
-    let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
-    Ok(vec![node_data])
+fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Vec<Arc<NodeData>> {
+    let channel_count = 3;
+    let heightmap = &node_datas[0].buffer;
+    let (width, height) = (heightmap.width(), heightmap.height());
+    let pixel_distance_x = 1. / width as f32;
+    let pixel_distance_y = 1. / height as f32;
+
+    let mut output_buffers: Vec<Buffer> =
+        vec![Box::new(ImageBuffer::new(width, height)); channel_count];
+
+    for (x, y, px) in heightmap.enumerate_pixels() {
+        let sample_up = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
+        let sample_left = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
+
+        let tangent = Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
+        let bitangent = Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
+        let normal = tangent.cross(&bitangent).normalize();
+
+        for (i, buffer) in output_buffers.iter_mut().enumerate() {
+            buffer.put_pixel(x, y, Luma([normal[i] * 0.5 + 0.5]));
+        }
+    }
+
+    let mut output_node_datas = Vec::with_capacity(channel_count);
+    for (i, buffer) in output_buffers.into_iter().enumerate() {
+        output_node_datas.push(Arc::new(NodeData::new(
+            node.node_id,
+            SlotId(i as u32),
+            Size::new(heightmap.width(), heightmap.height()),
+            Arc::new(buffer),
+        )));
+    }
+
+    output_node_datas
 }
 
 trait Sampling {
@@ -399,114 +476,4 @@ impl Sampling for u32 {
     fn coordinate_to_fraction(self, size: Self) -> f32 {
         self as f32 / size as f32
     }
-}
-
-fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Vec<Arc<NodeData>> {
-    // let strength = .1;
-    let channel_count = 3;
-    let heightmap = &node_datas[0].buffer;
-    let (width, height) = (heightmap.width(), heightmap.height());
-    let pixel_distance_x = 1. / width as f32;
-    let pixel_distance_y = 1. / height as f32;
-
-    let mut output_buffers: Vec<Buffer> =
-        vec![Box::new(ImageBuffer::new(width, height)); channel_count];
-
-    // TODO: Should iterate over pixel indices in heightmap without grabbing the pixels as well.
-    for (x, y, px) in heightmap.enumerate_pixels() {
-        let sample_up = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
-        let sample_left = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
-
-        let tangent = Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
-        let bitangent = Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
-        let normal = tangent.cross(&bitangent).normalize();
-
-        for (i, buffer) in output_buffers.iter_mut().enumerate() {
-            buffer.put_pixel(x, y, Luma([normal[i] * 0.5 + 0.5]));
-        }
-    }
-
-    let mut output_node_datas = Vec::with_capacity(channel_count);
-    for (i, buffer) in output_buffers.into_iter().enumerate() {
-        output_node_datas.push(Arc::new(NodeData::new(
-            node.node_id,
-            SlotId(i as u32),
-            Size::new(heightmap.width(), heightmap.height()),
-            Arc::new(buffer),
-        )));
-    }
-
-    output_node_datas
-}
-
-fn process_multiply(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Result<Vec<Arc<NodeData>>> {
-    if node_datas.len() != 2 {
-        return Err(TexProError::InvalidBufferCount);
-    }
-    let node_datas = process_resize(&node_datas, Arc::clone(&node), None, None)?;
-    let size = node_datas[0].size;
-
-    let buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            let left_side = node_datas[0].buffer.get_pixel(x, y).data[0];
-            let right_side = node_datas[1].buffer.get_pixel(x, y).data[0];
-
-            Luma([left_side * right_side])
-        },
-    )));
-
-    let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
-
-    Ok(vec![node_data])
-}
-
-// TODO: Look into optimizing this by sampling straight into the un-resized image instead of
-// resizing the image before adding.
-fn process_divide(
-    node_datas: &[Arc<NodeData>],
-    node: Arc<Node>,
-    edges: &[Edge],
-) -> Result<Vec<Arc<NodeData>>> {
-    if node_datas.len() != 2 {
-        return Err(TexProError::InvalidBufferCount);
-    }
-    let node_datas = resize_only(&node_datas, None, None)?;
-    let size = node_datas[0].size;
-
-    let left_side_edge = edges
-        .iter()
-        .find(|edge| edge.input_slot == SlotId(0))
-        .ok_or(TexProError::NodeProcessing)?;
-
-    let left_side_node_data = Arc::clone(
-        node_datas
-            .iter()
-            .find(|node_data| {
-                node_data.node_id == left_side_edge.output_id
-                    && node_data.slot_id == left_side_edge.output_slot
-            })
-            .ok_or(TexProError::NodeProcessing)?,
-    );
-
-    let right_side_node_data = Arc::clone(
-        node_datas
-            .iter()
-            .find(|node_data| **node_data != left_side_node_data)
-            .ok_or(TexProError::NodeProcessing)?,
-    );
-
-    let buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            let left_side_pixel = left_side_node_data.buffer.get_pixel(x, y).data[0];
-            let right_side_pixel = right_side_node_data.buffer.get_pixel(x, y).data[0];
-            Luma([left_side_pixel / right_side_pixel])
-        },
-    )));
-
-    let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
-    Ok(vec![node_data])
 }
