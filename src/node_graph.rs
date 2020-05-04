@@ -1,30 +1,18 @@
 use crate::{error::*, node::*, shared::has_dup};
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt,
     fs::File,
     io::{self},
     mem,
     sync::Arc,
 };
 
-/// Cannot derive Debug because Node can't derive Debug because FilterType doesn't derive debug.
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Default, Debug, Deserialize, Serialize)]
 pub struct NodeGraph {
     input_mappings: Vec<ExternalMapping>,
     output_mappings: Vec<ExternalMapping>,
     nodes: Vec<Arc<Node>>,
     pub edges: Vec<Edge>,
-}
-
-impl fmt::Debug for NodeGraph {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "NodeGraph {{ input_mappings: {:?}, edges: {:?} }}",
-            self.input_mappings, self.edges
-        )
-    }
 }
 
 impl NodeGraph {
