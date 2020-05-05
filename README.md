@@ -6,7 +6,8 @@ It's not meant to be used yet, but you can use it and it should be easy to see h
 ## Features
 - Multithreaded, each node is executed in its own thread
 - Nested graphs, a single node can contain an entire graph, so you can reuse graphs
-- Basic nodes like to mix images
+- Basic nodes to add/divide etc.
+- Every image channel is 32 bit float
 
 ## Progress
 Currently I'm working on a GUI for this library called [Kanter](https://github.com/lukors/kanter).
