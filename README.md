@@ -16,7 +16,7 @@ Here are some planned tasks:
 
 ### General
 - [x] Combine basic nodes like `Add` into a `Mix` node
-- [ ] Combine grayscale and rgba variants of input/output nodes
+- [ ] Make automatic conversion to and from grayscale and rgba
 - [ ] Make randomly generated test
 - [ ] Make noise node: https://github.com/jackmott/rust-simd-noise
 - [ ] Consider variable support
