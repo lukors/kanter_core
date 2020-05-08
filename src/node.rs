@@ -73,7 +73,7 @@ pub enum NodeType {
     HeightToNormal,
 }
 
-#[derive(Deserialize, Serialize, Copy, Clone)]
+#[derive(Deserialize, Serialize, Copy, Clone, PartialEq)]
 pub enum MixType {
     Add,
     Subtract,
@@ -95,7 +95,6 @@ impl PartialEq for NodeType {
 
 impl fmt::Debug for NodeType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // use NodeType::*;
         match self {
             NodeType::InputGray => write!(f, "InputGray"),
             NodeType::InputRgba => write!(f, "InputRgba"),
