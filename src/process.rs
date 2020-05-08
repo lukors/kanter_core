@@ -28,7 +28,7 @@ pub fn process_node(
         NodeType::OutputRgba => output_rgba(&input_node_datas, edges)?,
         NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
-        NodeType::Read(ref path) => read(Arc::clone(&node), path)?,
+        NodeType::Image(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Value(val) => value(Arc::clone(&node), val),
         NodeType::Resize(resize_policy, filter_type) => process_resize(

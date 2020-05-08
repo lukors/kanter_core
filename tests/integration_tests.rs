@@ -12,7 +12,7 @@ fn input_output() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_2.png".to_string())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -54,11 +54,11 @@ fn mix_images() {
 
     let input_1 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_1.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_1.png".to_string())))
         .unwrap();
     let input_2 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_2.png".to_string())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -115,11 +115,11 @@ fn input_output_2_internal() -> TextureProcessor {
 
     let input_node_1 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/px_1.png".to_string())))
         .unwrap();
     let input_node_2 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/px_1.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/px_1.png".to_string())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -270,11 +270,11 @@ fn resize_policy_most_pixels() {
 
     let node_128 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_128.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_128.png".to_string())))
         .unwrap();
     let node_256 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_256.png".to_string())))
         .unwrap();
     let resize_node = tex_pro
         .node_graph
@@ -321,11 +321,11 @@ fn resize_policy_least_pixels() {
 
     let node_128 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_128.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_128.png".to_string())))
         .unwrap();
     let node_256 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_256.png".to_string())))
         .unwrap();
     let resize_node = tex_pro
         .node_graph
@@ -372,11 +372,11 @@ fn resize_policy_largest_axes() {
 
     let node_256x128 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_wide.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_wide.png".to_string())))
         .unwrap();
     let node_128x256 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_tall.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_tall.png".to_string())))
         .unwrap();
     let resize_node = tex_pro
         .node_graph
@@ -433,7 +433,7 @@ fn add_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_2.png".to_string())))
         .unwrap();
     let white_node = tex_pro
         .node_graph
@@ -493,7 +493,7 @@ fn subtract_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_2.png".to_string())))
         .unwrap();
     let subtract_node = tex_pro
         .node_graph
@@ -561,7 +561,7 @@ fn invert_graph_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_256.png".to_string())))
         .unwrap();
     let white_node = tex_pro
         .node_graph
@@ -651,7 +651,7 @@ fn invert_graph_node_import() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_256.png".to_string())))
         .unwrap();
     let white_node = tex_pro
         .node_graph
@@ -731,7 +731,7 @@ fn graph_node_rgba() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_2.png".to_string())))
         .unwrap();
     let graph_node = tex_pro
         .node_graph
@@ -808,7 +808,7 @@ fn graph_node_gray() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_2.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_2.png".to_string())))
         .unwrap();
     let graph_node = tex_pro
         .node_graph
@@ -861,7 +861,7 @@ fn height_to_normal_node() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/clouds.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/clouds.png".to_string())))
         .unwrap();
     let h2n_node = tex_pro
         .node_graph
@@ -909,7 +909,7 @@ fn multiply_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_1.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_1.png".to_string())))
         .unwrap();
     let multiply_node = tex_pro
         .node_graph
@@ -953,7 +953,7 @@ fn divide_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Read("data/image_1.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_1.png".to_string())))
         .unwrap();
     let divide_node = tex_pro
         .node_graph
@@ -1045,7 +1045,7 @@ fn change_mix_type() {
 // fn read_write() {
 //     let mut tex_pro = TextureProcessor::new();
 
-//     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+//     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Image("data/image_1.png".to_string())));
 //     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/read_write.png".to_string())));
 
 //     tex_pro
@@ -1069,7 +1069,7 @@ fn change_mix_type() {
 //     let mut tex_pro = TextureProcessor::new();
 
 //     let input_heart_256 =
-//         tex_pro.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())));
+//         tex_pro.add_node(Node::new(NodeType::Image("data/heart_256.png".to_string())));
 //     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/shuffle.png".to_string())));
 
 //     tex_pro
@@ -1093,8 +1093,8 @@ fn change_mix_type() {
 //     let mut tex_pro = TextureProcessor::new();
 
 //     let input_heart_256 =
-//         tex_pro.add_node(Node::new(NodeType::Read("data/heart_128.png".to_string())));
-//     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
+//         tex_pro.add_node(Node::new(NodeType::Image("data/heart_128.png".to_string())));
+//     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Image("data/image_1.png".to_string())));
 //     let write_node = tex_pro.add_node(Node::new(NodeType::Write(
 //         "out/combine_different_sizes.png".to_string(),
 //     )));
@@ -1120,7 +1120,7 @@ fn change_mix_type() {
 //     let mut tex_pro = TextureProcessor::new();
 
 //     let input_heart_256 =
-//         tex_pro.add_node(Node::new(NodeType::Read("data/heart_256.png".to_string())));
+//         tex_pro.add_node(Node::new(NodeType::Image("data/heart_256.png".to_string())));
 //     let invert_node = tex_pro.add_node(Node::new(NodeType::Invert));
 //     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/invert.png".to_string())));
 
@@ -1148,8 +1148,8 @@ fn change_mix_type() {
 // fn add() {
 //     let mut tex_pro = TextureProcessor::new();
 
-//     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
-//     let input_white = tex_pro.add_node(Node::new(NodeType::Read("data/white.png".to_string())));
+//     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Image("data/image_1.png".to_string())));
+//     let input_white = tex_pro.add_node(Node::new(NodeType::Image("data/white.png".to_string())));
 //     let add_node = tex_pro.add_node(Node::new(NodeType::Mix(MixType::Add)));
 //     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/add.png".to_string())));
 
@@ -1180,8 +1180,8 @@ fn change_mix_type() {
 // fn multiply() {
 //     let mut tex_pro = TextureProcessor::new();
 
-//     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Read("data/image_1.png".to_string())));
-//     let input_white = tex_pro.add_node(Node::new(NodeType::Read("data/white.png".to_string())));
+//     let input_image_1 = tex_pro.add_node(Node::new(NodeType::Image("data/image_1.png".to_string())));
+//     let input_white = tex_pro.add_node(Node::new(NodeType::Image("data/white.png".to_string())));
 //     let multiply_node = tex_pro.add_node(Node::new(NodeType::Mix(MixType::Multiply)));
 //     let write_node = tex_pro.add_node(Node::new(NodeType::Write("out/multiply.png".to_string())));
 
