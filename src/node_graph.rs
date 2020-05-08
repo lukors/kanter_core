@@ -46,6 +46,23 @@ impl NodeGraph {
         }
     }
 
+    pub fn set_image_node_path(&mut self, node_id: NodeId, path: String) -> Result<()> {
+        if let Some(node_index) = self.index_of_node(node_id) {
+            match self.nodes[node_index].node_type {
+                NodeType::Image(_) => {
+                    let mut node_clone: Node = (*self.nodes[node_index]).clone();
+                    node_clone.node_type = NodeType::Image(path);
+
+                    mem::replace(&mut self.nodes[node_index], Arc::new(node_clone));
+                    Ok(())
+                }
+                _ => Err(TexProError::InvalidNodeId),
+            }
+        } else {
+            Err(TexProError::InvalidNodeId)
+        }
+    }
+
     fn new_id(&mut self) -> NodeId {
         loop {
             let id = NodeId(rand::random());
