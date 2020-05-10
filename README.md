@@ -16,13 +16,15 @@ Here are some planned tasks:
 
 ### General
 - [x] Combine basic nodes like `Add` into a `Mix` node
-- [ ] Make automatic conversion to and from grayscale and rgba
-- [ ] Make randomly generated test
-- [ ] Make noise node: https://github.com/jackmott/rust-simd-noise
+- [ ] Implement rgba slots
+- [ ] Combine input/output grayscale and rgba nodes
+- [ ] Automatic conversion to and from grayscale and rgba slots
+- [ ] Randomly generated test
+- [ ] Noise node: https://github.com/jackmott/rust-simd-noise
 - [ ] Consider variable support
-- [ ] Create a command line interface
+- [ ] Command line interface
 
 ### Optimization
 - [ ] Make benchmark tests
 - [ ] Disregard nodes that do not lead to an output
-- [ ] Do not resize processing, instead sample the un-resized image
+- [ ] Do not resize inputs before processing, instead sample the un-resized image using the resizing filter
