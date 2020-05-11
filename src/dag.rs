@@ -172,74 +172,80 @@ impl TextureProcessor {
             .collect()
     }
 
-    pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        let node_datas = self.node_datas(node_id);
-        assert!(!node_datas.is_empty());
+    // pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
+    //     let node_datas = self.node_datas(node_id);
+    //     assert!(!node_datas.is_empty());
 
-        let output_vecs = match self
-            .node_graph
-            .node_with_id(node_id)
-            .ok_or(TexProError::InvalidNodeId)?
-            .node_type
-        {
-            NodeType::OutputRgba => self.get_output_rgba(&node_datas)?,
-            NodeType::OutputGray => self.get_output_gray(&node_datas)?,
-            _ => return Err(TexProError::InvalidNodeType),
-        };
+    //     let output_vecs = match self
+    //         .node_graph
+    //         .node_with_id(node_id)
+    //         .ok_or(TexProError::InvalidNodeId)?
+    //         .node_type
+    //     {
+    //         NodeType::OutputRgba => self.get_output_rgba(&node_datas)?,
+    //         NodeType::OutputGray => self.get_output_gray(&node_datas)?,
+    //         _ => return Err(TexProError::InvalidNodeType),
+    //     };
 
-        channels_to_rgba(&output_vecs)
-    }
+    //     channels_to_rgba(&output_vecs)
+    // }
 
-    fn get_output_rgba(&self, node_datas: &[Arc<NodeData>]) -> Result<Vec<Arc<Buffer>>> {
-        let empty_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::new(0, 0)));
-        let mut sorted_value_vecs: Vec<Arc<Buffer>> = Vec::with_capacity(4);
-        sorted_value_vecs.push(Arc::clone(&empty_buffer));
-        sorted_value_vecs.push(Arc::clone(&empty_buffer));
-        sorted_value_vecs.push(Arc::clone(&empty_buffer));
-        sorted_value_vecs.push(Arc::clone(&empty_buffer));
+    // fn buffer_to_u8(&self, node_data: Arc<NodeData>) -> Result<Vec<u8>> {
+    //     let u8_vecs = 
 
-        for node_data in node_datas.iter() {
-            sorted_value_vecs[node_data.slot_id.0 as usize] = Arc::clone(&node_data.buffer);
-        }
+    //     node_data.buffers();
+    // }
 
-        let (width, height) = (node_datas[0].size.width, node_datas[0].size.height);
-        let size = (width * height) as usize;
+    // fn get_output_rgba(&self, node_data: Arc<NodeData>) -> Result<Vec<Arc<Buffer>>> {
+    //     let empty_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::new(0, 0)));
+    //     let mut sorted_value_vecs: Vec<Arc<Buffer>> = Vec::with_capacity(4);
+    //     sorted_value_vecs.push(Arc::clone(&empty_buffer));
+    //     sorted_value_vecs.push(Arc::clone(&empty_buffer));
+    //     sorted_value_vecs.push(Arc::clone(&empty_buffer));
+    //     sorted_value_vecs.push(Arc::clone(&empty_buffer));
 
-        for (i, value_vec) in sorted_value_vecs.iter_mut().enumerate() {
-            if !value_vec.is_empty() {
-                continue;
-            }
+    //     for node_data in node_datas.iter() {
+    //         sorted_value_vecs[node_data.slot_id.0 as usize] = Arc::clone(&node_data.buffer);
+    //     }
 
-            // Should be black if R, G or B channel, and white if A.
-            let buf_vec = if i == 3 {
-                vec![1.; size]
-            } else {
-                vec![0.; size]
-            };
+    //     let (width, height) = (node_datas[0].size.width, node_datas[0].size.height);
+    //     let size = (width * height) as usize;
 
-            *value_vec = Arc::new(Box::new(
-                ImageBuffer::from_raw(width, height, buf_vec).ok_or(TexProError::Generic)?,
-            ))
-        }
+    //     for (i, value_vec) in sorted_value_vecs.iter_mut().enumerate() {
+    //         if !value_vec.is_empty() {
+    //             continue;
+    //         }
 
-        Ok(sorted_value_vecs)
-    }
+    //         // Should be black if R, G or B channel, and white if A.
+    //         let buf_vec = if i == 3 {
+    //             vec![1.; size]
+    //         } else {
+    //             vec![0.; size]
+    //         };
 
-    fn get_output_gray(&self, node_datas: &[Arc<NodeData>]) -> Result<Vec<Arc<Buffer>>> {
-        assert_eq!(node_datas.len(), 1);
-        let (width, height) = (node_datas[0].size.width, node_datas[0].size.height);
-        let size = (width * height) as usize;
+    //         *value_vec = Arc::new(Box::new(
+    //             ImageBuffer::from_raw(width, height, buf_vec).ok_or(TexProError::Generic)?,
+    //         ))
+    //     }
 
-        let mut sorted_value_vecs: Vec<Arc<Buffer>> = Vec::with_capacity(4);
-        sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
-        sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
-        sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
-        sorted_value_vecs.push(Arc::new(Box::new(
-            ImageBuffer::from_raw(width, height, vec![1.; size]).ok_or(TexProError::Generic)?,
-        )));
+    //     Ok(sorted_value_vecs)
+    // }
 
-        Ok(sorted_value_vecs)
-    }
+    // fn get_output_gray(&self, node_datas: &[Arc<NodeData>]) -> Result<Vec<Arc<Buffer>>> {
+    //     assert_eq!(node_datas.len(), 1);
+    //     let (width, height) = (node_datas[0].size.width, node_datas[0].size.height);
+    //     let size = (width * height) as usize;
+
+    //     let mut sorted_value_vecs: Vec<Arc<Buffer>> = Vec::with_capacity(4);
+    //     sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
+    //     sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
+    //     sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
+    //     sorted_value_vecs.push(Arc::new(Box::new(
+    //         ImageBuffer::from_raw(width, height, vec![1.; size]).ok_or(TexProError::Generic)?,
+    //     )));
+
+    //     Ok(sorted_value_vecs)
+    // }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {
         self.node_graph

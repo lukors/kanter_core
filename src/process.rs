@@ -6,7 +6,7 @@ use crate::{
     node_graph::*,
     shared::*,
 };
-use image::{imageops::resize, ImageBuffer, Luma};
+use image::{imageops, ImageBuffer, Luma};
 use nalgebra::{Cross, Norm, Vector3};
 use std::{path::Path, sync::Arc};
 
@@ -25,8 +25,8 @@ pub fn process_node(
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::InputRgba => Vec::new(),
         NodeType::InputGray => Vec::new(),
-        NodeType::OutputRgba => output_rgba(&input_node_datas, edges)?,
-        NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
+        NodeType::OutputRgba => output(&input_node_datas),
+        NodeType::OutputGray => output(&input_node_datas),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
         NodeType::Image(ref path) => read(Arc::clone(&node), path)?,
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
@@ -47,61 +47,9 @@ pub fn process_node(
     Ok(output)
 }
 
-/// Finds the `NodeData`s relevant for this `Node` and outputs them.
-fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<NodeData>>> {
-    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
-
-    for edge in edges {
-        let node_data = node_datas
-            .iter()
-            .find(|node_data| {
-                node_data.node_id == edge.output_id && node_data.slot_id == edge.output_slot
-            })
-            .ok_or(TexProError::NodeProcessing)?;
-
-        let new_node_data = Arc::new(NodeData::new(
-            edge.input_id,
-            edge.input_slot,
-            node_data.size,
-            Arc::clone(&node_data.buffer),
-        ));
-
-        new_node_datas.push(new_node_data);
-    }
-
-    // assert_eq!(new_node_datas.len(), 4);
-
-    Ok(new_node_datas)
-}
-
-/// Finds the `NodeData` relevant for this `Node` and outputs them.
-fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
-    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(1);
-
-    // Find a `NodeData` in `inputs` that matches the current `Edge`.
-    for edge in edges {
-        // Clone the `NodeData` in the `Arc<NodeData>` when we find the right one. We don't want to
-        // clone the `Arc<NodeData>`, because we want to make an entirely new `NodeData` which we
-        // can then modify and put in the `Vec<Arc<NodeData>>` and return from the function.
-        let mut new_node_data = (**inputs
-            .iter()
-            .find(|node_data| {
-                node.node_id == edge.input_id
-                    && node_data.node_id == edge.output_id
-                    && node_data.slot_id == edge.output_slot
-            })
-            .unwrap())
-        .clone();
-
-        new_node_data.node_id = node.node_id;
-        new_node_data.slot_id = edge.input_slot;
-
-        new_node_datas.push(Arc::new(new_node_data));
-    }
-
-    assert_eq!(new_node_datas.len(), 1);
-
-    new_node_datas
+/// Finds the `NodeData` relevant for this `Node` and output it.
+fn output(node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+    vec![Arc::clone(&node_datas[0])]
 }
 
 /// Executes the node graph contained in the node.
@@ -120,7 +68,7 @@ fn graph(inputs: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<A
             target_node,
             target_slot,
             node_data.size,
-            Arc::clone(&node_data.buffer),
+            node_data.buffer.clone(),
         )));
     }
 
@@ -133,7 +81,7 @@ fn graph(inputs: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<A
                 node.node_id,
                 node_data.slot_id,
                 node_data.size,
-                Arc::clone(&node_data.buffer),
+                node_data.buffer.clone(),
             );
             output.push(Arc::new(output_node_data));
         }
@@ -143,35 +91,27 @@ fn graph(inputs: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<A
 }
 
 fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
-    let buffers = read_image(&Path::new(path))?;
-    let size = Size {
-        width: buffers[0].width(),
-        height: buffers[0].height(),
-    };
+    let buffer_enum = read_image(&Path::new(path))?;
 
-    let mut output: Vec<Arc<NodeData>> = Vec::with_capacity(4);
-    for (channel, buffer) in buffers.into_iter().enumerate() {
-        output.push(Arc::new(NodeData::new(
+    Ok(vec![
+        Arc::new(NodeData::new(
             node.node_id,
-            SlotId(channel as u32),
-            size,
-            Arc::new(buffer),
-        )));
-    }
-
-    Ok(output)
+            SlotId(0),
+            buffer_enum.size().expect("Couldn't get size from buffers"),
+            buffer_enum,
+        ))
+    ])
 }
 
 fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {
-    let channel_vec: Vec<Arc<Buffer>> = inputs
-        .iter()
-        .map(|node_data| Arc::clone(&node_data.buffer))
-        .collect();
-    let (width, height) = (inputs[0].size.width, inputs[0].size.height);
+    let node_data = inputs[0];
+
+    let u8_vec = node_data.to_rgba_u8();
+    let (width, height) = (node_data.width(), node_data.height());
 
     image::save_buffer(
         &Path::new(path),
-        &image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)?).unwrap(),
+        &image::RgbaImage::from_vec(width, height, u8_vec).unwrap(),
         width,
         height,
         image::ColorType::RGBA(8),
@@ -188,9 +128,7 @@ fn value(node: Arc<Node>, value: f32) -> Vec<Arc<NodeData>> {
         node.node_id,
         SlotId(0),
         Size::new(width, height),
-        Arc::new(Box::new(
-            ImageBuffer::from_raw(width, height, vec![value]).unwrap(),
-        )),
+        BufferEnum::from_gray(Box::new(ImageBuffer::from_raw(width, height, vec![value]).unwrap())),
     ))]
 }
 
@@ -251,15 +189,17 @@ fn resize_only(
                 node_data.node_id,
                 node_data.slot_id,
                 size,
-                Arc::clone(&node_data.buffer),
+                node_data.buffer.clone(),
             )));
         } else {
+            let 
+
             output_node_datas.push(Arc::new(NodeData::new(
                 node_data.node_id,
                 node_data.slot_id,
                 size,
-                Arc::new(Box::new(resize(
-                    &**node_data.buffer,
+                Arc::new(Box::new(imageops::resize(
+                    &node_data.buffer,
                     size.width,
                     size.height,
                     filter_type.into(),

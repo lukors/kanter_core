@@ -17,7 +17,7 @@ pub fn has_dup<T: PartialEq>(slice: &[T]) -> bool {
     false
 }
 
-pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
+pub fn buffer_enum_to_u8(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
     if channels.len() != 4 {
         return Err(TexProError::InvalidBufferCount);
     }
@@ -166,11 +166,11 @@ pub fn resize_buffers(
     Ok(output)
 }
 
-pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {
+pub fn read_image<P: AsRef<Path>>(path: P) -> Result<BufferEnum> {
     let image = image::open(path)?;
     let buffers = deconstruct_image(&image);
 
-    Ok(buffers)
+    Ok(BufferEnum::from_buffers(buffers))
 }
 
 // pub fn write_image<P: AsRef<Path>>(inputs: &[Arc<NodeData>], path: P) -> Result<()> {
