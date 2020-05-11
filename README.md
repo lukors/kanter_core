@@ -9,6 +9,9 @@ It's not meant to be used yet, but you can use it and it should be easy to see h
 - Basic nodes to add/divide etc.
 - Every image channel is 32 bit float
 
+## I'm on vacation
+Won't be working on this during the summer.
+
 ## Progress
 Currently I'm working on a GUI for this library called [Kanter](https://github.com/lukors/kanter).
 
@@ -17,6 +20,7 @@ Here are some planned tasks:
 ### General
 - [x] Combine basic nodes like `Add` into a `Mix` node
 - [ ] Implement rgba slots
+- [ ] See if input/output mappings for graphs can be stored in the input/output nodes instead
 - [ ] Combine input/output grayscale and rgba nodes
 - [ ] Automatic conversion to and from grayscale and rgba slots
 - [ ] Randomly generated test
