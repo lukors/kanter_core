@@ -4,7 +4,17 @@ use kanter_core::{
     node_data::Size,
     node_graph::{NodeGraph, NodeId, SlotId},
 };
-use std::path::Path;
+use std::{fs::create_dir, path::Path};
+
+const OUT_DIR: &str = "out";
+
+fn ensure_out_dir() {
+    match create_dir(Path::new(OUT_DIR)) {
+        Ok(_) => (),
+        Err(AlreadyExists) => (),
+        Err(e) => panic!("Error when creating test dir: {:?}", e),
+    };
+}
 
 #[test]
 fn input_output() {
@@ -38,6 +48,7 @@ fn input_output() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     image::save_buffer(
         &Path::new(&"out/input_output.png"),
         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
@@ -84,6 +95,7 @@ fn mix_images() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     image::save_buffer(
         &Path::new(&"out/mix_images.png"),
         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
@@ -193,6 +205,7 @@ fn value_node() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     image::save_buffer(
         &Path::new(&"out/value_node.png"),
         &image::RgbaImage::from_vec(1, 1, tex_pro.get_output(output_node).unwrap()).unwrap(),
@@ -249,6 +262,7 @@ fn resize_node() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     image::save_buffer(
         &Path::new(&"out/resize_node.png"),
         &image::RgbaImage::from_vec(
@@ -423,10 +437,6 @@ fn resize_policy_largest_axes() {
     assert!(tex_pro.node_datas(output_256x128)[0].size == target_size);
 }
 
-// SmallestAxes,
-// SpecificSlot(SlotId),
-// SpecificSize(Size),
-
 #[test]
 fn add_node() {
     let mut tex_pro = TextureProcessor::new();
@@ -476,6 +486,7 @@ fn add_node() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/add_node.png"),
@@ -520,6 +531,7 @@ fn subtract_node() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/subtract_node.png"),
@@ -600,6 +612,7 @@ fn invert_graph_node() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/invert_graph_node.png"),
@@ -690,6 +703,7 @@ fn invert_graph_node_import() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/invert_graph_node_import.png"),
@@ -778,6 +792,7 @@ fn graph_node_rgba() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     // Output
     image::save_buffer(
         &Path::new(&"out/graph_node_rgba.png"),
@@ -843,6 +858,7 @@ fn graph_node_gray() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     // Output
     image::save_buffer(
         &Path::new(&"out/graph_node_gray.png"),
@@ -892,6 +908,7 @@ fn height_to_normal_node() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     // Output
     image::save_buffer(
         &Path::new(&"out/height_to_normal_node.png"),
@@ -936,6 +953,7 @@ fn multiply_node() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/multiply_node.png"),
@@ -980,6 +998,7 @@ fn divide_node() {
 
     tex_pro.process();
 
+    ensure_out_dir();
     let size = 256;
     image::save_buffer(
         &Path::new(&"out/divide_node.png"),
