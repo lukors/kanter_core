@@ -106,6 +106,117 @@ fn mix_images() {
     .unwrap();
 }
 
+#[test]
+fn resize_rgba() {
+    const SIZE: u32 = 256;
+    const IN_PATH: &str = &"data/image_2.png";
+    let mut tex_pro = TextureProcessor::new();
+    
+    let n_in = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Image(IN_PATH.to_string())))
+        .unwrap();
+    
+    let n_resize_1 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Resize(
+            Some(ResizePolicy::SpecificSize(Size::new(
+                SIZE,
+                SIZE,
+            ))),
+            None,
+        )))
+        .unwrap();
+    let n_resize_2 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Resize(
+            Some(ResizePolicy::SpecificSize(Size::new(
+                SIZE,
+                SIZE,
+            ))),
+            None,
+        )))
+        .unwrap();
+    let n_resize_3 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Resize(
+            Some(ResizePolicy::SpecificSize(Size::new(
+                SIZE,
+                SIZE,
+            ))),
+            None,
+        )))
+        .unwrap();
+    let n_resize_4 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Resize(
+            Some(ResizePolicy::SpecificSize(Size::new(
+                SIZE,
+                SIZE,
+            ))),
+            None,
+        )))
+        .unwrap();
+    let n_out = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(n_in, n_resize_1, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(n_in, n_resize_2, SlotId(1), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(n_in, n_resize_3, SlotId(2), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(n_in, n_resize_4, SlotId(3), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(n_resize_1, n_out, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(n_resize_2, n_out, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(n_resize_3, n_out, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(n_resize_4, n_out, SlotId(0), SlotId(3))
+        .unwrap();
+
+    tex_pro.process();
+
+    const OUT_PATH: &str = &"out/resize_rgba.png";
+    ensure_out_dir();
+    image::save_buffer(
+        &Path::new(OUT_PATH),
+        &image::RgbaImage::from_vec(
+            SIZE,
+            SIZE,
+            tex_pro.get_output(n_out).unwrap(),
+        )
+        .unwrap(),
+        SIZE,
+        SIZE,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(OUT_PATH, IN_PATH));
+}
+
 fn images_equal<P: AsRef<Path>>(path_1: P, path_2: P) -> bool {
     let image_1 = image::open(path_1).unwrap();
     let raw_pixels_1 = image_1.raw_pixels();
