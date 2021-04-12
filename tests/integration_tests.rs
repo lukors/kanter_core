@@ -106,6 +106,15 @@ fn mix_images() {
     .unwrap();
 }
 
+fn images_equal<P: AsRef<Path>>(path_1: P, path_2: P) -> bool {
+    let image_1 = image::open(path_1).unwrap();
+    let raw_pixels_1 = image_1.raw_pixels();
+    let image_2 = image::open(path_2).unwrap();
+    let raw_pixels_2 = image_2.raw_pixels();
+
+    raw_pixels_1.iter().eq(raw_pixels_2.iter())
+}
+
 #[test]
 fn input_output_2() {
     let tex_pro_compare = input_output_2_internal();
