@@ -34,6 +34,7 @@ pub fn process_node(
         NodeType::Resize(resize_policy, filter_type) => process_resize(
             &input_node_datas,
             Arc::clone(&node),
+            edges,
             resize_policy,
             filter_type,
         )?,
@@ -274,16 +275,19 @@ fn resize_only(
 fn process_resize(
     node_datas: &[Arc<NodeData>],
     node: Arc<Node>,
+    edges: &[Edge],
     resize_policy: Option<ResizePolicy>,
     filter_type: Option<ResizeFilter>,
 ) -> Result<Vec<Arc<NodeData>>> {
+    let mut output_node_datas: Vec<Arc<NodeData>> = Vec::new();
     let node_datas = resize_only(node_datas, resize_policy, filter_type)?;
 
-    let mut output_node_datas: Vec<Arc<NodeData>> = Vec::new();
-    for node_data in node_datas {
+    for edge in edges {
+        let node_data = node_datas.iter().find(|&nd| nd.node_id == edge.output_id && nd.slot_id == edge.output_slot).expect("Could not find a fitting node_data while resizing");
+        
         output_node_datas.push(Arc::new(NodeData::new(
             node.node_id,
-            node_data.slot_id,
+            edge.input_slot,
             node_data.size,
             Arc::clone(&node_data.buffer),
         )));
@@ -303,7 +307,7 @@ fn process_blend(
     if node_datas.len() != 2 {
         return Err(TexProError::InvalidBufferCount);
     }
-    let node_datas = process_resize(&node_datas, Arc::clone(&node), None, None)?;
+    let node_datas = process_resize(&node_datas, Arc::clone(&node), edges, None, None)?;
     let size = node_datas[0].size;
 
     let buffer = match mix_type {
