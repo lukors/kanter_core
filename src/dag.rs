@@ -33,6 +33,9 @@ impl TextureProcessor {
             node_id: NodeId,
             node_datas: Result<Vec<Arc<NodeData>>>,
         }
+
+        self.node_datas.clear();
+        
         let (send, recv) = mpsc::channel::<ThreadMessage>();
         let mut finished_nodes: HashSet<NodeId> =
             HashSet::with_capacity(self.node_graph.nodes().len());
