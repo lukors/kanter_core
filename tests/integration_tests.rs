@@ -60,6 +60,18 @@ fn input_output() {
 }
 
 #[test]
+fn unconnected() {
+    let mut tex_pro = TextureProcessor::new();
+
+    tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+    
+    tex_pro.process();
+}
+
+#[test]
 fn mix_images() {
     let mut tex_pro = TextureProcessor::new();
 

@@ -44,6 +44,10 @@ impl TextureProcessor {
             started_nodes.insert(*item);
         }
 
+        if queued_ids.is_empty() {
+            return;
+        }
+
         'outer: while finished_nodes.len() < self.node_graph.nodes().len() {
             for message in recv.try_iter() {
                 self.set_node_finished(
