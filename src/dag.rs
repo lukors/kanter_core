@@ -165,7 +165,9 @@ impl TextureProcessor {
 
     pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
         let node_datas = self.node_datas(node_id);
-        assert!(!node_datas.is_empty());
+        if node_datas.is_empty() {
+            return Err(TexProError::Generic);
+        }
 
         let output_vecs = match self
             .node_graph
