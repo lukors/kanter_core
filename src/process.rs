@@ -10,7 +10,6 @@ use image::{imageops::resize, ImageBuffer, Luma};
 use nalgebra::{Cross, Norm, Vector3};
 use std::{path::Path, sync::Arc};
 
-// TODO: I want to make this function take a node and process it.
 pub fn process_node(
     node: Arc<Node>,
     input_node_datas: &[Arc<NodeData>],
