@@ -72,6 +72,31 @@ fn unconnected() {
 }
 
 #[test]
+fn repeat() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let input_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Image("data/image_1.png".to_string())))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(input_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    
+    tex_pro.process();
+    tex_pro.process();
+    tex_pro.process();
+    tex_pro.process();
+    tex_pro.process();
+}
+
+#[test]
 fn mix_images() {
     let mut tex_pro = TextureProcessor::new();
 
