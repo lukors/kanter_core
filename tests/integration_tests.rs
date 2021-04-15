@@ -411,6 +411,50 @@ fn resize_node() {
 }
 
 #[test]
+fn shuffle_channels() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Image("data/image_2.png".to_string())))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(image_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(image_node, output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(image_node, output_node, SlotId(2), SlotId(2))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(image_node, output_node, SlotId(3), SlotId(0))
+        .unwrap();
+
+    tex_pro.process();
+
+    ensure_out_dir();
+    let size = 256;
+    image::save_buffer(
+        &Path::new(&"out/shuffle_channels.png"),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+}
+
+#[test]
 fn resize_policy_most_pixels() {
     let mut tex_pro = TextureProcessor::new();
 
