@@ -14,15 +14,17 @@ pub struct NodeData {
 pub struct EmbeddedNodeData {
     pub size: Size,
     pub buffer: Arc<Buffer>,
-    pub id: EmbeddedNodeDataId,
+    pub node_data_id: EmbeddedNodeDataId,
+    pub slot_id: SlotId,
 }
 
 impl EmbeddedNodeData {
-    pub fn from_node_data(node_data: Arc<NodeData>, id: EmbeddedNodeDataId) -> Self {
+    pub fn from_node_data(node_data: Arc<NodeData>, node_data_id: EmbeddedNodeDataId) -> Self {
         Self {
             size: node_data.size,
             buffer: Arc::clone(&node_data.buffer),
-            id,
+            node_data_id,
+            slot_id: node_data.slot_id,
         }
     }
 }

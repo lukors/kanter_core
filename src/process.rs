@@ -58,7 +58,7 @@ fn image_buffer(
 ) -> Result<Vec<Arc<NodeData>>> {
     if let Some(enode_data) = embedded_node_datas
         .iter()
-        .find(|end| end.id == embedded_node_data_id)
+        .find(|end| end.node_data_id == embedded_node_data_id)
     {
         Ok(vec![Arc::new(NodeData::new(
             node.node_id,

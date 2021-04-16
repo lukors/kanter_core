@@ -182,7 +182,11 @@ impl TextureProcessor {
         node_data: Arc<NodeData>,
         id: EmbeddedNodeDataId,
     ) -> Result<EmbeddedNodeDataId> {
-        if self.embedded_node_datas.iter().all(|end| end.id != id) {
+        if self
+            .embedded_node_datas
+            .iter()
+            .all(|end| end.node_data_id != id)
+        {
             self.embedded_node_datas
                 .push(Arc::new(EmbeddedNodeData::from_node_data(node_data, id)));
             Ok(id)
