@@ -306,8 +306,11 @@ fn process_resize(
     let node_datas = resize_only(node_datas, resize_policy, filter_type)?;
 
     for edge in edges {
-        let node_data = node_datas.iter().find(|&nd| nd.node_id == edge.output_id && nd.slot_id == edge.output_slot).expect("Could not find a fitting node_data while resizing");
-        
+        let node_data = node_datas
+            .iter()
+            .find(|&nd| nd.node_id == edge.output_id && nd.slot_id == edge.output_slot)
+            .expect("Could not find a fitting node_data while resizing");
+
         output_node_datas.push(Arc::new(NodeData::new(
             node.node_id,
             edge.input_slot,

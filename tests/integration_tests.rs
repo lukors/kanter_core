@@ -67,7 +67,7 @@ fn unconnected() {
         .node_graph
         .add_node(Node::new(NodeType::OutputRgba))
         .unwrap();
-    
+
     tex_pro.process();
 }
 
@@ -195,7 +195,7 @@ fn repeat() {
         .node_graph
         .connect(input_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    
+
     tex_pro.process();
     tex_pro.process();
     tex_pro.process();
@@ -255,49 +255,37 @@ fn resize_rgba() {
     const SIZE: u32 = 256;
     const IN_PATH: &str = &"data/image_2.png";
     let mut tex_pro = TextureProcessor::new();
-    
+
     let n_in = tex_pro
         .node_graph
         .add_node(Node::new(NodeType::Image(IN_PATH.to_string())))
         .unwrap();
-    
+
     let n_resize_1 = tex_pro
         .node_graph
         .add_node(Node::new(NodeType::Resize(
-            Some(ResizePolicy::SpecificSize(Size::new(
-                SIZE,
-                SIZE,
-            ))),
+            Some(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
             None,
         )))
         .unwrap();
     let n_resize_2 = tex_pro
         .node_graph
         .add_node(Node::new(NodeType::Resize(
-            Some(ResizePolicy::SpecificSize(Size::new(
-                SIZE,
-                SIZE,
-            ))),
+            Some(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
             None,
         )))
         .unwrap();
     let n_resize_3 = tex_pro
         .node_graph
         .add_node(Node::new(NodeType::Resize(
-            Some(ResizePolicy::SpecificSize(Size::new(
-                SIZE,
-                SIZE,
-            ))),
+            Some(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
             None,
         )))
         .unwrap();
     let n_resize_4 = tex_pro
         .node_graph
         .add_node(Node::new(NodeType::Resize(
-            Some(ResizePolicy::SpecificSize(Size::new(
-                SIZE,
-                SIZE,
-            ))),
+            Some(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
             None,
         )))
         .unwrap();
@@ -346,12 +334,7 @@ fn resize_rgba() {
     ensure_out_dir();
     image::save_buffer(
         &Path::new(OUT_PATH),
-        &image::RgbaImage::from_vec(
-            SIZE,
-            SIZE,
-            tex_pro.get_output(n_out).unwrap(),
-        )
-        .unwrap(),
+        &image::RgbaImage::from_vec(SIZE, SIZE, tex_pro.get_output(n_out).unwrap()).unwrap(),
         SIZE,
         SIZE,
         image::ColorType::RGBA(8),
@@ -694,11 +677,15 @@ fn resize_policy_largest_axes() {
 
     let node_256x128 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image("data/heart_wide.png".to_string())))
+        .add_node(Node::new(NodeType::Image(
+            "data/heart_wide.png".to_string(),
+        )))
         .unwrap();
     let node_128x256 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image("data/heart_tall.png".to_string())))
+        .add_node(Node::new(NodeType::Image(
+            "data/heart_tall.png".to_string(),
+        )))
         .unwrap();
     let resize_node = tex_pro
         .node_graph
