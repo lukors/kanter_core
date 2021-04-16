@@ -1,4 +1,4 @@
-use crate::node_graph::*;
+use crate::{node::EmbeddedNodeDataId, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -9,6 +9,22 @@ pub struct NodeData {
     pub slot_id: SlotId,
     pub node_id: NodeId,
     pub buffer: Arc<Buffer>,
+}
+#[derive(Debug, Clone)]
+pub struct EmbeddedNodeData {
+    pub size: Size,
+    pub buffer: Arc<Buffer>,
+    pub id: EmbeddedNodeDataId,
+}
+
+impl EmbeddedNodeData {
+    pub fn from_node_data(node_data: Arc<NodeData>, id: EmbeddedNodeDataId) -> Self {
+        Self {
+            size: node_data.size,
+            buffer: Arc::clone(&node_data.buffer),
+            id,
+        }
+    }
 }
 
 pub type Buffer = Box<ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>>;

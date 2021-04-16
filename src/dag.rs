@@ -1,6 +1,6 @@
 use crate::{
     error::{Result, TexProError},
-    node::NodeType,
+    node::{EmbeddedNodeDataId, NodeType},
     node_data::*,
     node_graph::*,
     process::*,
@@ -18,6 +18,7 @@ use crate::shared::*;
 pub struct TextureProcessor {
     pub node_graph: NodeGraph,
     pub node_datas: Vec<Arc<NodeData>>,
+    pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
 }
 
 impl TextureProcessor {
@@ -25,6 +26,7 @@ impl TextureProcessor {
         Self {
             node_graph: NodeGraph::new(),
             node_datas: Vec::new(),
+            embedded_node_datas: Vec::new(),
         }
     }
 
@@ -35,7 +37,7 @@ impl TextureProcessor {
         }
 
         self.node_datas.clear();
-        
+
         let (send, recv) = mpsc::channel::<ThreadMessage>();
         let mut finished_nodes: HashSet<NodeId> =
             HashSet::with_capacity(self.node_graph.nodes().len());
@@ -116,9 +118,19 @@ impl TextureProcessor {
             let current_node = Arc::clone(self.node_graph.node_with_id(current_id).unwrap());
             let send = send.clone();
 
+            let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = self
+                .embedded_node_datas
+                .iter()
+                .map(|end| Arc::clone(&end))
+                .collect();
+
             thread::spawn(move || {
-                let node_datas: Result<Vec<Arc<NodeData>>> =
-                    process_node(current_node, &input_data, &relevant_edges);
+                let node_datas: Result<Vec<Arc<NodeData>>> = process_node(
+                    current_node,
+                    &input_data,
+                    &embedded_node_datas,
+                    &relevant_edges,
+                );
 
                 match send.send(ThreadMessage {
                     node_id: current_id,
@@ -148,7 +160,7 @@ impl TextureProcessor {
             self.node_datas.append(node_datas);
         }
 
-        // Add any child node to the input `NodeId` to the list of nodes to potentially process.
+        // Add any child node of the input `NodeId` to the list of nodes to potentially process.
         for edge in &self.node_graph.edges {
             let input_id = edge.input_id;
             if edge.output_id == id && !started_nodes.contains(&input_id) {
@@ -158,11 +170,42 @@ impl TextureProcessor {
         }
     }
 
+    /// Embeds a `NodeData` in the `TextureProcessor` with an associated `EmbeddedNodeDataId`.
+    /// The `EmbeddedNodeDataId` can be referenced using the assigned `EmbeddedNodeDataId` in a
+    /// `NodeType::NodeData` node. This is useful when you want to transfer and use 'NodeData'
+    /// between several `TextureProcessor`s.
+    ///
+    /// Get the `NodeData`s from a `Node` in a `TextureProcessor` by using the `get_node_data()`
+    /// function.
+    pub fn embed_node_data_with_id(
+        &mut self,
+        node_data: Arc<NodeData>,
+        id: EmbeddedNodeDataId,
+    ) -> Result<EmbeddedNodeDataId> {
+        if self.embedded_node_datas.iter().all(|end| end.id != id) {
+            self.embedded_node_datas
+                .push(Arc::new(EmbeddedNodeData::from_node_data(node_data, id)));
+            Ok(id)
+        } else {
+            Err(TexProError::InvalidSlotId)
+        }
+    }
+
+    /// Gets all `NodeData`s in this `TextureProcessor`.
     pub fn node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
         self.node_datas
             .iter()
             .filter(|&x| x.node_id == id)
             .map(|x| Arc::clone(x))
+            .collect()
+    }
+
+    /// Gets any `NodeData`s associated with a given `NodeId`.
+    pub fn get_node_data(&self, id: NodeId) -> Vec<Arc<NodeData>> {
+        self.node_datas
+            .iter()
+            .filter(|nd| nd.node_id == id)
+            .map(|nd| Arc::clone(&nd))
             .collect()
     }
 

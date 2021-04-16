@@ -52,6 +52,9 @@ impl Into<FilterType> for ResizeFilter {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct EmbeddedNodeDataId(pub u32);
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Side {
     Input,
@@ -66,6 +69,7 @@ pub enum NodeType {
     OutputRgba,
     Graph(NodeGraph),
     Image(String),
+    NodeData(EmbeddedNodeDataId),
     Write(String),
     Value(f32),
     Resize(Option<ResizePolicy>, Option<ResizeFilter>),
@@ -102,6 +106,7 @@ impl fmt::Debug for NodeType {
             NodeType::OutputRgba => write!(f, "OutputRgba"),
             NodeType::Graph(_) => write!(f, "Graph"),
             NodeType::Image(_) => write!(f, "Image"),
+            NodeType::NodeData(_) => write!(f, "NodeData"),
             NodeType::Write(_) => write!(f, "Write"),
             NodeType::Value(_) => write!(f, "Value"),
             NodeType::Resize(_, _) => write!(f, "Resize"),
@@ -138,6 +143,7 @@ impl Node {
                 NodeType::OutputRgba => 4,
                 NodeType::Graph(ref graph) => graph.input_count(),
                 NodeType::Image(_) => 0,
+                NodeType::NodeData(_) => 0,
                 NodeType::Write(_) => 4,
                 NodeType::Value(_) => 0,
                 NodeType::Resize(_, _) => 2,
@@ -151,6 +157,7 @@ impl Node {
                 NodeType::OutputRgba => 4,
                 NodeType::Graph(ref graph) => graph.output_count(),
                 NodeType::Image(_) => 4,
+                NodeType::NodeData(_) => 1,
                 NodeType::Write(_) => 0,
                 NodeType::Value(_) => 1,
                 NodeType::Resize(_, _) => 2,

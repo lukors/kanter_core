@@ -13,6 +13,7 @@ use std::{path::Path, sync::Arc};
 pub fn process_node(
     node: Arc<Node>,
     input_node_datas: &[Arc<NodeData>],
+    embedded_node_datas: &[Arc<EmbeddedNodeData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<NodeData>>> {
     assert!(input_node_datas.len() <= node.capacity(Side::Input));
@@ -28,6 +29,9 @@ pub fn process_node(
         NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
         NodeType::Image(ref path) => read(Arc::clone(&node), path)?,
+        NodeType::NodeData(embedded_node_data_id) => {
+            image_buffer(&node, embedded_node_datas, embedded_node_data_id)?
+        }
         NodeType::Write(ref path) => write(&input_node_datas, path)?,
         NodeType::Value(val) => value(Arc::clone(&node), val),
         NodeType::Resize(resize_policy, filter_type) => process_resize(
@@ -45,6 +49,26 @@ pub fn process_node(
 
     assert!(output.len() <= node.capacity(Side::Output));
     Ok(output)
+}
+
+fn image_buffer(
+    node: &Arc<Node>,
+    embedded_node_datas: &[Arc<EmbeddedNodeData>],
+    embedded_node_data_id: EmbeddedNodeDataId,
+) -> Result<Vec<Arc<NodeData>>> {
+    if let Some(enode_data) = embedded_node_datas
+        .iter()
+        .find(|end| end.id == embedded_node_data_id)
+    {
+        Ok(vec![Arc::new(NodeData::new(
+            node.node_id,
+            SlotId(0),
+            enode_data.size,
+            Arc::clone(&enode_data.buffer),
+        ))])
+    } else {
+        Err(TexProError::NodeProcessing)
+    }
 }
 
 /// Finds the `NodeData`s relevant for this `Node` and outputs them.
