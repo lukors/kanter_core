@@ -143,6 +143,15 @@ impl TextureProcessor {
         }
     }
 
+    /// Returns the width and height of the `NodeData` for the given `NodeId` as a `Size`.
+    pub fn get_node_size(&self, node_id: NodeId) -> Option<Size> {
+        if let Some(node_data) = self.node_datas.iter().find(|nd| nd.node_id == node_id) {
+            Some(node_data.size)
+        } else {
+            None
+        }
+    }
+
     /// Takes a node and the data it generated, marks it as finished and puts the data in the
     /// `TextureProcessor`'s data vector.
     /// Then it adds any child `NodeId`s of the input `NodeId` to the list of `NodeId`s to process.
