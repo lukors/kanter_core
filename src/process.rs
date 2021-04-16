@@ -62,7 +62,7 @@ fn image_buffer(
     {
         Ok(vec![Arc::new(NodeData::new(
             node.node_id,
-            enode_data.slot_id,
+            SlotId(0),
             enode_data.size,
             Arc::clone(&enode_data.buffer),
         ))])
