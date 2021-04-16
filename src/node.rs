@@ -52,7 +52,7 @@ impl Into<FilterType> for ResizeFilter {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct EmbeddedNodeDataId(pub u32);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
