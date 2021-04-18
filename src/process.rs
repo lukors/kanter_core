@@ -25,7 +25,7 @@ pub fn process_node(
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::InputRgba => input_rgba(&node, &input_node_datas),
-        NodeType::InputGray => Vec::new(),
+        NodeType::InputGray => input_gray(&node, &input_node_datas),
         NodeType::OutputRgba => output_rgba(&node_datas, edges)?,
         NodeType::OutputGray => output_gray(&node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&node_datas, &node, node_graph),
@@ -48,6 +48,14 @@ pub fn process_node(
 
     assert!(output.len() <= node.capacity(Side::Output));
     Ok(output)
+}
+
+fn input_gray(node: &Arc<Node>, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+    if let Some(node_data) = input_node_datas.iter().find(|nd| nd.node_id == node.node_id) {
+        vec![Arc::clone(&node_data)]
+    } else {
+        Vec::new()
+    }
 }
 
 fn input_rgba(node: &Arc<Node>, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
