@@ -19,6 +19,7 @@ pub struct TextureProcessor {
     pub node_graph: NodeGraph,
     pub node_datas: Vec<Arc<NodeData>>,
     pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
+    pub input_node_datas: Vec<Arc<NodeData>>,
 }
 
 impl TextureProcessor {
@@ -27,6 +28,7 @@ impl TextureProcessor {
             node_graph: NodeGraph::new(),
             node_datas: Vec::new(),
             embedded_node_datas: Vec::new(),
+            input_node_datas: Vec::new(),
         }
     }
 
@@ -123,12 +125,18 @@ impl TextureProcessor {
                 .iter()
                 .map(|end| Arc::clone(&end))
                 .collect();
+            let input_node_datas: Vec<Arc<NodeData>> = self
+                .input_node_datas
+                .iter()
+                .map(|nd| Arc::clone(&nd))
+                .collect();
 
             thread::spawn(move || {
                 let node_datas: Result<Vec<Arc<NodeData>>> = process_node(
                     current_node,
                     &input_data,
                     &embedded_node_datas,
+                    &input_node_datas,
                     &relevant_edges,
                 );
 

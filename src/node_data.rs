@@ -13,9 +13,9 @@ pub struct NodeData {
 #[derive(Debug, Clone)]
 pub struct EmbeddedNodeData {
     pub size: Size,
-    pub buffer: Arc<Buffer>,
-    pub node_data_id: EmbeddedNodeDataId,
     pub slot_id: SlotId,
+    pub node_data_id: EmbeddedNodeDataId,
+    pub buffer: Arc<Buffer>,
 }
 
 impl EmbeddedNodeData {

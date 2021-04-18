@@ -12,43 +12,55 @@ use std::{path::Path, sync::Arc};
 
 pub fn process_node(
     node: Arc<Node>,
-    input_node_datas: &[Arc<NodeData>],
+    node_datas: &[Arc<NodeData>],
     embedded_node_datas: &[Arc<EmbeddedNodeData>],
+    input_node_datas: &[Arc<NodeData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<NodeData>>> {
-    assert!(input_node_datas.len() <= node.capacity(Side::Input));
-    assert_eq!(edges.len(), input_node_datas.len());
+    assert!(node_datas.len() <= node.capacity(Side::Input));
+    assert_eq!(edges.len(), node_datas.len());
 
-    let input_node_datas: Vec<Arc<NodeData>> =
-        resize_buffers(&input_node_datas, node.resize_policy, node.filter_type)?;
+    let node_datas: Vec<Arc<NodeData>> =
+        resize_buffers(&node_datas, node.resize_policy, node.filter_type)?;
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
-        NodeType::InputRgba => Vec::new(),
+        NodeType::InputRgba => input_rgba(&node, &input_node_datas),
         NodeType::InputGray => Vec::new(),
-        NodeType::OutputRgba => output_rgba(&input_node_datas, edges)?,
-        NodeType::OutputGray => output_gray(&input_node_datas, edges, &node),
-        NodeType::Graph(ref node_graph) => graph(&input_node_datas, &node, node_graph),
+        NodeType::OutputRgba => output_rgba(&node_datas, edges)?,
+        NodeType::OutputGray => output_gray(&node_datas, edges, &node),
+        NodeType::Graph(ref node_graph) => graph(&node_datas, &node, node_graph),
         NodeType::Image(ref path) => read(Arc::clone(&node), path)?,
         NodeType::NodeData(embedded_node_data_id) => {
             image_buffer(&node, embedded_node_datas, embedded_node_data_id)?
         }
-        NodeType::Write(ref path) => write(&input_node_datas, path)?,
+        NodeType::Write(ref path) => write(&node_datas, path)?,
         NodeType::Value(val) => value(Arc::clone(&node), val),
         NodeType::Resize(resize_policy, filter_type) => process_resize(
-            &input_node_datas,
+            &node_datas,
             Arc::clone(&node),
             edges,
             resize_policy,
             filter_type,
         )?,
-        NodeType::Mix(mix_type) => {
-            process_blend(&input_node_datas, Arc::clone(&node), edges, mix_type)?
-        }
-        NodeType::HeightToNormal => process_height_to_normal(&input_node_datas, Arc::clone(&node)),
+        NodeType::Mix(mix_type) => process_blend(&node_datas, Arc::clone(&node), edges, mix_type)?,
+        NodeType::HeightToNormal => process_height_to_normal(&node_datas, Arc::clone(&node)),
     };
 
     assert!(output.len() <= node.capacity(Side::Output));
     Ok(output)
+}
+
+fn input_rgba(node: &Arc<Node>, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(node.capacity(Side::Input));
+
+    for node_data in input_node_datas
+        .iter()
+        .filter(|nd| nd.node_id == node.node_id)
+    {
+        new_node_datas.push(Arc::clone(&node_data));
+    }
+
+    new_node_datas
 }
 
 fn image_buffer(
@@ -129,18 +141,18 @@ fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 }
 
 /// Executes the node graph contained in the node.
-fn graph(inputs: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
+fn graph(node_datas: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
     let mut output: Vec<Arc<NodeData>> = Vec::new();
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = (*graph).clone();
 
-    // Take the `NodeData`s that are fed into this node from the external node and associate
+    // Take the `NodeData`s that are fed into this node from the parent node and associate
     // them with the correct outputs on the input nodes in the child graph.
-    for node_data in inputs {
+    for node_data in node_datas {
         let (target_node, target_slot) =
             tex_pro.node_graph.input_mapping(node_data.slot_id).unwrap();
 
-        tex_pro.node_datas.push(Arc::new(NodeData::new(
+        tex_pro.input_node_datas.push(Arc::new(NodeData::new(
             target_node,
             target_slot,
             node_data.size,
