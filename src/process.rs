@@ -51,7 +51,10 @@ pub fn process_node(
 }
 
 fn input_gray(node: &Arc<Node>, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
-    if let Some(node_data) = input_node_datas.iter().find(|nd| nd.node_id == node.node_id) {
+    if let Some(node_data) = input_node_datas
+        .iter()
+        .find(|nd| nd.node_id == node.node_id)
+    {
         vec![Arc::clone(&node_data)]
     } else {
         Vec::new()

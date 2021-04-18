@@ -10,9 +10,7 @@ const OUT_DIR: &str = "out";
 
 fn ensure_out_dir() {
     match create_dir(Path::new(OUT_DIR)) {
-        Ok(_) => (),
-        Err(AlreadyExists) => (),
-        Err(e) => panic!("Error when creating test dir: {:?}", e),
+        _ => (),
     };
 }
 
@@ -1314,7 +1312,10 @@ fn change_mix_type() {
         .add_node(Node::new(NodeType::Mix(MixType::Add)))
         .unwrap();
 
-    tex_pro.node_graph.set_mix_type(mix_node, MixType::Subtract);
+    tex_pro
+        .node_graph
+        .set_mix_type(mix_node, MixType::Subtract)
+        .unwrap();
 
     assert_eq!(
         tex_pro.node_graph.node_with_id(mix_node).unwrap().node_type,

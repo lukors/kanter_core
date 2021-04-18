@@ -36,7 +36,10 @@ impl NodeGraph {
                     let mut node_clone: Node = (*self.nodes[node_index]).clone();
                     node_clone.node_type = NodeType::Mix(mix_type);
 
-                    mem::replace(&mut self.nodes[node_index], Arc::new(node_clone));
+                    #[allow(unused_must_use)]
+                    {
+                        mem::replace(&mut self.nodes[node_index], Arc::new(node_clone));
+                    }
                     Ok(())
                 }
                 _ => Err(TexProError::InvalidNodeId),
@@ -53,7 +56,10 @@ impl NodeGraph {
                     let mut node_clone: Node = (*self.nodes[node_index]).clone();
                     node_clone.node_type = NodeType::Image(path);
 
-                    mem::replace(&mut self.nodes[node_index], Arc::new(node_clone));
+                    #[allow(unused_must_use)]
+                    {
+                        mem::replace(&mut self.nodes[node_index], Arc::new(node_clone));
+                    }
                     Ok(())
                 }
                 _ => Err(TexProError::InvalidNodeId),

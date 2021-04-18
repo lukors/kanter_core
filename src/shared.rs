@@ -173,207 +173,185 @@ pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {
     Ok(buffers)
 }
 
-// pub fn write_image<P: AsRef<Path>>(inputs: &[Arc<NodeData>], path: P) -> Result<()> {
-//     let channel_vec: Vec<Arc<Buffer>> = inputs
-//         .iter()
-//         .map(|node_data| Arc::clone(&node_data.buffer))
-//         .collect();
-//     let (width, height) = (inputs[0].size.width, inputs[0].size.height);
-//     let img = {
-//         if let Some(img) =
-//             image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)?)
-//         {
-//             img
-//         } else {
-//             return Err(TexProError::InconsistentVectorLengths);
-//         }
-//     };
+// #[cfg(test)]
+// mod tests {
+// use super::*;
 
-//     image::save_buffer(path, &img, width, height, image::ColorType::RGBA(8))?;
+// fn buffers_equal(buf_1: &Buffer, buf_2: &Buffer) -> bool {
+//     if buf_1.len() != buf_2.len() {
+//         return false;
+//     }
 
-//     Ok(())
+//     !buf_1.pixels().zip(buf_2.pixels()).any(|(a, b)| a != b)
 // }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    // use crate::shared::NodeId;
+// fn images_equal(img_1: &DynamicImage, img_2: &DynamicImage) -> bool {
+//     let bufs_1 = deconstruct_image(&img_1);
+//     let bufs_2 = deconstruct_image(&img_2);
 
-    fn buffers_equal(buf_1: &Buffer, buf_2: &Buffer) -> bool {
-        if buf_1.len() != buf_2.len() {
-            return false;
-        }
+//     !bufs_1
+//         .iter()
+//         .zip(&bufs_2)
+//         .any(|(a, b)| !buffers_equal(a, b))
+// }
 
-        !buf_1.pixels().zip(buf_2.pixels()).any(|(a, b)| a != b)
-    }
+// fn images_equal_path<P: AsRef<Path>>(path_1: P, path_2: P) -> bool {
+//     let bufs_1 = deconstruct_image(
+//         &image::open(path_1).expect("Unable to open image at path_1 to compare it"),
+//     );
+//     let bufs_2 = deconstruct_image(
+//         &image::open(path_2).expect("Unable to open image at path_2 to compare it"),
+//     );
 
-    fn images_equal(img_1: &DynamicImage, img_2: &DynamicImage) -> bool {
-        let bufs_1 = deconstruct_image(&img_1);
-        let bufs_2 = deconstruct_image(&img_2);
+//     !bufs_1
+//         .iter()
+//         .zip(&bufs_2)
+//         .any(|(a, b)| !buffers_equal(a, b))
+// }
 
-        !bufs_1
-            .iter()
-            .zip(&bufs_2)
-            .any(|(a, b)| !buffers_equal(a, b))
-    }
+// fn buffer_vecs_equal(bufs_1: &[Buffer], bufs_2: &[Buffer]) -> bool {
+//     if bufs_1.len() != bufs_2.len() {
+//         return false;
+//     }
 
-    fn images_equal_path<P: AsRef<Path>>(path_1: P, path_2: P) -> bool {
-        let bufs_1 = deconstruct_image(
-            &image::open(path_1).expect("Unable to open image at path_1 to compare it"),
-        );
-        let bufs_2 = deconstruct_image(
-            &image::open(path_2).expect("Unable to open image at path_2 to compare it"),
-        );
+//     !bufs_1
+//         .iter()
+//         .zip(bufs_2.iter())
+//         .any(|(a, b)| !buffers_equal(a, b))
+// }
 
-        !bufs_1
-            .iter()
-            .zip(&bufs_2)
-            .any(|(a, b)| !buffers_equal(a, b))
-    }
+// fn detached_buffers_equal(bufs_1: &[DetachedBuffer], bufs_2: &[DetachedBuffer]) -> bool {
+//     if bufs_1.len() != bufs_2.len() {
+//         return false;
+//     }
 
-    fn buffer_vecs_equal(bufs_1: &[Buffer], bufs_2: &[Buffer]) -> bool {
-        if bufs_1.len() != bufs_2.len() {
-            return false;
-        }
+//     !bufs_1
+//         .iter()
+//         .zip(bufs_2.iter())
+//         .any(|(a, b)| !buffers_equal(&a.buffer(), &b.buffer()))
+// }
 
-        !bufs_1
-            .iter()
-            .zip(bufs_2.iter())
-            .any(|(a, b)| !buffers_equal(a, b))
-    }
+// #[test]
+// fn resize_buffers_policy_specific_size() {
+//     let input_path = Path::new(&"data/heart_128.png");
 
-    // fn detached_buffers_equal(bufs_1: &[DetachedBuffer], bufs_2: &[DetachedBuffer]) -> bool {
-    //     if bufs_1.len() != bufs_2.len() {
-    //         return false;
-    //     }
+//     let mut buffers = read_image(&input_path).unwrap();
+//     resize_buffers(
+//         &mut buffers,
+//         Some(ResizePolicy::SpecificSize(Size::new(256, 256))),
+//         None,
+//     )
+//     .unwrap();
 
-    //     !bufs_1
-    //         .iter()
-    //         .zip(bufs_2.iter())
-    //         .any(|(a, b)| !buffers_equal(&a.buffer(), &b.buffer()))
-    // }
+//     let target_size = Size::new(256, 256);
+//     let target_buffer_length = 256 * 256;
+//     for buffer in buffers {
+//         assert_eq!(buffer.buffer().len(), target_buffer_length);
+//         assert_eq!(buffer.size(), target_size);
+//     }
+// }
 
-    // #[test]
-    // fn resize_buffers_policy_specific_size() {
-    //     let input_path = Path::new(&"data/heart_128.png");
+// #[test]
+// fn resize_buffers_policy_most_pixels() {
+//     let input_1_path = Path::new(&"data/heart_128.png");
+//     let input_2_path = Path::new(&"data/heart_256.png");
 
-    //     let mut buffers = read_image(&input_path).unwrap();
-    //     resize_buffers(
-    //         &mut buffers,
-    //         Some(ResizePolicy::SpecificSize(Size::new(256, 256))),
-    //         None,
-    //     )
-    //     .unwrap();
+//     let mut buffers = read_image(&input_2_path).unwrap();
+//     let target_buffer_length = buffers[0].buffer().len();
+//     buffers.append(&mut read_image(&input_1_path).unwrap());
 
-    //     let target_size = Size::new(256, 256);
-    //     let target_buffer_length = 256 * 256;
-    //     for buffer in buffers {
-    //         assert_eq!(buffer.buffer().len(), target_buffer_length);
-    //         assert_eq!(buffer.size(), target_size);
-    //     }
-    // }
+//     resize_buffers(&mut buffers, Some(ResizePolicy::MostPixels), None).unwrap();
 
-    // #[test]
-    // fn resize_buffers_policy_most_pixels() {
-    //     let input_1_path = Path::new(&"data/heart_128.png");
-    //     let input_2_path = Path::new(&"data/heart_256.png");
+//     let target_size = Size::new(256, 256);
+//     for buffer in buffers {
+//         assert_eq!(buffer.buffer().len(), target_buffer_length);
+//         assert_eq!(buffer.size(), target_size);
+//     }
+// }
 
-    //     let mut buffers = read_image(&input_2_path).unwrap();
-    //     let target_buffer_length = buffers[0].buffer().len();
-    //     buffers.append(&mut read_image(&input_1_path).unwrap());
+// #[test]
+// fn resize_buffers_policy_least_pixels() {
+//     let input_1_path = Path::new(&"data/heart_128.png");
+//     let input_2_path = Path::new(&"data/heart_256.png");
 
-    //     resize_buffers(&mut buffers, Some(ResizePolicy::MostPixels), None).unwrap();
+//     let mut buffers = read_image(&input_1_path).unwrap();
+//     let target_buffer_length = buffers[0].buffer().len();
+//     buffers.append(&mut read_image(&input_2_path).unwrap());
 
-    //     let target_size = Size::new(256, 256);
-    //     for buffer in buffers {
-    //         assert_eq!(buffer.buffer().len(), target_buffer_length);
-    //         assert_eq!(buffer.size(), target_size);
-    //     }
-    // }
+//     resize_buffers(&mut buffers, Some(ResizePolicy::LeastPixels), None).unwrap();
 
-    // #[test]
-    // fn resize_buffers_policy_least_pixels() {
-    //     let input_1_path = Path::new(&"data/heart_128.png");
-    //     let input_2_path = Path::new(&"data/heart_256.png");
+//     let target_size = Size::new(128, 128);
+//     for buffer in buffers {
+//         assert_eq!(buffer.buffer().len(), target_buffer_length);
+//         assert_eq!(buffer.size(), target_size);
+//     }
+// }
 
-    //     let mut buffers = read_image(&input_1_path).unwrap();
-    //     let target_buffer_length = buffers[0].buffer().len();
-    //     buffers.append(&mut read_image(&input_2_path).unwrap());
+// #[test]
+// fn resize_buffers_policy_largest_axes() {
+//     let input_1_path = Path::new(&"data/heart_wide.png");
+//     let input_2_path = Path::new(&"data/heart_tall.png");
 
-    //     resize_buffers(&mut buffers, Some(ResizePolicy::LeastPixels), None).unwrap();
+//     let mut buffers = read_image(&input_1_path).unwrap();
+//     buffers.append(&mut read_image(&input_2_path).unwrap());
+//     let target_buffer_length = buffers[0].buffer().len() * 2;
 
-    //     let target_size = Size::new(128, 128);
-    //     for buffer in buffers {
-    //         assert_eq!(buffer.buffer().len(), target_buffer_length);
-    //         assert_eq!(buffer.size(), target_size);
-    //     }
-    // }
+//     resize_buffers(&mut buffers, Some(ResizePolicy::LargestAxes), None).unwrap();
 
-    // #[test]
-    // fn resize_buffers_policy_largest_axes() {
-    //     let input_1_path = Path::new(&"data/heart_wide.png");
-    //     let input_2_path = Path::new(&"data/heart_tall.png");
+//     let target_size = Size::new(128, 128);
+//     for buffer in buffers {
+//         assert_eq!(buffer.buffer().len(), target_buffer_length);
+//         assert_eq!(buffer.size(), target_size);
+//     }
+// }
 
-    //     let mut buffers = read_image(&input_1_path).unwrap();
-    //     buffers.append(&mut read_image(&input_2_path).unwrap());
-    //     let target_buffer_length = buffers[0].buffer().len() * 2;
+// #[test]
+// fn resize_buffers_policy_smallest_axes() {
+//     let input_1_path = Path::new(&"data/heart_wide.png");
+//     let input_2_path = Path::new(&"data/heart_tall.png");
 
-    //     resize_buffers(&mut buffers, Some(ResizePolicy::LargestAxes), None).unwrap();
+//     let mut buffers = read_image(&input_1_path).unwrap();
+//     buffers.append(&mut read_image(&input_2_path).unwrap());
+//     let target_buffer_length = buffers[0].buffer().len() / 2;
 
-    //     let target_size = Size::new(128, 128);
-    //     for buffer in buffers {
-    //         assert_eq!(buffer.buffer().len(), target_buffer_length);
-    //         assert_eq!(buffer.size(), target_size);
-    //     }
-    // }
+//     resize_buffers(&mut buffers, Some(ResizePolicy::SmallestAxes), None).unwrap();
 
-    // #[test]
-    // fn resize_buffers_policy_smallest_axes() {
-    //     let input_1_path = Path::new(&"data/heart_wide.png");
-    //     let input_2_path = Path::new(&"data/heart_tall.png");
+//     let target_size = Size::new(64, 64);
+//     for buffer in buffers {
+//         assert_eq!(buffer.buffer().len(), target_buffer_length);
+//         assert_eq!(buffer.size(), target_size);
+//     }
+// }
 
-    //     let mut buffers = read_image(&input_1_path).unwrap();
-    //     buffers.append(&mut read_image(&input_2_path).unwrap());
-    //     let target_buffer_length = buffers[0].buffer().len() / 2;
+// #[test]
+// fn resize_buffers_policy_specific_node() {
+//     let input_1_path = Path::new(&"data/heart_128.png");
+//     let input_2_path = Path::new(&"data/heart_256.png");
 
-    //     resize_buffers(&mut buffers, Some(ResizePolicy::SmallestAxes), None).unwrap();
+//     let mut buffers_1 = read_image(&input_1_path).unwrap();
+//     for mut buffer in &mut buffers_1 {
+//         buffer.set_id(Some(NodeId::new(1)));
+//     }
+//     let target_buffer_length = buffers_1[0].buffer().len();
 
-    //     let target_size = Size::new(64, 64);
-    //     for buffer in buffers {
-    //         assert_eq!(buffer.buffer().len(), target_buffer_length);
-    //         assert_eq!(buffer.size(), target_size);
-    //     }
-    // }
+//     let mut buffers_2 = read_image(&input_2_path).unwrap();
+//     for mut buffer in &mut buffers_2 {
+//         buffer.set_id(Some(NodeId::new(2)));
+//     }
 
-    // #[test]
-    // fn resize_buffers_policy_specific_node() {
-    //     let input_1_path = Path::new(&"data/heart_128.png");
-    //     let input_2_path = Path::new(&"data/heart_256.png");
+//     buffers_1.append(&mut buffers_2);
 
-    //     let mut buffers_1 = read_image(&input_1_path).unwrap();
-    //     for mut buffer in &mut buffers_1 {
-    //         buffer.set_id(Some(NodeId::new(1)));
-    //     }
-    //     let target_buffer_length = buffers_1[0].buffer().len();
+//     resize_buffers(
+//         &mut buffers_1,
+//         Some(ResizePolicy::SpecificNode(NodeId::new(1))),
+//         None,
+//     )
+//     .unwrap();
 
-    //     let mut buffers_2 = read_image(&input_2_path).unwrap();
-    //     for mut buffer in &mut buffers_2 {
-    //         buffer.set_id(Some(NodeId::new(2)));
-    //     }
-
-    //     buffers_1.append(&mut buffers_2);
-
-    //     resize_buffers(
-    //         &mut buffers_1,
-    //         Some(ResizePolicy::SpecificNode(NodeId::new(1))),
-    //         None,
-    //     )
-    //     .unwrap();
-
-    //     let target_size = Size::new(128, 128);
-    //     for buffer in buffers_1 {
-    //         assert_eq!(buffer.buffer().len(), target_buffer_length);
-    //         assert_eq!(buffer.size(), target_size);
-    //     }
-    // }
-}
+//     let target_size = Size::new(128, 128);
+//     for buffer in buffers_1 {
+//         assert_eq!(buffer.buffer().len(), target_buffer_length);
+//         assert_eq!(buffer.size(), target_size);
+//     }
+// }
+// }
