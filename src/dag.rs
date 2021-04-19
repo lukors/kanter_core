@@ -55,7 +55,7 @@ impl TextureProcessor {
             return;
         }
 
-        'outer: while finished_nodes.len() < self.node_graph.nodes().len() {
+        'outer: while finished_nodes.len() < started_nodes.len() {
             for message in recv.try_iter() {
                 self.set_node_finished(
                     message.node_id,

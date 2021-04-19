@@ -217,49 +217,30 @@ fn mix_images() {
     assert!(images_equal(path_out, path_compare))
 }
 
-// This test was quickly temporarliy saved for later inspection. It hangs and probably should not.
-// #[test]
-// fn hangs() {
-//     let path_in_1 = IMAGE_1.to_string();
-//     let path_in_2 = IMAGE_2.to_string();
-//     let path_out = "out/mix_images.png".to_string();
-    
-//     let mut tex_pro = TextureProcessor::new();
+#[test]
+fn unconnected_node() {
+    let mut tex_pro = TextureProcessor::new();
 
-//     let input_1 = tex_pro
-//         .node_graph
-//         .add_node(Node::new(NodeType::Image(path_in_1)))
-//         .unwrap();
-//     let input_2 = tex_pro
-//         .node_graph
-//         .add_node(Node::new(NodeType::Image(path_in_2)))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .node_graph
-//         .add_node(Node::new(NodeType::OutputRgba))
-//         .unwrap();
+    let input_1 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.0)))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.0)))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
 
-//     for i in 0..4 {
-//         tex_pro
-//             .node_graph
-//             .connect(input_1, output_node, SlotId(i), SlotId(3 - i))
-//             .unwrap();
-//     }
+    tex_pro
+        .node_graph
+        .connect(input_1, output_node, SlotId(0), SlotId(0))
+        .unwrap();
 
-//     tex_pro.process();
-
-//     ensure_out_dir();
-//     image::save_buffer(
-//         &Path::new(&path_out),
-//         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
-//         256,
-//         256,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-    
-// }
+    tex_pro.process();
+}
 
 #[test]
 fn resize_rgba() {
