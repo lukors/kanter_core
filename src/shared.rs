@@ -140,7 +140,6 @@ pub fn resize_buffers(
 
     let output: Vec<Arc<NodeData>> = node_datas
         .iter()
-        // .filter(|ref node_data| node_data.size != size)
         .map(|ref node_data| {
             if node_data.size != size {
                 // Needs to be resized
@@ -153,7 +152,7 @@ pub fn resize_buffers(
                 Arc::new(NodeData::new(
                     node_data.node_id,
                     node_data.slot_id,
-                    node_data.size,
+                    size,
                     Arc::clone(&resized_buffer),
                 ))
             } else {

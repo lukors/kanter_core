@@ -13,6 +13,7 @@ const HEART_128: &str = "data/heart_128.png";
 const HEART_256: &str = "data/heart_256.png";
 const HEART_WIDE: &str = "data/heart_wide.png";
 const HEART_TALL: &str = "data/heart_tall.png";
+const HEART_110: &str = "data/heart_110.png";
 const CLOUDS: &str = "data/clouds.png";
 
 fn ensure_out_dir() {
@@ -215,6 +216,52 @@ fn mix_images() {
     .unwrap();
 
     assert!(images_equal(path_out, path_compare))
+}
+
+#[test]
+fn irregular_sizes() {
+    const PATH_OUT: &str = &"out/irregular_sizes.png";
+    const PATH_CMP: &str = &"data/test_compare/irregular_sizes.png";
+    
+    let mut tex_pro = TextureProcessor::new();
+
+    let input_1 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Image(HEART_128.to_string())))
+        .unwrap();
+    let input_2 = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Image(HEART_110.to_string())))
+        .unwrap();
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(input_1, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .node_graph
+        .connect(input_2, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+
+    tex_pro.process();
+
+    let size = tex_pro.get_node_size(output_node).unwrap();
+
+    ensure_out_dir();
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(size.width, size.height, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size.width,
+        size.height,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
 }
 
 #[test]
@@ -568,12 +615,12 @@ fn resize_policy_least_pixels() {
         .node_graph
         .add_node(Node::new(NodeType::Image(HEART_256.to_string())))
         .unwrap();
-    let resize_node = tex_pro
+        
+    let mut passthrough_node = Node::new(NodeType::OutputRgba);
+    passthrough_node.resize_policy = Some(ResizePolicy::LeastPixels);
+    let passthrough_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Resize(
-            Some(ResizePolicy::LeastPixels),
-            None,
-        )))
+        .add_node(passthrough_node)
         .unwrap();
     let output_128 = tex_pro
         .node_graph
@@ -586,25 +633,25 @@ fn resize_policy_least_pixels() {
 
     tex_pro
         .node_graph
-        .connect(node_128, resize_node, SlotId(0), SlotId(0))
+        .connect(node_128, passthrough_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
         .node_graph
-        .connect(node_256, resize_node, SlotId(1), SlotId(1))
+        .connect(node_256, passthrough_node, SlotId(1), SlotId(1))
         .unwrap();
 
     tex_pro
         .node_graph
-        .connect(resize_node, output_128, SlotId(0), SlotId(0))
+        .connect(passthrough_node, output_128, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
         .node_graph
-        .connect(resize_node, output_256, SlotId(1), SlotId(0))
+        .connect(passthrough_node, output_256, SlotId(1), SlotId(0))
         .unwrap();
 
     tex_pro.process();
 
-    assert!(tex_pro.node_datas(output_256)[0].size == tex_pro.node_datas(node_128)[0].size);
+    assert!(tex_pro.get_node_size(output_256).unwrap() == tex_pro.get_node_size(node_128).unwrap());
 }
 
 #[test]
