@@ -453,11 +453,14 @@ impl NodeGraph {
         }
     }
 
-    pub fn remove_node(&mut self, node_id: NodeId) {
+    pub fn remove_node(&mut self, node_id: NodeId) -> Result<()> {
         self.disconnect_node(node_id);
 
         if let Some(index_to_remove) = self.nodes.iter().position(|node| node.node_id == node_id) {
             self.nodes.remove(index_to_remove);
+            Ok(())
+        } else {
+            Err(TexProError::InvalidNodeId)
         }
     }
 
