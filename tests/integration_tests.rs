@@ -405,6 +405,20 @@ fn input_output_2_internal() -> TextureProcessor {
 }
 
 #[test]
+fn remove_node() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.)))
+        .unwrap();
+
+    tex_pro.node_graph.remove_node(value_node).unwrap();
+
+    assert_eq!(tex_pro.node_graph.nodes().len(), 0);
+}
+
+#[test]
 fn value_node() {
     const PATH_OUT: &str = &"out/value_node.png";
     const PATH_CMP: &str = &"data/test_compare/value_node.png";
