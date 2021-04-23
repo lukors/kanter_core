@@ -1,11 +1,6 @@
 use crate::{error::*, node::*, shared::has_dup};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    io::{self},
-    mem,
-    sync::Arc,
-};
+use std::{fmt, fs::File, io::{self}, mem, sync::Arc};
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 pub struct NodeGraph {
@@ -488,6 +483,12 @@ pub struct NodeId(pub u32);
 impl NodeId {
     pub fn as_usize(self) -> usize {
         self.0 as usize
+    }
+}
+
+impl fmt::Display for NodeId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
