@@ -1,12 +1,12 @@
 use crate::{error::*, node::*, shared::has_dup};
 use serde::{Deserialize, Serialize};
-use std::{fmt, fs::File, io::{self}, mem, sync::Arc};
+use std::{fmt, fs::File, io::{self}, mem};
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 pub struct NodeGraph {
     input_mappings: Vec<ExternalMapping>,
     output_mappings: Vec<ExternalMapping>,
-    nodes: Vec<Arc<Node>>,
+    nodes: Vec<Node>,
     pub edges: Vec<Edge>,
 }
 
@@ -28,12 +28,12 @@ impl NodeGraph {
         if let Some(node_index) = self.index_of_node(node_id) {
             match self.nodes[node_index].node_type {
                 NodeType::Mix(_) => {
-                    let mut node_clone: Node = (*self.nodes[node_index]).clone();
+                    let mut node_clone: Node = (self.nodes[node_index]).clone();
                     node_clone.node_type = NodeType::Mix(mix_type);
 
                     #[allow(unused_must_use)]
                     {
-                        mem::replace(&mut self.nodes[node_index], Arc::new(node_clone));
+                        mem::replace(&mut self.nodes[node_index], node_clone);
                     }
                     Ok(())
                 }
@@ -48,12 +48,12 @@ impl NodeGraph {
         if let Some(node_index) = self.index_of_node(node_id) {
             match self.nodes[node_index].node_type {
                 NodeType::Image(_) => {
-                    let mut node_clone: Node = (*self.nodes[node_index]).clone();
+                    let mut node_clone: Node = (self.nodes[node_index]).clone();
                     node_clone.node_type = NodeType::Image(path);
 
                     #[allow(unused_must_use)]
                     {
-                        mem::replace(&mut self.nodes[node_index], Arc::new(node_clone));
+                        mem::replace(&mut self.nodes[node_index], node_clone);
                     }
                     Ok(())
                 }
@@ -124,7 +124,7 @@ impl NodeGraph {
         self.nodes.iter().any(|node| node.node_id == node_id)
     }
 
-    pub fn nodes(&self) -> &Vec<Arc<Node>> {
+    pub fn nodes(&self) -> &Vec<Node> {
         &self.nodes
     }
 
@@ -132,13 +132,17 @@ impl NodeGraph {
         self.nodes.iter().map(|node| node.node_id).collect()
     }
 
-    pub fn node_with_id(&self, node_id: NodeId) -> Option<&Arc<Node>> {
+    pub fn node_with_id(&self, node_id: NodeId) -> Option<&Node> {
         self.nodes.iter().find(|node| node.node_id == node_id)
+    }
+
+    pub fn node_with_id_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {
+        self.nodes.iter_mut().find(|node| node.node_id == node_id)
     }
 
     fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) {
         node.node_id = node_id;
-        self.nodes.push(Arc::new(node));
+        self.nodes.push(node);
     }
 
     /// Adds a grayscale input node and exposes its slots externally at the given `SlotId`.
@@ -494,6 +498,12 @@ impl fmt::Display for NodeId {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct SlotId(pub u32);
+
+impl fmt::Display for SlotId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl SlotId {
     pub fn as_usize(self) -> usize {

@@ -11,7 +11,7 @@ use nalgebra::{Cross, Norm, Vector3};
 use std::{path::Path, sync::Arc};
 
 pub fn process_node(
-    node: Arc<Node>,
+    node: Node,
     node_datas: &[Arc<NodeData>],
     embedded_node_datas: &[Arc<EmbeddedNodeData>],
     input_node_datas: &[Arc<NodeData>],
@@ -29,28 +29,28 @@ pub fn process_node(
         NodeType::OutputRgba => output_rgba(&node_datas, edges)?,
         NodeType::OutputGray => output_gray(&node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&node_datas, &node, node_graph),
-        NodeType::Image(ref path) => read(Arc::clone(&node), path)?,
+        NodeType::Image(ref path) => read(&node, path)?,
         NodeType::NodeData(embedded_node_data_id) => {
             image_buffer(&node, embedded_node_datas, embedded_node_data_id)?
         }
         NodeType::Write(ref path) => write(&node_datas, path)?,
-        NodeType::Value(val) => value(Arc::clone(&node), val),
+        NodeType::Value(val) => value(&node, val),
         NodeType::Resize(resize_policy, filter_type) => process_resize(
             &node_datas,
-            Arc::clone(&node),
+            &node,
             edges,
             resize_policy,
             filter_type,
         )?,
-        NodeType::Mix(mix_type) => process_blend(&node_datas, Arc::clone(&node), edges, mix_type)?,
-        NodeType::HeightToNormal => process_height_to_normal(&node_datas, Arc::clone(&node)),
+        NodeType::Mix(mix_type) => process_blend(&node_datas, &node, edges, mix_type)?,
+        NodeType::HeightToNormal => process_height_to_normal(&node_datas, &node),
     };
 
     assert!(output.len() <= node.capacity(Side::Output));
     Ok(output)
 }
 
-fn input_gray(node: &Arc<Node>, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+fn input_gray(node: &Node, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
     if let Some(node_data) = input_node_datas
         .iter()
         .find(|nd| nd.node_id == node.node_id)
@@ -61,7 +61,7 @@ fn input_gray(node: &Arc<Node>, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<N
     }
 }
 
-fn input_rgba(node: &Arc<Node>, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+fn input_rgba(node: &Node, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(node.capacity(Side::Input));
 
     for node_data in input_node_datas
@@ -75,7 +75,7 @@ fn input_rgba(node: &Arc<Node>, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<N
 }
 
 fn image_buffer(
-    node: &Arc<Node>,
+    node: &Node,
     embedded_node_datas: &[Arc<EmbeddedNodeData>],
     embedded_node_data_id: EmbeddedNodeDataId,
 ) -> Result<Vec<Arc<NodeData>>> {
@@ -122,7 +122,7 @@ fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<N
 }
 
 /// Finds the `NodeData` relevant for this `Node` and outputs them.
-fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Vec<Arc<NodeData>> {
+fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Node) -> Vec<Arc<NodeData>> {
     let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(1);
 
     // Find a `NodeData` in `inputs` that matches the current `Edge`.
@@ -152,7 +152,7 @@ fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Arc<Node>) -> Ve
 }
 
 /// Executes the node graph contained in the node.
-fn graph(node_datas: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
+fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
     let mut output: Vec<Arc<NodeData>> = Vec::new();
     let mut tex_pro = TextureProcessor::new();
     tex_pro.node_graph = (*graph).clone();
@@ -189,7 +189,7 @@ fn graph(node_datas: &[Arc<NodeData>], node: &Arc<Node>, graph: &NodeGraph) -> V
     output
 }
 
-fn read(node: Arc<Node>, path: &str) -> Result<Vec<Arc<NodeData>>> {
+fn read(node: &Node, path: &str) -> Result<Vec<Arc<NodeData>>> {
     let buffers = read_image(&Path::new(path))?;
     let size = Size {
         width: buffers[0].width(),
@@ -228,7 +228,7 @@ fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {
     Ok(Vec::new())
 }
 
-fn value(node: Arc<Node>, value: f32) -> Vec<Arc<NodeData>> {
+fn value(node: &Node, value: f32) -> Vec<Arc<NodeData>> {
     let (width, height) = (1, 1);
 
     vec![Arc::new(NodeData::new(
@@ -320,7 +320,7 @@ fn resize_only(
 
 fn process_resize(
     node_datas: &[Arc<NodeData>],
-    node: Arc<Node>,
+    node: &Node,
     edges: &[Edge],
     resize_policy: Option<ResizePolicy>,
     filter_type: Option<ResizeFilter>,
@@ -349,14 +349,14 @@ fn process_resize(
 // resizing the image before blending.
 fn process_blend(
     node_datas: &[Arc<NodeData>],
-    node: Arc<Node>,
+    node: &Node,
     edges: &[Edge],
     mix_type: MixType,
 ) -> Result<Vec<Arc<NodeData>>> {
     if node_datas.len() != 2 {
         return Err(TexProError::InvalidBufferCount);
     }
-    let node_datas = process_resize(&node_datas, Arc::clone(&node), edges, None, None)?;
+    let node_datas = process_resize(&node_datas, &node, edges, None, None)?;
     let size = node_datas[0].size;
 
     let buffer = match mix_type {
@@ -459,7 +459,7 @@ fn order_node_datas(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<
     Ok(vec![left_side_node_data, right_side_node_data])
 }
 
-fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: Arc<Node>) -> Vec<Arc<NodeData>> {
+fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
     let channel_count = 3;
     let heightmap = &node_datas[0].buffer;
     let (width, height) = (heightmap.width(), heightmap.height());

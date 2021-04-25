@@ -1,7 +1,7 @@
 use crate::{node::EmbeddedNodeDataId, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct NodeData {
@@ -35,6 +35,12 @@ pub type Buffer = Box<ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>>;
 pub struct Size {
     pub width: u32,
     pub height: u32,
+}
+
+impl fmt::Display for Size {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}x{}", self.width, self.height)
+    }
 }
 
 impl Size {

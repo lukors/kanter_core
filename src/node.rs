@@ -19,6 +19,19 @@ impl Default for ResizePolicy {
     }
 }
 
+impl fmt::Display for ResizePolicy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::MostPixels => write!(f, "Most pixels"),
+            Self::LeastPixels => write!(f, "Least Pixels"),
+            Self::LargestAxes => write!(f, "Largest Axes"),
+            Self::SmallestAxes => write!(f, "Smallest Axes"),
+            Self::SpecificSlot(i) => write!(f, "Slot: {}", i),
+            Self::SpecificSize(i) => write!(f, "Size: {}", i),
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize, Serialize)]
 pub enum ResizeFilter {
     Nearest,
@@ -28,14 +41,32 @@ pub enum ResizeFilter {
     Lanczos3,
 }
 
+impl Default for ResizeFilter {
+    fn default() -> Self {
+        Self::Nearest
+    }
+}
+
+impl fmt::Display for ResizeFilter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Nearest => write!(f, "Nearest neighbour"),
+            Self::Triangle => write!(f, "Triangle"),
+            Self::CatmullRom => write!(f, "CatmullRom"),
+            Self::Gaussian => write!(f, "Gaussian"),
+            Self::Lanczos3 => write!(f, "Lanczos3"),
+        }
+    }
+}
+
 impl From<FilterType> for ResizeFilter {
     fn from(filter_type: FilterType) -> Self {
         match filter_type {
-            FilterType::Nearest => ResizeFilter::Nearest,
-            FilterType::Triangle => ResizeFilter::Triangle,
-            FilterType::CatmullRom => ResizeFilter::CatmullRom,
-            FilterType::Gaussian => ResizeFilter::Gaussian,
-            FilterType::Lanczos3 => ResizeFilter::Lanczos3,
+            FilterType::Nearest => Self::Nearest,
+            FilterType::Triangle => Self::Triangle,
+            FilterType::CatmullRom => Self::CatmullRom,
+            FilterType::Gaussian => Self::Gaussian,
+            FilterType::Lanczos3 => Self::Lanczos3,
         }
     }
 }
@@ -43,11 +74,11 @@ impl From<FilterType> for ResizeFilter {
 impl Into<FilterType> for ResizeFilter {
     fn into(self) -> FilterType {
         match self {
-            ResizeFilter::Nearest => FilterType::Nearest,
-            ResizeFilter::Triangle => FilterType::Triangle,
-            ResizeFilter::CatmullRom => FilterType::CatmullRom,
-            ResizeFilter::Gaussian => FilterType::Gaussian,
-            ResizeFilter::Lanczos3 => FilterType::Lanczos3,
+            Self::Nearest => FilterType::Nearest,
+            Self::Triangle => FilterType::Triangle,
+            Self::CatmullRom => FilterType::CatmullRom,
+            Self::Gaussian => FilterType::Gaussian,
+            Self::Lanczos3 => FilterType::Lanczos3,
         }
     }
 }
@@ -165,5 +196,9 @@ impl Node {
                 NodeType::HeightToNormal => 3,
             },
         }
+    }
+
+    pub fn filter_type(&mut self, ft: ResizeFilter) {
+        self.filter_type = Some(ft);
     }
 }

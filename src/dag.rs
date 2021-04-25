@@ -117,7 +117,7 @@ impl TextureProcessor {
 
             // Spawn a thread and calculate the node in it and send back the new `node_data`s for
             // each slot in the node.
-            let current_node = Arc::clone(self.node_graph.node_with_id(current_id).unwrap());
+            let current_node = self.node_graph.node_with_id(current_id).unwrap().clone();
             let send = send.clone();
 
             let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = self
