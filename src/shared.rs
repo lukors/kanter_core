@@ -107,6 +107,10 @@ pub fn resize_buffers(
     filter: Option<ResizeFilter>,
 ) -> Result<Vec<Arc<NodeData>>> {
     let filter = filter.unwrap_or(ResizeFilter::Triangle);
+    
+    if node_datas.is_empty() {
+        return Ok(node_datas.into());
+    }
 
     let size = match policy {
         ResizePolicy::MostPixels => node_datas

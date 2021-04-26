@@ -684,38 +684,22 @@ fn resize_policy_largest_axes() {
             HEART_TALL.to_string(),
         )))
         .unwrap();
-    let resize_node = tex_pro
+    let output = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Resize(
-            Some(ResizePolicy::LargestAxes),
-            None,
-        )))
+        .add_node(Node::new(NodeType::OutputRgba))
         .unwrap();
-    let output_256x128 = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::OutputGray))
-        .unwrap();
-    let output_128x256 = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::OutputGray))
-        .unwrap();
+    
+    if let Some(node) = tex_pro.node_graph.node_with_id_mut(output) {
+        node.resize_policy = ResizePolicy::LargestAxes;
+    }
 
     tex_pro
         .node_graph
-        .connect(node_256x128, resize_node, SlotId(0), SlotId(0))
+        .connect(node_256x128, output, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
         .node_graph
-        .connect(node_128x256, resize_node, SlotId(1), SlotId(1))
-        .unwrap();
-
-    tex_pro
-        .node_graph
-        .connect(resize_node, output_256x128, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .node_graph
-        .connect(resize_node, output_128x256, SlotId(1), SlotId(0))
+        .connect(node_128x256, output, SlotId(0), SlotId(1))
         .unwrap();
 
     tex_pro.process();
@@ -725,8 +709,8 @@ fn resize_policy_largest_axes() {
         tex_pro.node_datas(node_128x256)[0].size.height,
     );
 
-    assert!(tex_pro.node_datas(output_128x256)[0].size == target_size);
-    assert!(tex_pro.node_datas(output_256x128)[0].size == target_size);
+    assert!(tex_pro.node_datas(output)[0].size == target_size);
+    assert!(tex_pro.node_datas(output)[1].size == target_size);
 }
 
 #[test]

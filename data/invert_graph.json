@@ -19,28 +19,28 @@
       "node_type": {
         "Value": 1.0
       },
-      "resize_policy": null,
-      "filter_type": null
+      "resize_policy": "MostPixels",
+      "filter_type": "Triangle"
     },
     {
       "node_id": 313523460,
       "node_type": "InputGray",
-      "resize_policy": null,
-      "filter_type": null
+      "resize_policy": "MostPixels",
+      "filter_type": "Triangle"
     },
     {
       "node_id": 2642059456,
       "node_type": {
         "Mix": "Subtract"
       },
-      "resize_policy": null,
-      "filter_type": null
+      "resize_policy": "MostPixels",
+      "filter_type": "Triangle"
     },
     {
       "node_id": 1484787644,
       "node_type": "OutputGray",
-      "resize_policy": null,
-      "filter_type": null
+      "resize_policy": "MostPixels",
+      "filter_type": "Triangle"
     }
   ],
   "edges": [
