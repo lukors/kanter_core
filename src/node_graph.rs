@@ -6,7 +6,7 @@ use std::{fmt, fs::File, io::{self}, mem};
 pub struct NodeGraph {
     input_mappings: Vec<ExternalMapping>,
     output_mappings: Vec<ExternalMapping>,
-    nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
 }
 
@@ -64,7 +64,8 @@ impl NodeGraph {
         }
     }
 
-    fn new_id(&mut self) -> NodeId {
+    /// Generates a new unique NodeId.
+    pub fn new_id(&mut self) -> NodeId {
         loop {
             let id = NodeId(rand::random());
             if !self.has_node_with_id(id) {
