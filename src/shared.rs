@@ -103,10 +103,9 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 
 pub fn resize_buffers(
     node_datas: &[Arc<NodeData>],
-    policy: Option<ResizePolicy>,
+    policy: ResizePolicy,
     filter: Option<ResizeFilter>,
 ) -> Result<Vec<Arc<NodeData>>> {
-    let policy = policy.unwrap_or(ResizePolicy::LargestAxes);
     let filter = filter.unwrap_or(ResizeFilter::Triangle);
 
     let size = match policy {

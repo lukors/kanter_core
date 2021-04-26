@@ -151,7 +151,7 @@ impl fmt::Debug for NodeType {
 pub struct Node {
     pub node_id: NodeId,
     pub node_type: NodeType,
-    pub resize_policy: Option<ResizePolicy>,
+    pub resize_policy: ResizePolicy,
     pub filter_type: Option<ResizeFilter>,
 }
 
@@ -160,7 +160,7 @@ impl Node {
         Self {
             node_id: NodeId(0),
             node_type,
-            resize_policy: None,
+            resize_policy: ResizePolicy::MostPixels,
             filter_type: None,
         }
     }

@@ -631,7 +631,7 @@ fn resize_policy_least_pixels() {
         .unwrap();
         
     let mut passthrough_node = Node::new(NodeType::OutputRgba);
-    passthrough_node.resize_policy = Some(ResizePolicy::LeastPixels);
+    passthrough_node.resize_policy = ResizePolicy::LeastPixels;
     let passthrough_node = tex_pro
         .node_graph
         .add_node(passthrough_node)
