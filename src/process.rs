@@ -202,7 +202,7 @@ fn read(node: &Node, path: &Path) -> Result<Vec<Arc<NodeData>>> {
     Ok(output)
 }
 
-fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {
+fn write(inputs: &[Arc<NodeData>], path: &Path) -> Result<Vec<Arc<NodeData>>> {
     let channel_vec: Vec<Arc<Buffer>> = inputs
         .iter()
         .map(|node_data| Arc::clone(&node_data.buffer))
@@ -210,7 +210,7 @@ fn write(inputs: &[Arc<NodeData>], path: &str) -> Result<Vec<Arc<NodeData>>> {
     let (width, height) = (inputs[0].size.width, inputs[0].size.height);
 
     image::save_buffer(
-        &Path::new(path),
+        &path,
         &image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)?).unwrap(),
         width,
         height,

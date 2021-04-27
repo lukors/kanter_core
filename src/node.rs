@@ -89,7 +89,7 @@ pub enum NodeType {
     Graph(NodeGraph),
     Image(PathBuf),
     NodeData(EmbeddedNodeDataId),
-    Write(String),
+    Write(PathBuf),
     Value(f32),
     Mix(MixType),
     HeightToNormal,
