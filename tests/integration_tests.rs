@@ -424,6 +424,46 @@ fn remove_node() {
 }
 
 #[test]
+fn connect_invalid_slot() {
+    let mut tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.)))
+        .unwrap();
+
+    let output_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::OutputRgba))
+        .unwrap();
+
+    assert!(tex_pro
+        .node_graph
+        .connect(value_node, output_node, SlotId(0), SlotId(0))
+        .is_ok());
+    assert!(tex_pro
+        .node_graph
+        .connect(value_node, output_node, SlotId(0), SlotId(1))
+        .is_ok());
+    assert!(tex_pro
+        .node_graph
+        .connect(value_node, output_node, SlotId(0), SlotId(2))
+        .is_ok());
+    assert!(tex_pro
+        .node_graph
+        .connect(value_node, output_node, SlotId(0), SlotId(3))
+        .is_ok());
+    assert!(tex_pro
+        .node_graph
+        .connect(value_node, output_node, SlotId(0), SlotId(4))
+        .is_err());
+    assert!(tex_pro
+        .node_graph
+        .connect(value_node, output_node, SlotId(1), SlotId(0))
+        .is_err());
+}
+
+#[test]
 #[timeout(5000)]
 fn value_node() {
     const PATH_OUT: &str = &"out/value_node.png";

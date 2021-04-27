@@ -385,6 +385,16 @@ impl NodeGraph {
         if !self.has_node_with_id(output_node) || !self.has_node_with_id(input_node) {
             return Err(TexProError::InvalidNodeId);
         }
+        if let Some(node) = self.node_with_id(input_node) {
+            if input_slot.as_usize() >= node.capacity(Side::Input) {
+                return Err(TexProError::InvalidSlotId);
+            }
+        }
+        if let Some(node) = self.node_with_id(output_node) {
+            if output_slot.as_usize() >= node.capacity(Side::Output) {
+                return Err(TexProError::InvalidSlotId);
+            }
+        }
 
         self.disconnect_slot(input_node, Side::Input, input_slot);
 
