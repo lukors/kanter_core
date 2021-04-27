@@ -4,8 +4,8 @@ use kanter_core::{
     node_data::Size,
     node_graph::{NodeGraph, NodeId, SlotId},
 };
-use std::{fs::create_dir, path::Path, sync::Arc};
 use ntest::timeout;
+use std::{fs::create_dir, path::Path, sync::Arc};
 
 const OUT_DIR: &str = "out";
 const IMAGE_1: &str = "data/image_1.png";
@@ -33,7 +33,7 @@ fn input_output() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(path_in.clone())))
+        .add_node(Node::new(NodeType::Image(path_in.clone().into())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -85,7 +85,7 @@ fn embedded_node_data() {
 
     let tp1_input_node = tex_pro_1
         .node_graph
-        .add_node(Node::new(NodeType::Image(path_in.to_string())))
+        .add_node(Node::new(NodeType::Image(path_in.clone().into())))
         .unwrap();
     let tp1_output_node = tex_pro_1
         .node_graph
@@ -149,7 +149,7 @@ fn repeat_process() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image("data/image_1.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/image_1.png".into())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -180,11 +180,11 @@ fn mix_images() {
 
     let input_1 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(path_in_1)))
+        .add_node(Node::new(NodeType::Image(path_in_1.into())))
         .unwrap();
     let input_2 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(path_in_2)))
+        .add_node(Node::new(NodeType::Image(path_in_2.into())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -233,11 +233,11 @@ fn irregular_sizes() {
 
     let input_1 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_128.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_128.into())))
         .unwrap();
     let input_2 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_110.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_110.into())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -311,7 +311,7 @@ fn resize_rgba() {
 
     let n_in = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(IN_PATH.to_string())))
+        .add_node(Node::new(NodeType::Image(IN_PATH.into())))
         .unwrap();
 
     let n_out = tex_pro
@@ -375,11 +375,11 @@ fn input_output_2_internal() -> TextureProcessor {
 
     let input_node_1 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image("data/px_1.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/px_1.png".into())))
         .unwrap();
     let input_node_2 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image("data/px_1.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/px_1.png".into())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -486,7 +486,7 @@ fn shuffle_channels() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(IMAGE_2.to_string())))
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
     let output_node = tex_pro
         .node_graph
@@ -524,11 +524,11 @@ fn resize_policy_most_pixels() {
 
     let node_128 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_128.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_128.into())))
         .unwrap();
     let node_256 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_256.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_256.into())))
         .unwrap();
     let output = tex_pro
         .node_graph
@@ -556,11 +556,11 @@ fn resize_policy_least_pixels() {
 
     let node_128 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_128.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_128.into())))
         .unwrap();
     let node_256 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_256.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_256.into())))
         .unwrap();
 
     let mut passthrough_node = Node::new(NodeType::OutputRgba);
@@ -605,11 +605,11 @@ fn resize_policy_largest_axes() {
 
     let node_256x128 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_WIDE.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_WIDE.into())))
         .unwrap();
     let node_128x256 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_TALL.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_TALL.into())))
         .unwrap();
     let output = tex_pro
         .node_graph
@@ -650,7 +650,7 @@ fn add_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(IMAGE_2.to_string())))
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
     let white_node = tex_pro
         .node_graph
@@ -717,7 +717,7 @@ fn subtract_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(IMAGE_2.to_string())))
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
     let subtract_node = tex_pro
         .node_graph
@@ -791,7 +791,7 @@ fn invert_graph_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(HEART_256.to_string())))
+        .add_node(Node::new(NodeType::Image(HEART_256.into())))
         .unwrap();
     let white_node = tex_pro
         .node_graph
@@ -871,7 +871,7 @@ fn invert_graph_node_export() {
         .unwrap();
 
     invert_graph
-        .export_json("out/invert_graph.json".to_string())
+        .export_json("out/invert_graph.json".into())
         .unwrap();
 }
 
@@ -882,14 +882,14 @@ fn invert_graph_node_import() {
     const PATH_CMP: &str = &"data/test_compare/invert_graph_node_import.png";
 
     // Nested invert graph
-    let invert_graph = NodeGraph::from_path("data/invert_graph.json".to_string()).unwrap();
+    let invert_graph = NodeGraph::from_path("data/invert_graph.json".into()).unwrap();
 
     // Main graph
     let mut tex_pro = TextureProcessor::new();
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image("data/heart_256.png".to_string())))
+        .add_node(Node::new(NodeType::Image("data/heart_256.png".into())))
         .unwrap();
     let white_node = tex_pro
         .node_graph
@@ -976,7 +976,7 @@ fn graph_node_rgba() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(IMAGE_2.to_string())))
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
     let graph_node = tex_pro
         .node_graph
@@ -1061,7 +1061,7 @@ fn graph_node_gray() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(IMAGE_2.to_string())))
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
     let graph_node = tex_pro
         .node_graph
@@ -1121,7 +1121,7 @@ fn height_to_normal_node() {
 
     let input_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(CLOUDS.to_string())))
+        .add_node(Node::new(NodeType::Image(CLOUDS.into())))
         .unwrap();
     let h2n_node = tex_pro
         .node_graph
@@ -1176,7 +1176,7 @@ fn multiply_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(IMAGE_1.to_string())))
+        .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
         .unwrap();
     let multiply_node = tex_pro
         .node_graph
@@ -1227,7 +1227,7 @@ fn divide_node() {
 
     let image_node = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(IMAGE_1.to_string())))
+        .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
         .unwrap();
     let divide_node = tex_pro
         .node_graph

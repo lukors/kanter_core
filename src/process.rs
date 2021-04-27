@@ -8,7 +8,10 @@ use crate::{
 };
 use image::{imageops::resize, ImageBuffer, Luma};
 use nalgebra::{Cross, Norm, Vector3};
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 pub fn process_node(
     node: Node,
@@ -182,8 +185,8 @@ fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
     output
 }
 
-fn read(node: &Node, path: &str) -> Result<Vec<Arc<NodeData>>> {
-    let buffers = read_image(&Path::new(path))?;
+fn read(node: &Node, path: &PathBuf) -> Result<Vec<Arc<NodeData>>> {
+    let buffers = read_image(path)?;
     let size = Size {
         width: buffers[0].width(),
         height: buffers[0].height(),

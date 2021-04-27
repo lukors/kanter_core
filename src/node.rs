@@ -1,7 +1,7 @@
 use crate::{node_data::*, node_graph::*};
 use image::FilterType;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::{fmt, path::PathBuf};
 
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum ResizePolicy {
@@ -99,7 +99,7 @@ pub enum NodeType {
     OutputGray,
     OutputRgba,
     Graph(NodeGraph),
-    Image(String),
+    Image(PathBuf),
     NodeData(EmbeddedNodeDataId),
     Write(String),
     Value(f32),

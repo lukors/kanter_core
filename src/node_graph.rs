@@ -5,6 +5,7 @@ use std::{
     fs::File,
     io::{self},
     mem,
+    path::PathBuf,
 };
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
@@ -49,7 +50,7 @@ impl NodeGraph {
         }
     }
 
-    pub fn set_image_node_path(&mut self, node_id: NodeId, path: String) -> Result<()> {
+    pub fn set_image_node_path(&mut self, node_id: NodeId, path: PathBuf) -> Result<()> {
         if let Some(node_index) = self.index_of_node(node_id) {
             match self.nodes[node_index].node_type {
                 NodeType::Image(_) => {
