@@ -110,7 +110,7 @@ impl TextureProcessor {
                         && current_id == edge.input_id
                     {
                         input_data.push(Arc::clone(node_data));
-                        relevant_edges.push(edge.clone());
+                        relevant_edges.push(*edge);
                     }
                 }
             }
@@ -252,11 +252,7 @@ impl TextureProcessor {
 
     fn get_output_rgba(&self, node_datas: &[Arc<NodeData>]) -> Result<Vec<Arc<Buffer>>> {
         let empty_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::new(0, 0)));
-        let mut sorted_value_vecs: Vec<Arc<Buffer>> = Vec::with_capacity(4);
-        sorted_value_vecs.push(Arc::clone(&empty_buffer));
-        sorted_value_vecs.push(Arc::clone(&empty_buffer));
-        sorted_value_vecs.push(Arc::clone(&empty_buffer));
-        sorted_value_vecs.push(Arc::clone(&empty_buffer));
+        let mut sorted_value_vecs: Vec<Arc<Buffer>> = vec![Arc::clone(&empty_buffer); 4];
 
         for node_data in node_datas.iter() {
             sorted_value_vecs[node_data.slot_id.0 as usize] = Arc::clone(&node_data.buffer);
@@ -290,10 +286,7 @@ impl TextureProcessor {
         let (width, height) = (node_datas[0].size.width, node_datas[0].size.height);
         let size = (width * height) as usize;
 
-        let mut sorted_value_vecs: Vec<Arc<Buffer>> = Vec::with_capacity(4);
-        sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
-        sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
-        sorted_value_vecs.push(Arc::clone(&node_datas[0].buffer));
+        let mut sorted_value_vecs: Vec<Arc<Buffer>> = vec![Arc::clone(&node_datas[0].buffer); 3];
         sorted_value_vecs.push(Arc::new(Box::new(
             ImageBuffer::from_raw(width, height, vec![1.; size]).ok_or(TexProError::Generic)?,
         )));

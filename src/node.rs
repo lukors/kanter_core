@@ -59,26 +59,14 @@ impl fmt::Display for ResizeFilter {
     }
 }
 
-impl From<FilterType> for ResizeFilter {
-    fn from(filter_type: FilterType) -> Self {
-        match filter_type {
-            FilterType::Nearest => Self::Nearest,
-            FilterType::Triangle => Self::Triangle,
-            FilterType::CatmullRom => Self::CatmullRom,
-            FilterType::Gaussian => Self::Gaussian,
-            FilterType::Lanczos3 => Self::Lanczos3,
-        }
-    }
-}
-
-impl Into<FilterType> for ResizeFilter {
-    fn into(self) -> FilterType {
-        match self {
-            Self::Nearest => FilterType::Nearest,
-            Self::Triangle => FilterType::Triangle,
-            Self::CatmullRom => FilterType::CatmullRom,
-            Self::Gaussian => FilterType::Gaussian,
-            Self::Lanczos3 => FilterType::Lanczos3,
+impl From<ResizeFilter> for FilterType {
+    fn from(resize_filter: ResizeFilter) -> FilterType {
+        match resize_filter {
+            ResizeFilter::Nearest => Self::Nearest,
+            ResizeFilter::Triangle => Self::Triangle,
+            ResizeFilter::CatmullRom => Self::CatmullRom,
+            ResizeFilter::Gaussian => Self::Gaussian,
+            ResizeFilter::Lanczos3 => Self::Lanczos3,
         }
     }
 }
