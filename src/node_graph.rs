@@ -1,6 +1,11 @@
 use crate::{error::*, node::*, shared::has_dup};
 use serde::{Deserialize, Serialize};
-use std::{fmt, fs::File, io::{self}, mem};
+use std::{
+    fmt,
+    fs::File,
+    io::{self},
+    mem,
+};
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 pub struct NodeGraph {

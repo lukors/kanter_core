@@ -21,7 +21,7 @@ pub fn process_node(
     assert_eq!(edges.len(), node_datas.len());
 
     let node_datas: Vec<Arc<NodeData>> =
-        resize_buffers(&node_datas, node.resize_policy, node.filter_type)?;
+        resize_buffers(&node_datas, node.resize_policy, node.resize_filter)?;
 
     let output: Vec<Arc<NodeData>> = match node.node_type {
         NodeType::InputRgba => input_rgba(&node, &input_node_datas),
@@ -35,13 +35,6 @@ pub fn process_node(
         }
         NodeType::Write(ref path) => write(&node_datas, path)?,
         NodeType::Value(val) => value(&node, val),
-        NodeType::Resize(resize_policy, filter_type) => process_resize(
-            &node_datas,
-            &node,
-            edges,
-            resize_policy,
-            filter_type,
-        )?,
         NodeType::Mix(mix_type) => process_blend(&node_datas, &node, edges, mix_type)?,
         NodeType::HeightToNormal => process_height_to_normal(&node_datas, &node),
     };

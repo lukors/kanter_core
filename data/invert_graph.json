@@ -20,13 +20,13 @@
         "Value": 1.0
       },
       "resize_policy": "MostPixels",
-      "filter_type": "Triangle"
+      "resize_filter": "Triangle"
     },
     {
       "node_id": 313523460,
       "node_type": "InputGray",
       "resize_policy": "MostPixels",
-      "filter_type": "Triangle"
+      "resize_filter": "Triangle"
     },
     {
       "node_id": 2642059456,
@@ -34,13 +34,13 @@
         "Mix": "Subtract"
       },
       "resize_policy": "MostPixels",
-      "filter_type": "Triangle"
+      "resize_filter": "Triangle"
     },
     {
       "node_id": 1484787644,
       "node_type": "OutputGray",
       "resize_policy": "MostPixels",
-      "filter_type": "Triangle"
+      "resize_filter": "Triangle"
     }
   ],
   "edges": [

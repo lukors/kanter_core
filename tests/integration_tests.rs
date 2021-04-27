@@ -5,6 +5,7 @@ use kanter_core::{
     node_graph::{NodeGraph, NodeId, SlotId},
 };
 use std::{fs::create_dir, path::Path, sync::Arc};
+use ntest::timeout;
 
 const OUT_DIR: &str = "out";
 const IMAGE_1: &str = "data/image_1.png";
@@ -23,10 +24,11 @@ fn ensure_out_dir() {
 }
 
 #[test]
+#[timeout(5000)]
 fn input_output() {
     let path_in = IMAGE_2.to_string();
     let path_out = "out/input_output.png".to_string();
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let input_node = tex_pro
@@ -61,6 +63,7 @@ fn input_output() {
 }
 
 #[test]
+#[timeout(5000)]
 fn unconnected() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -73,6 +76,7 @@ fn unconnected() {
 }
 
 #[test]
+#[timeout(5000)]
 fn embedded_node_data() {
     let path_in = IMAGE_1.to_string();
     let path_out = "out/embedded_node_data.png".to_string();
@@ -107,17 +111,16 @@ fn embedded_node_data() {
         .add_node(Node::new(NodeType::OutputRgba))
         .unwrap();
 
-
     for i in 0..4 {
         let end_id = tex_pro_2
-        .embed_node_data_with_id(Arc::clone(&node_data[i]), EmbeddedNodeDataId(i as u32))
-        .unwrap();
-        
+            .embed_node_data_with_id(Arc::clone(&node_data[i]), EmbeddedNodeDataId(i as u32))
+            .unwrap();
+
         let input = tex_pro_2
             .node_graph
             .add_node(Node::new(NodeType::NodeData(end_id)))
             .unwrap();
-        
+
         tex_pro_2
             .node_graph
             .connect(input, tp2_output_node, SlotId(0), SlotId(i as u32))
@@ -140,6 +143,7 @@ fn embedded_node_data() {
 }
 
 #[test]
+#[timeout(5000)]
 fn repeat_process() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -165,12 +169,13 @@ fn repeat_process() {
 }
 
 #[test]
+#[timeout(5000)]
 fn mix_images() {
     let path_in_1 = IMAGE_1.to_string();
     let path_in_2 = IMAGE_2.to_string();
     let path_out = "out/mix_images.png".to_string();
     let path_compare = "data/test_compare/mix_images.png".to_string();
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let input_1 = tex_pro
@@ -219,10 +224,11 @@ fn mix_images() {
 }
 
 #[test]
+#[timeout(5000)]
 fn irregular_sizes() {
     const PATH_OUT: &str = &"out/irregular_sizes.png";
     const PATH_CMP: &str = &"data/test_compare/irregular_sizes.png";
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let input_1 = tex_pro
@@ -254,7 +260,12 @@ fn irregular_sizes() {
     ensure_out_dir();
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size.width, size.height, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size.width,
+            size.height,
+            tex_pro.get_output(output_node).unwrap(),
+        )
+        .unwrap(),
         size.width,
         size.height,
         image::ColorType::RGBA(8),
@@ -265,6 +276,7 @@ fn irregular_sizes() {
 }
 
 #[test]
+#[timeout(5000)]
 fn unconnected_node() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -290,6 +302,7 @@ fn unconnected_node() {
 }
 
 #[test]
+#[timeout(5000)]
 fn resize_rgba() {
     const SIZE: u32 = 256;
     const IN_PATH: &str = &"data/image_2.png";
@@ -300,29 +313,19 @@ fn resize_rgba() {
         .node_graph
         .add_node(Node::new(NodeType::Image(IN_PATH.to_string())))
         .unwrap();
-    
+
     let n_out = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::OutputRgba))
+        .add_node(
+            Node::new(NodeType::OutputRgba)
+                .resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
+        )
         .unwrap();
 
     for i in 0..4 {
-        let n_resize = tex_pro
-            .node_graph
-            .add_node(Node::new(NodeType::Resize(
-                Some(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
-                None,
-            )))
-            .unwrap();
-
         tex_pro
             .node_graph
-            .connect(n_in, n_resize, SlotId(i as u32), SlotId(0))
-            .unwrap();
-        
-        tex_pro
-            .node_graph
-            .connect(n_resize, n_out, SlotId(0), SlotId(i as u32))
+            .connect(n_in, n_out, SlotId(i as u32), SlotId(i as u32))
             .unwrap();
     }
 
@@ -351,6 +354,7 @@ fn images_equal<P: AsRef<Path>>(path_1: P, path_2: P) -> bool {
 }
 
 #[test]
+#[timeout(5000)]
 fn input_output_2() {
     let tex_pro_compare = input_output_2_internal();
 
@@ -405,6 +409,7 @@ fn input_output_2_internal() -> TextureProcessor {
 }
 
 #[test]
+#[timeout(5000)]
 fn remove_node() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -419,10 +424,11 @@ fn remove_node() {
 }
 
 #[test]
+#[timeout(5000)]
 fn value_node() {
     const PATH_OUT: &str = &"out/value_node.png";
     const PATH_CMP: &str = &"data/test_compare/value_node.png";
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let red_node = tex_pro
@@ -471,66 +477,11 @@ fn value_node() {
 }
 
 #[test]
-fn resize_node() {
-    const PATH_OUT: &str = &"out/resize_node.png";
-    const PATH_CMP: &str = &"data/test_compare/resize_node.png";
-    let size = Size::new(256, 256);
-
-    let mut tex_pro = TextureProcessor::new();
-
-    let value_node = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::Value(0.5)))
-        .unwrap();
-    let resize_node = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::Resize(
-            Some(ResizePolicy::SpecificSize(size)),
-            None,
-        )))
-        .unwrap();
-    let output_node = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::OutputRgba))
-        .unwrap();
-
-    tex_pro
-        .node_graph
-        .connect(value_node, resize_node, SlotId(0), SlotId(0))
-        .unwrap();
-    
-    for i in 0..4 {
-        tex_pro
-            .node_graph
-            .connect(resize_node, output_node, SlotId(0), SlotId(i))
-            .unwrap();
-    }
-
-    tex_pro.process();
-
-    ensure_out_dir();
-    image::save_buffer(
-        &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(
-            size.width,
-            size.height,
-            tex_pro.get_output(output_node).unwrap(),
-        )
-        .unwrap(),
-        size.width,
-        size.height,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
-
-    assert!(images_equal(PATH_OUT, PATH_CMP));
-}
-
-#[test]
+#[timeout(5000)]
 fn shuffle_channels() {
     const PATH_OUT: &str = &"out/shuffle_channels.png";
     const PATH_CMP: &str = &"data/test_compare/shuffle_channels.png";
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let image_node = tex_pro
@@ -543,13 +494,13 @@ fn shuffle_channels() {
         .unwrap();
 
     let output_slots = [SlotId(3), SlotId(1), SlotId(2), SlotId(0)];
-    for i in 0..4{
+    for i in 0..4 {
         tex_pro
             .node_graph
             .connect(image_node, output_node, SlotId(i), output_slots[i as usize])
             .unwrap();
     }
-        
+
     tex_pro.process();
 
     ensure_out_dir();
@@ -567,6 +518,7 @@ fn shuffle_channels() {
 }
 
 #[test]
+#[timeout(5000)]
 fn resize_policy_most_pixels() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -578,46 +530,27 @@ fn resize_policy_most_pixels() {
         .node_graph
         .add_node(Node::new(NodeType::Image(HEART_256.to_string())))
         .unwrap();
-    let resize_node = tex_pro
+    let output = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Resize(
-            Some(ResizePolicy::MostPixels),
-            None,
-        )))
-        .unwrap();
-    let output_128 = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::OutputGray))
-        .unwrap();
-    let output_256 = tex_pro
-        .node_graph
-        .add_node(Node::new(NodeType::OutputGray))
+        .add_node(Node::new(NodeType::OutputRgba).resize_policy(ResizePolicy::MostPixels))
         .unwrap();
 
     tex_pro
         .node_graph
-        .connect(node_128, resize_node, SlotId(0), SlotId(0))
+        .connect(node_128, output, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
         .node_graph
-        .connect(node_256, resize_node, SlotId(1), SlotId(1))
-        .unwrap();
-
-    tex_pro
-        .node_graph
-        .connect(resize_node, output_128, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .node_graph
-        .connect(resize_node, output_256, SlotId(1), SlotId(0))
+        .connect(node_256, output, SlotId(0), SlotId(1))
         .unwrap();
 
     tex_pro.process();
 
-    assert!(tex_pro.node_datas(output_128)[0].size == tex_pro.node_datas(node_256)[0].size);
+    assert!(tex_pro.node_datas(output)[0].size == tex_pro.node_datas(output)[1].size);
 }
 
 #[test]
+#[timeout(5000)]
 fn resize_policy_least_pixels() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -629,13 +562,10 @@ fn resize_policy_least_pixels() {
         .node_graph
         .add_node(Node::new(NodeType::Image(HEART_256.to_string())))
         .unwrap();
-        
+
     let mut passthrough_node = Node::new(NodeType::OutputRgba);
     passthrough_node.resize_policy = ResizePolicy::LeastPixels;
-    let passthrough_node = tex_pro
-        .node_graph
-        .add_node(passthrough_node)
-        .unwrap();
+    let passthrough_node = tex_pro.node_graph.add_node(passthrough_node).unwrap();
     let output_128 = tex_pro
         .node_graph
         .add_node(Node::new(NodeType::OutputGray))
@@ -669,26 +599,23 @@ fn resize_policy_least_pixels() {
 }
 
 #[test]
+#[timeout(5000)]
 fn resize_policy_largest_axes() {
     let mut tex_pro = TextureProcessor::new();
 
     let node_256x128 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(
-            HEART_WIDE.to_string(),
-        )))
+        .add_node(Node::new(NodeType::Image(HEART_WIDE.to_string())))
         .unwrap();
     let node_128x256 = tex_pro
         .node_graph
-        .add_node(Node::new(NodeType::Image(
-            HEART_TALL.to_string(),
-        )))
+        .add_node(Node::new(NodeType::Image(HEART_TALL.to_string())))
         .unwrap();
     let output = tex_pro
         .node_graph
         .add_node(Node::new(NodeType::OutputRgba))
         .unwrap();
-    
+
     if let Some(node) = tex_pro.node_graph.node_with_id_mut(output) {
         node.resize_policy = ResizePolicy::LargestAxes;
     }
@@ -714,10 +641,11 @@ fn resize_policy_largest_axes() {
 }
 
 #[test]
+#[timeout(5000)]
 fn add_node() {
     const PATH_OUT: &str = &"out/add_node.png";
     const PATH_CMP: &str = &"data/test_compare/add_node.png";
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let image_node = tex_pro
@@ -780,10 +708,11 @@ fn add_node() {
 }
 
 #[test]
+#[timeout(5000)]
 fn subtract_node() {
     const PATH_OUT: &str = &"out/subtract_node.png";
     const PATH_CMP: &str = &"data/test_compare/subtract_node.png";
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let image_node = tex_pro
@@ -830,6 +759,7 @@ fn subtract_node() {
 }
 
 #[test]
+#[timeout(5000)]
 fn invert_graph_node() {
     const PATH_OUT: &str = &"out/invert_graph_node.png";
     const PATH_CMP: &str = &"data/test_compare/invert_graph_node.png";
@@ -915,6 +845,7 @@ fn invert_graph_node() {
 }
 
 #[test]
+#[timeout(5000)]
 fn invert_graph_node_export() {
     // Nested invert graph
     let mut invert_graph = NodeGraph::new();
@@ -945,10 +876,11 @@ fn invert_graph_node_export() {
 }
 
 #[test]
+#[timeout(5000)]
 fn invert_graph_node_import() {
     const PATH_OUT: &str = &"out/invert_graph_node_import.png";
     const PATH_CMP: &str = &"data/test_compare/invert_graph_node_import.png";
-    
+
     // Nested invert graph
     let invert_graph = NodeGraph::from_path("data/invert_graph.json".to_string()).unwrap();
 
@@ -1011,10 +943,11 @@ fn invert_graph_node_import() {
 }
 
 #[test]
+#[timeout(5000)]
 fn graph_node_rgba() {
     const PATH_OUT: &str = &"out/graph_node_rgba.png";
     const PATH_CMP: &str = &"data/test_compare/graph_node_rgba.png";
-    
+
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
@@ -1106,10 +1039,11 @@ fn graph_node_rgba() {
 
 /// Grayscale passthrough node.
 #[test]
+#[timeout(5000)]
 fn graph_node_gray() {
     const PATH_OUT: &str = &"out/graph_node_gray.png";
     const PATH_CMP: &str = &"data/test_compare/graph_node_gray.png";
-    
+
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
@@ -1177,10 +1111,11 @@ fn graph_node_gray() {
 }
 
 #[test]
+#[timeout(5000)]
 fn height_to_normal_node() {
     const PATH_OUT: &str = &"out/height_to_normal_node.png";
     const PATH_CMP: &str = &"data/test_compare/height_to_normal_node.png";
-    
+
     // Texture Processor
     let mut tex_pro = TextureProcessor::new();
 
@@ -1232,10 +1167,11 @@ fn height_to_normal_node() {
 }
 
 #[test]
+#[timeout(5000)]
 fn multiply_node() {
     const PATH_OUT: &str = &"out/multiply_node.png";
     const PATH_CMP: &str = &"data/test_compare/multiply_node.png";
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let image_node = tex_pro
@@ -1282,10 +1218,11 @@ fn multiply_node() {
 }
 
 #[test]
+#[timeout(5000)]
 fn divide_node() {
     const PATH_OUT: &str = &"out/divide_node.png";
     const PATH_CMP: &str = &"data/test_compare/divide_node.png";
-    
+
     let mut tex_pro = TextureProcessor::new();
 
     let image_node = tex_pro
@@ -1332,6 +1269,7 @@ fn divide_node() {
 }
 
 #[test]
+#[timeout(5000)]
 fn change_mix_type() {
     let mut tex_pro = TextureProcessor::new();
 

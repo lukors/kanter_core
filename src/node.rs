@@ -103,7 +103,6 @@ pub enum NodeType {
     NodeData(EmbeddedNodeDataId),
     Write(String),
     Value(f32),
-    Resize(Option<ResizePolicy>, Option<ResizeFilter>),
     Mix(MixType),
     HeightToNormal,
 }
@@ -140,7 +139,6 @@ impl fmt::Debug for NodeType {
             NodeType::NodeData(_) => write!(f, "NodeData"),
             NodeType::Write(_) => write!(f, "Write"),
             NodeType::Value(_) => write!(f, "Value"),
-            NodeType::Resize(_, _) => write!(f, "Resize"),
             NodeType::Mix(_) => write!(f, "Mix"),
             NodeType::HeightToNormal => write!(f, "HeightToNormal"),
         }
@@ -152,7 +150,7 @@ pub struct Node {
     pub node_id: NodeId,
     pub node_type: NodeType,
     pub resize_policy: ResizePolicy,
-    pub filter_type: ResizeFilter,
+    pub resize_filter: ResizeFilter,
 }
 
 impl Node {
@@ -161,8 +159,23 @@ impl Node {
             node_id: NodeId(0),
             node_type,
             resize_policy: ResizePolicy::default(),
-            filter_type: ResizeFilter::default(),
+            resize_filter: ResizeFilter::default(),
         }
+    }
+
+    pub fn node_id(mut self, node_id: NodeId) -> Self {
+        self.node_id = node_id;
+        self
+    }
+
+    pub fn resize_policy(mut self, resize_policy: ResizePolicy) -> Self {
+        self.resize_policy = resize_policy;
+        self
+    }
+
+    pub fn resize_filter(mut self, resize_filter: ResizeFilter) -> Self {
+        self.resize_filter = resize_filter;
+        self
     }
 
     pub fn capacity(&self, side: Side) -> usize {
@@ -177,7 +190,6 @@ impl Node {
                 NodeType::NodeData(_) => 0,
                 NodeType::Write(_) => 4,
                 NodeType::Value(_) => 0,
-                NodeType::Resize(_, _) => 2,
                 NodeType::Mix(_) => 2,
                 NodeType::HeightToNormal => 1,
             },
@@ -191,7 +203,6 @@ impl Node {
                 NodeType::NodeData(_) => 1,
                 NodeType::Write(_) => 0,
                 NodeType::Value(_) => 1,
-                NodeType::Resize(_, _) => 2,
                 NodeType::Mix(_) => 1,
                 NodeType::HeightToNormal => 3,
             },
@@ -199,6 +210,6 @@ impl Node {
     }
 
     pub fn filter_type(&mut self, ft: ResizeFilter) {
-        self.filter_type = ft;
+        self.resize_filter = ft;
     }
 }
