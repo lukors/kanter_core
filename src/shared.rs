@@ -104,10 +104,8 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 pub fn resize_buffers(
     node_datas: &[Arc<NodeData>],
     policy: ResizePolicy,
-    filter: Option<ResizeFilter>,
+    filter: ResizeFilter,
 ) -> Result<Vec<Arc<NodeData>>> {
-    let filter = filter.unwrap_or(ResizeFilter::Triangle);
-    
     if node_datas.is_empty() {
         return Ok(node_datas.into());
     }

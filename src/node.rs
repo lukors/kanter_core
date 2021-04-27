@@ -43,7 +43,7 @@ pub enum ResizeFilter {
 
 impl Default for ResizeFilter {
     fn default() -> Self {
-        Self::Nearest
+        Self::Triangle
     }
 }
 
@@ -152,7 +152,7 @@ pub struct Node {
     pub node_id: NodeId,
     pub node_type: NodeType,
     pub resize_policy: ResizePolicy,
-    pub filter_type: Option<ResizeFilter>,
+    pub filter_type: ResizeFilter,
 }
 
 impl Node {
@@ -160,8 +160,8 @@ impl Node {
         Self {
             node_id: NodeId(0),
             node_type,
-            resize_policy: ResizePolicy::MostPixels,
-            filter_type: None,
+            resize_policy: ResizePolicy::default(),
+            filter_type: ResizeFilter::default(),
         }
     }
 
@@ -199,6 +199,6 @@ impl Node {
     }
 
     pub fn filter_type(&mut self, ft: ResizeFilter) {
-        self.filter_type = Some(ft);
+        self.filter_type = ft;
     }
 }
