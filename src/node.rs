@@ -197,7 +197,11 @@ impl Node {
         }
     }
 
-    pub fn filter_type(&mut self, ft: ResizeFilter) {
-        self.resize_filter = ft;
+    pub fn slot_exists(&self, slot_id: SlotId, side: Side) -> bool {
+        slot_id.0 < self.capacity(side) as u32
+    }
+
+    pub fn filter_type(&mut self, rf: ResizeFilter) {
+        self.resize_filter = rf;
     }
 }
