@@ -9,9 +9,6 @@ It's not meant to be used yet, but you can use it and it should be easy to see h
 - Basic nodes to add/divide etc.
 - Every image channel is 32 bit float
 
-## I'm on vacation
-Won't be working on this during the summer.
-
 ## Progress
 Currently I'm working on a GUI for this library called [Kanter](https://github.com/lukors/kanter).
 
