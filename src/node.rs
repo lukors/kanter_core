@@ -1,7 +1,10 @@
 use crate::{node_data::*, node_graph::*};
 use image::FilterType;
 use serde::{Deserialize, Serialize};
-use std::{fmt, path::PathBuf};
+use std::{
+    fmt::{self, Display},
+    path::PathBuf,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum ResizePolicy {
@@ -106,6 +109,21 @@ pub enum MixType {
 impl Default for MixType {
     fn default() -> Self {
         Self::Add
+    }
+}
+
+impl Display for MixType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Add => "Add",
+                Self::Subtract => "Subtract",
+                Self::Multiply => "Multiply",
+                Self::Divide => "Divide",
+            }
+        )
     }
 }
 
