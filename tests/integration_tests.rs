@@ -24,7 +24,7 @@ fn ensure_out_dir() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn input_output() {
     let path_in = IMAGE_2.to_string();
     let path_out = "out/input_output.png".to_string();
@@ -63,7 +63,7 @@ fn input_output() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn unconnected() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -76,7 +76,7 @@ fn unconnected() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn embedded_node_data() {
     let path_in = IMAGE_1.to_string();
     let path_out = "out/embedded_node_data.png".to_string();
@@ -143,7 +143,7 @@ fn embedded_node_data() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn repeat_process() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -169,7 +169,7 @@ fn repeat_process() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn mix_images() {
     let path_in_1 = IMAGE_1.to_string();
     let path_in_2 = IMAGE_2.to_string();
@@ -224,7 +224,7 @@ fn mix_images() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn irregular_sizes() {
     const PATH_OUT: &str = &"out/irregular_sizes.png";
     const PATH_CMP: &str = &"data/test_compare/irregular_sizes.png";
@@ -276,7 +276,7 @@ fn irregular_sizes() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn unconnected_node() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -302,7 +302,7 @@ fn unconnected_node() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn resize_rgba() {
     const SIZE: u32 = 256;
     const IN_PATH: &str = &"data/image_2.png";
@@ -354,7 +354,7 @@ fn images_equal<P: AsRef<Path>>(path_1: P, path_2: P) -> bool {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn input_output_2() {
     let tex_pro_compare = input_output_2_internal();
 
@@ -409,7 +409,7 @@ fn input_output_2_internal() -> TextureProcessor {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn remove_node() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -464,7 +464,7 @@ fn connect_invalid_slot() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn value_node() {
     const PATH_OUT: &str = &"out/value_node.png";
     const PATH_CMP: &str = &"data/test_compare/value_node.png";
@@ -517,7 +517,7 @@ fn value_node() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn shuffle_channels() {
     const PATH_OUT: &str = &"out/shuffle_channels.png";
     const PATH_CMP: &str = &"data/test_compare/shuffle_channels.png";
@@ -558,7 +558,7 @@ fn shuffle_channels() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn resize_policy_most_pixels() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -590,7 +590,7 @@ fn resize_policy_most_pixels() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn resize_policy_least_pixels() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -639,7 +639,7 @@ fn resize_policy_least_pixels() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn resize_policy_largest_axes() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -681,7 +681,7 @@ fn resize_policy_largest_axes() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn add_node() {
     const PATH_OUT: &str = &"out/add_node.png";
     const PATH_CMP: &str = &"data/test_compare/add_node.png";
@@ -748,7 +748,7 @@ fn add_node() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn subtract_node() {
     const PATH_OUT: &str = &"out/subtract_node.png";
     const PATH_CMP: &str = &"data/test_compare/subtract_node.png";
@@ -799,7 +799,7 @@ fn subtract_node() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn invert_graph_node() {
     const PATH_OUT: &str = &"out/invert_graph_node.png";
     const PATH_CMP: &str = &"data/test_compare/invert_graph_node.png";
@@ -885,7 +885,7 @@ fn invert_graph_node() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn invert_graph_node_export() {
     // Nested invert graph
     let mut invert_graph = NodeGraph::new();
@@ -916,7 +916,7 @@ fn invert_graph_node_export() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn invert_graph_node_import() {
     const PATH_OUT: &str = &"out/invert_graph_node_import.png";
     const PATH_CMP: &str = &"data/test_compare/invert_graph_node_import.png";
@@ -983,7 +983,7 @@ fn invert_graph_node_import() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn graph_node_rgba() {
     const PATH_OUT: &str = &"out/graph_node_rgba.png";
     const PATH_CMP: &str = &"data/test_compare/graph_node_rgba.png";
@@ -1079,7 +1079,7 @@ fn graph_node_rgba() {
 
 /// Grayscale passthrough node.
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn graph_node_gray() {
     const PATH_OUT: &str = &"out/graph_node_gray.png";
     const PATH_CMP: &str = &"data/test_compare/graph_node_gray.png";
@@ -1151,7 +1151,7 @@ fn graph_node_gray() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn height_to_normal_node() {
     const PATH_OUT: &str = &"out/height_to_normal_node.png";
     const PATH_CMP: &str = &"data/test_compare/height_to_normal_node.png";
@@ -1207,7 +1207,7 @@ fn height_to_normal_node() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn multiply_node() {
     const PATH_OUT: &str = &"out/multiply_node.png";
     const PATH_CMP: &str = &"data/test_compare/multiply_node.png";
@@ -1258,7 +1258,7 @@ fn multiply_node() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn divide_node() {
     const PATH_OUT: &str = &"out/divide_node.png";
     const PATH_CMP: &str = &"data/test_compare/divide_node.png";
@@ -1309,7 +1309,7 @@ fn divide_node() {
 }
 
 #[test]
-#[timeout(5000)]
+#[timeout(20000)]
 fn change_mix_type() {
     let mut tex_pro = TextureProcessor::new();
 
