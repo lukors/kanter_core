@@ -35,7 +35,7 @@ pub fn process_node(
         }
         NodeType::Write(ref path) => write(&node_datas, path)?,
         NodeType::Value(val) => value(&node, val),
-        NodeType::Mix(mix_type) => process_blend(&node_datas, &node, edges, mix_type)?,
+        NodeType::Mix(mix_type) => process_mix(&node_datas, &node, edges, mix_type)?,
         NodeType::HeightToNormal => process_height_to_normal(&node_datas, &node),
     };
 
@@ -236,7 +236,7 @@ fn value(node: &Node, value: f32) -> Vec<Arc<NodeData>> {
 
 // TODO: Look into optimizing this by sampling straight into the un-resized image instead of
 // resizing the image before blending.
-fn process_blend(
+fn process_mix(
     node_datas: &[Arc<NodeData>],
     node: &Node,
     edges: &[Edge],
