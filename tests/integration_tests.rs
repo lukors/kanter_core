@@ -26,6 +26,7 @@ fn ensure_out_dir() {
 #[test]
 #[timeout(20000)]
 fn input_output() {
+    const SIZE: u32 = 256;
     let path_in = IMAGE_2.to_string();
     let path_out = "out/input_output.png".to_string();
 
@@ -52,9 +53,47 @@ fn input_output() {
     ensure_out_dir();
     image::save_buffer(
         &Path::new(&path_out),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
-        256,
-        256,
+        &image::RgbaImage::from_vec(SIZE, SIZE, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        SIZE,
+        SIZE,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(path_in, path_out));
+}
+
+#[test]
+#[timeout(20000)]
+fn mix_node_single_input() {
+    const SIZE: u32 = 256;
+    let path_in = IMAGE_2.to_string();
+    let path_out = "out/mix_node_single_input.png".to_string();
+
+    let mut tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Value(0.0)))
+        .unwrap();
+    let mix_node = tex_pro
+        .node_graph
+        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .unwrap();
+
+    tex_pro
+        .node_graph
+        .connect(value_node, mix_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.process();
+
+    ensure_out_dir();
+    image::save_buffer(
+        &Path::new(&path_out),
+        &image::RgbaImage::from_vec(SIZE, SIZE, tex_pro.get_output(mix_node).unwrap()).unwrap(),
+        SIZE,
+        SIZE,
         image::ColorType::RGBA(8),
     )
     .unwrap();

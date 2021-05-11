@@ -6,7 +6,7 @@ use crate::{
     node_graph::*,
     shared::*,
 };
-use image::{imageops::resize, ImageBuffer, Luma};
+use image::{ImageBuffer, Luma};
 use nalgebra::{Cross, Norm, Vector3};
 use std::{path::Path, sync::Arc};
 
@@ -234,110 +234,6 @@ fn value(node: &Node, value: f32) -> Vec<Arc<NodeData>> {
     ))]
 }
 
-// The different `ResizePolicy`s need tests.
-fn resize_only(
-    node_datas: &[Arc<NodeData>],
-    resize_policy: Option<ResizePolicy>,
-    filter_type: Option<ResizeFilter>,
-) -> Result<Vec<Arc<NodeData>>> {
-    let size: Size = match resize_policy.unwrap_or_default() {
-        ResizePolicy::MostPixels => node_datas
-            .iter()
-            .map(|node_data| node_data.size)
-            .max_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count())),
-        ResizePolicy::LeastPixels => node_datas
-            .iter()
-            .map(|node_data| node_data.size)
-            .min_by(|size_1, size_2| (size_1.pixel_count()).cmp(&size_2.pixel_count())),
-        ResizePolicy::LargestAxes => Some(Size::new(
-            node_datas
-                .iter()
-                .map(|node_data| node_data.size.width)
-                .max_by(|width_1, width_2| width_1.cmp(&width_2))
-                .unwrap(),
-            node_datas
-                .iter()
-                .map(|node_data| node_data.size.height)
-                .max_by(|height_1, height_2| height_1.cmp(&height_2))
-                .unwrap(),
-        )),
-        ResizePolicy::SmallestAxes => Some(Size::new(
-            node_datas
-                .iter()
-                .map(|node_data| node_data.size.width)
-                .min_by(|width_1, width_2| width_1.cmp(&width_2))
-                .unwrap(),
-            node_datas
-                .iter()
-                .map(|node_data| node_data.size.height)
-                .min_by(|height_1, height_2| height_1.cmp(&height_2))
-                .unwrap(),
-        )),
-        ResizePolicy::SpecificSlot(slot_id) => node_datas
-            .iter()
-            .find(|node_data| node_data.slot_id == slot_id)
-            .map(|node_data| node_data.size),
-        ResizePolicy::SpecificSize(size) => Some(size),
-    }
-    .ok_or(TexProError::NodeProcessing)?;
-
-    let filter_type = filter_type.unwrap_or(ResizeFilter::Triangle);
-
-    let mut output_node_datas: Vec<Arc<NodeData>> = Vec::new();
-
-    for node_data in node_datas {
-        if node_data.size == size {
-            output_node_datas.push(Arc::new(NodeData::new(
-                node_data.node_id,
-                node_data.slot_id,
-                size,
-                Arc::clone(&node_data.buffer),
-            )));
-        } else {
-            output_node_datas.push(Arc::new(NodeData::new(
-                node_data.node_id,
-                node_data.slot_id,
-                size,
-                Arc::new(Box::new(resize(
-                    &**node_data.buffer,
-                    size.width,
-                    size.height,
-                    filter_type.into(),
-                ))),
-            )));
-        }
-    }
-
-    Ok(output_node_datas)
-}
-
-fn process_resize(
-    node_datas: &[Arc<NodeData>],
-    node: &Node,
-    edges: &[Edge],
-    resize_policy: Option<ResizePolicy>,
-    filter_type: Option<ResizeFilter>,
-) -> Result<Vec<Arc<NodeData>>> {
-    let mut output_node_datas: Vec<Arc<NodeData>> = Vec::new();
-    let node_datas = resize_only(node_datas, resize_policy, filter_type)?;
-
-    for edge in edges {
-        let node_data = node_datas
-            .iter()
-            .find(|&nd| nd.node_id == edge.output_id && nd.slot_id == edge.output_slot)
-            .expect("Could not find a fitting node_data while resizing");
-
-        output_node_datas.push(Arc::new(NodeData::new(
-            node.node_id,
-            edge.input_slot,
-            node_data.size,
-            Arc::clone(&node_data.buffer),
-        )));
-    }
-
-    Ok(output_node_datas)
-}
-
 // TODO: Look into optimizing this by sampling straight into the un-resized image instead of
 // resizing the image before blending.
 fn process_blend(
@@ -346,17 +242,17 @@ fn process_blend(
     edges: &[Edge],
     mix_type: MixType,
 ) -> Result<Vec<Arc<NodeData>>> {
-    if node_datas.len() != 2 {
-        return Err(TexProError::InvalidBufferCount);
-    }
-    let node_datas = process_resize(&node_datas, &node, edges, None, None)?;
     let size = node_datas[0].size;
 
-    let buffer = match mix_type {
-        MixType::Add => process_add(&node_datas, size),
-        MixType::Subtract => process_subtract(&node_datas, size, edges)?,
-        MixType::Multiply => process_multiply(&node_datas, size),
-        MixType::Divide => process_divide(&node_datas, size, edges)?,
+    let buffer = if node_datas.len() == 1 {
+        Arc::clone(&node_datas[0].buffer)
+    } else {
+        match mix_type {
+            MixType::Add => process_add(&node_datas, size),
+            MixType::Subtract => process_subtract(&node_datas, size, edges)?,
+            MixType::Multiply => process_multiply(&node_datas, size),
+            MixType::Divide => process_divide(&node_datas, size, edges)?,
+        }
     };
 
     let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
@@ -436,8 +332,8 @@ fn order_node_datas(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<
         node_datas
             .iter()
             .find(|node_data| {
-                node_data.node_id == left_side_edge.input_id
-                    && node_data.slot_id == left_side_edge.input_slot
+                node_data.node_id == left_side_edge.output_id
+                    && node_data.slot_id == left_side_edge.output_slot
             })
             .ok_or(TexProError::NodeProcessing)?,
     );
