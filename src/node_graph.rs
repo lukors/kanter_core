@@ -127,7 +127,7 @@ impl NodeGraph {
         self.nodes.iter().position(|node| node.node_id == node_id)
     }
 
-    fn has_node_with_id(&self, node_id: NodeId) -> bool {
+    pub fn has_node_with_id(&self, node_id: NodeId) -> bool {
         self.nodes.iter().any(|node| node.node_id == node_id)
     }
 
@@ -139,8 +139,11 @@ impl NodeGraph {
         self.nodes.iter().map(|node| node.node_id).collect()
     }
 
-    pub fn node_with_id(&self, node_id: NodeId) -> Option<&Node> {
-        self.nodes.iter().find(|node| node.node_id == node_id)
+    pub fn node_with_id(&self, node_id: NodeId) -> Option<Node> {
+        self.nodes
+            .iter()
+            .find(|node| node.node_id == node_id)
+            .cloned()
     }
 
     pub fn node_with_id_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {

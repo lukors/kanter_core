@@ -5,3 +5,4 @@ pub mod node_data;
 pub mod node_graph;
 mod process;
 mod shared;
+pub mod texture_processor;

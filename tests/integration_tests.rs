@@ -1,6 +1,15 @@
-use kanter_core::{dag::TextureProcessor, node::{EmbeddedNodeDataId, MixType, Node, NodeType, ResizeFilter, ResizePolicy}, node_data::Size, node_graph::{NodeGraph, NodeId, SlotId}};
+use kanter_core::{
+    node::{EmbeddedNodeDataId, MixType, Node, NodeType, ResizeFilter, ResizePolicy},
+    node_data::Size,
+    node_graph::{NodeGraph, NodeId, SlotId},
+    texture_processor::TextureProcessor,
+};
 use ntest::timeout;
-use std::{fs::create_dir, path::Path, sync::{Arc, Mutex, RwLock}};
+use std::{
+    fs::create_dir,
+    path::Path,
+    sync::{Arc, Mutex, RwLock},
+};
 
 const OUT_DIR: &str = "out";
 const IMAGE_1: &str = "data/image_1.png";
@@ -39,9 +48,7 @@ fn input_output() {
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
         .unwrap();
-    let output_node = tex_pro
-        .add_node(Node::new(NodeType::OutputRgba))
-        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     for i in 0..4 {
         tex_pro
@@ -79,17 +86,31 @@ fn input_output_intercept() {
         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
         .unwrap();
     let resize_node_1 = tex_pro
-        .add_node(Node::new(NodeType::OutputRgba).resize_filter(ResizeFilter::Lanczos3).resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE_SMALL, SIZE_SMALL))))
+        .add_node(
+            Node::new(NodeType::OutputRgba)
+                .resize_filter(ResizeFilter::Lanczos3)
+                .resize_policy(ResizePolicy::SpecificSize(Size::new(
+                    SIZE_SMALL, SIZE_SMALL,
+                ))),
+        )
         .unwrap();
     let resize_node_2 = tex_pro
-        .add_node(Node::new(NodeType::OutputRgba).resize_filter(ResizeFilter::Lanczos3).resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE_LARGE, SIZE_LARGE))))
+        .add_node(
+            Node::new(NodeType::OutputRgba)
+                .resize_filter(ResizeFilter::Lanczos3)
+                .resize_policy(ResizePolicy::SpecificSize(Size::new(
+                    SIZE_LARGE, SIZE_LARGE,
+                ))),
+        )
         .unwrap();
     let resize_node_3 = tex_pro
-        .add_node(Node::new(NodeType::OutputRgba).resize_filter(ResizeFilter::Lanczos3).resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))))
+        .add_node(
+            Node::new(NodeType::OutputRgba)
+                .resize_filter(ResizeFilter::Lanczos3)
+                .resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
+        )
         .unwrap();
-    let output_node = tex_pro
-        .add_node(Node::new(NodeType::OutputRgba))
-        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     for i in 0..4 {
         tex_pro
@@ -124,7 +145,7 @@ fn input_output_intercept() {
                 intercepted = true;
             }
         }
-        
+
         if let Ok(buffer) = tex_pro.try_get_output(output_node) {
             ensure_out_dir();
             image::save_buffer(
@@ -135,12 +156,10 @@ fn input_output_intercept() {
                 image::ColorType::RGBA(8),
             )
             .unwrap();
-        
+
             break;
         }
     }
-
-    
 }
 
 // #[test]

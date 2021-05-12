@@ -1,88 +1,26 @@
-use crate::{error::{Result, TexProError}, node::{EmbeddedNodeDataId, Node, NodeType}, node_data::*, node_graph::*, process::*};
+use crate::{
+    error::{Result, TexProError},
+    node::{EmbeddedNodeDataId, Node, NodeType},
+    node_data::*,
+    node_graph::*,
+    process::*,
+};
 use image::ImageBuffer;
-use std::{collections::{HashSet, VecDeque}, sync::{Arc, RwLock, mpsc}, thread};
+use std::{
+    collections::{HashSet, VecDeque},
+    sync::{mpsc, Arc, RwLock},
+    thread,
+};
 
 use crate::shared::*;
 
 #[derive(Default)]
-pub struct TextureProcessor {
-    tpi: Arc<RwLock<TexProInt>>,
-}
-
-impl TextureProcessor {
-    pub fn new() -> Self {
-        Self {
-            tpi: Arc::new(RwLock::new(TexProInt::new())),
-        }
-    }
-
-    pub fn process(&self) {
-        TexProInt::process(Arc::clone(&self.tpi));
-    }
-
-    pub fn get_output(&self, node_id: NodeId) -> Vec<u8> {
-        loop {
-            if let Ok(tpi) = self.tpi.try_read() {
-                if let Ok(output) = tpi.get_output(node_id) {
-                    return output;
-                }
-            }
-        }
-    }
-
-    pub fn try_get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        if let Ok(tpi) = self.tpi.try_read() {
-            return tpi.get_output(node_id);
-        } else {
-            return Err(TexProError::UnableToLock);
-        }
-    }
-
-    pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
-        self.tpi.read().unwrap().node_graph.input_mapping(external_slot)
-    }
-
-    pub fn external_output_ids(&self) -> Vec<NodeId> {
-        self.tpi.read().unwrap().node_graph.external_output_ids()
-    }
-    
-    pub fn node_graph_set(&self, node_graph: NodeGraph) {
-        self.tpi.write().unwrap().node_graph = node_graph;
-    }
-    
-    pub fn input_node_datas_push(&self, node_data: Arc<NodeData>) {
-        &mut self.tpi.write().unwrap().input_node_datas.push(node_data);
-    }
-
-    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
-        self.tpi.read().unwrap().node_datas(id)
-    }
-
-    pub fn add_node(&self, node: Node) -> Result<NodeId> {
-        self.tpi.write().unwrap().node_graph.add_node(node)
-    }
-
-    pub fn connect(&self, 
-        output_node: NodeId,
-        input_node: NodeId,
-        output_slot: SlotId,
-        input_slot: SlotId,) -> Result<()> {
-        self.tpi.write().unwrap().node_graph.connect(
-            output_node,
-            input_node,
-            output_slot,
-            input_slot,
-        )
-    }
-}
-
-#[derive(Default)]
-struct TexProInt {
-    node_graph: NodeGraph,
-    node_datas: Vec<Arc<NodeData>>,
-    embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
-    input_node_datas: Vec<Arc<NodeData>>,
-    finished_processing: bool,
+pub struct TexProInt {
+    pub node_graph: NodeGraph,
+    pub node_datas: Vec<Arc<NodeData>>,
+    pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
+    pub input_node_datas: Vec<Arc<NodeData>>,
+    pub finished_processing: bool,
 }
 
 impl TexProInt {
@@ -102,24 +40,25 @@ impl TexProInt {
                 node_id: NodeId,
                 node_datas: Result<Vec<Arc<NodeData>>>,
             }
-            
+
             tex_pro.write().unwrap().node_datas.clear();
-    
+
             let (send, recv) = mpsc::channel::<ThreadMessage>();
             let mut finished_nodes: HashSet<NodeId> =
                 HashSet::with_capacity(tex_pro.read().unwrap().node_graph.nodes().len());
             let mut started_nodes: HashSet<NodeId> =
                 HashSet::with_capacity(tex_pro.read().unwrap().node_graph.nodes().len());
-    
-            let mut queued_ids: VecDeque<NodeId> = VecDeque::from(tex_pro.read().unwrap().get_root_ids());
+
+            let mut queued_ids: VecDeque<NodeId> =
+                VecDeque::from(tex_pro.read().unwrap().get_root_ids());
             for item in &queued_ids {
                 started_nodes.insert(*item);
             }
-    
+
             if queued_ids.is_empty() {
                 return;
             }
-    
+
             'outer: while finished_nodes.len() < started_nodes.len() {
                 for message in recv.try_iter() {
                     tex_pro.write().unwrap().set_node_finished(
@@ -130,27 +69,29 @@ impl TexProInt {
                         &mut queued_ids,
                     );
                 }
-    
+
                 let current_id = match queued_ids.pop_front() {
                     Some(id) => id,
                     None => continue,
                 };
-    
-                let parent_node_ids = tex_pro.read().unwrap()
+
+                let parent_node_ids = tex_pro
+                    .read()
+                    .unwrap()
                     .node_graph
                     .edges
                     .iter()
                     .filter(|edge| edge.input_id == current_id)
                     .map(|edge| edge.output_id)
                     .collect::<Vec<NodeId>>();
-    
+
                 for parent_node_id in parent_node_ids {
                     if !finished_nodes.contains(&parent_node_id) {
                         queued_ids.push_back(current_id);
                         continue 'outer;
                     }
                 }
-    
+
                 let mut relevant_ids: Vec<NodeId> = Vec::new();
                 for node_data in tex_pro.read().unwrap().node_datas.iter() {
                     for edge in &tex_pro.read().unwrap().node_graph.edges {
@@ -161,7 +102,7 @@ impl TexProInt {
                         }
                     }
                 }
-    
+
                 // Put the `Arc<Buffer>`s and `Edge`s relevant for the calculation of this node into
                 // lists.
                 let mut relevant_edges: Vec<Edge> = Vec::new();
@@ -180,23 +121,33 @@ impl TexProInt {
                         }
                     }
                 }
-    
+
                 // Spawn a thread and calculate the node in it and send back the new `node_data`s for
                 // each slot in the node.
-                let current_node = tex_pro.read().unwrap().node_graph.node_with_id(current_id).unwrap().clone();
+                let current_node = tex_pro
+                    .read()
+                    .unwrap()
+                    .node_graph
+                    .node_with_id(current_id)
+                    .unwrap()
+                    .clone();
                 let send = send.clone();
-    
-                let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = tex_pro.read().unwrap()
+
+                let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = tex_pro
+                    .read()
+                    .unwrap()
                     .embedded_node_datas
                     .iter()
                     .map(|end| Arc::clone(&end))
                     .collect();
-                let input_node_datas: Vec<Arc<NodeData>> = tex_pro.read().unwrap()
+                let input_node_datas: Vec<Arc<NodeData>> = tex_pro
+                    .read()
+                    .unwrap()
                     .input_node_datas
                     .iter()
                     .map(|nd| Arc::clone(&nd))
                     .collect();
-    
+
                 thread::spawn(move || {
                     let node_datas: Result<Vec<Arc<NodeData>>> = process_node(
                         current_node,
@@ -205,7 +156,7 @@ impl TexProInt {
                         &input_node_datas,
                         &relevant_edges,
                     );
-    
+
                     match send.send(ThreadMessage {
                         node_id: current_id,
                         node_datas,
@@ -263,7 +214,7 @@ impl TexProInt {
     }
 
     /// Returns the width and height of the `NodeData` for the given `NodeId` as a `Size`.
-    pub fn get_node_size(&self, node_id: NodeId) -> Option<Size> {
+    pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
         if let Some(node_data) = self.node_datas.iter().find(|nd| nd.node_id == node_id) {
             Some(node_data.size)
         } else {
@@ -382,12 +333,14 @@ impl TexProInt {
         self.node_graph.add_node(node)
     }
 
-    pub fn connect(&mut self,
+    pub fn connect(
+        &mut self,
         output_node: NodeId,
         input_node: NodeId,
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        self.node_graph.connect(output_node, input_node, output_slot, input_slot)
+        self.node_graph
+            .connect(output_node, input_node, output_slot, input_slot)
     }
 }

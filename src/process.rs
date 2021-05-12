@@ -1,14 +1,14 @@
 use crate::{
-    dag::*,
     error::{Result, TexProError},
     node::*,
     node_data::*,
     node_graph::*,
     shared::*,
+    texture_processor::TextureProcessor,
 };
 use image::{ImageBuffer, Luma};
 use nalgebra::{Cross, Norm, Vector3};
-use std::{path::Path, sync::{Arc, RwLock}};
+use std::{path::Path, sync::Arc};
 
 pub fn process_node(
     node: Node,
@@ -153,8 +153,7 @@ fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
     // Take the `NodeData`s that are fed into this node from the parent node and associate
     // them with the correct outputs on the input nodes in the child graph.
     for node_data in node_datas {
-        let (target_node, target_slot) =
-            tex_pro.input_mapping(node_data.slot_id).unwrap();
+        let (target_node, target_slot) = tex_pro.input_mapping(node_data.slot_id).unwrap();
 
         tex_pro.input_node_datas_push(Arc::new(NodeData::new(
             target_node,
