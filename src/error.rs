@@ -11,6 +11,7 @@ pub enum TexProError {
     InvalidNodeType,
     InvalidSlotId,
     SlotOccupied,
+    UnableToLock,
     NodeProcessing,
     Io(io::Error),
 }
@@ -18,27 +19,28 @@ pub enum TexProError {
 impl fmt::Display for TexProError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TexProError::Generic => f.write_str("Something went wrong"),
-            TexProError::Image(ref e) => e.fmt(f),
-            TexProError::InvalidBufferCount => f.write_str("Invalid number of channels"),
-            TexProError::InvalidNodeId => f.write_str("Invalid `NodeId`"),
-            TexProError::InvalidNodeType => f.write_str("Invalid `NodeType`"),
-            TexProError::InvalidSlotId => f.write_str("Invalid `SlotId`"),
-            TexProError::SlotOccupied => f.write_str("`SlotId` is already in use"),
-            TexProError::NodeProcessing => f.write_str("Error during node processing"),
-            TexProError::Io(ref e) => e.fmt(f),
+            Self::Generic => f.write_str("Something went wrong"),
+            Self::Image(ref e) => e.fmt(f),
+            Self::InvalidBufferCount => f.write_str("Invalid number of channels"),
+            Self::InvalidNodeId => f.write_str("Invalid `NodeId`"),
+            Self::InvalidNodeType => f.write_str("Invalid `NodeType`"),
+            Self::InvalidSlotId => f.write_str("Invalid `SlotId`"),
+            Self::SlotOccupied => f.write_str("`SlotId` is already in use"),
+            Self::UnableToLock => f.write_str("Unable to get a lock"),
+            Self::NodeProcessing => f.write_str("Error during node processing"),
+            Self::Io(ref e) => e.fmt(f),
         }
     }
 }
 
 impl From<image::ImageError> for TexProError {
     fn from(cause: image::ImageError) -> TexProError {
-        TexProError::Image(cause)
+        Self::Image(cause)
     }
 }
 
 impl From<io::Error> for TexProError {
     fn from(cause: io::Error) -> TexProError {
-        TexProError::Io(cause)
+        Self::Io(cause)
     }
 }

@@ -34,46 +34,34 @@ fn input_output() {
     const PATH_IN: &str = IMAGE_2;
     const PATH_OUT: &str = &"out/input_output.png";
 
-    let tex_pro = Arc::new(RwLock::new(TextureProcessor::new()));
+    let tex_pro = TextureProcessor::new();
 
     let input_node = tex_pro
-        .write().unwrap()
         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
         .unwrap();
-    let output_node = tex_pro.write().unwrap()
+    let output_node = tex_pro
         .add_node(Node::new(NodeType::OutputRgba))
         .unwrap();
 
     for i in 0..4 {
-        tex_pro.write().unwrap()
+        tex_pro
             .connect(input_node, output_node, SlotId(i), SlotId(i))
             .unwrap();
     }
 
-    TextureProcessor::process_internal(Arc::clone(&tex_pro));
+    tex_pro.process();
 
-    loop {
-        if let Ok(tex_pro) = tex_pro.try_read() {
-            if let Ok(finished_processing) = tex_pro.finished_processing.try_read() {
-                if *finished_processing {
-                    ensure_out_dir();
-                    image::save_buffer(
-                        &Path::new(&PATH_OUT),
-                        &image::RgbaImage::from_vec(SIZE, SIZE, tex_pro.get_output(output_node).unwrap()).unwrap(),
-                        SIZE,
-                        SIZE,
-                        image::ColorType::RGBA(8),
-                    )
-                    .unwrap();
-                
-                    assert!(images_equal(PATH_IN, PATH_OUT));
-                    break;
-                }
-            }
-        }
-    }
+    ensure_out_dir();
+    image::save_buffer(
+        &Path::new(&PATH_OUT),
+        &image::RgbaImage::from_vec(SIZE, SIZE, tex_pro.get_output(output_node)).unwrap(),
+        SIZE,
+        SIZE,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
 
-    
+    assert!(images_equal(PATH_IN, PATH_OUT));
 }
 
 #[test]
@@ -85,76 +73,70 @@ fn input_output_intercept() {
     const PATH_OUT_INTERCEPT: &str = &"out/input_output_intercept.png";
     const PATH_OUT: &str = &"out/input_output_intercept_out.png";
 
-    let tex_pro = Arc::new(RwLock::new(TextureProcessor::new()));
+    let tex_pro = TextureProcessor::new();
 
     let input_node = tex_pro
-        .write().unwrap()
         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
         .unwrap();
-    let resize_1 = tex_pro.write().unwrap()
+    let resize_node_1 = tex_pro
         .add_node(Node::new(NodeType::OutputRgba).resize_filter(ResizeFilter::Lanczos3).resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE_SMALL, SIZE_SMALL))))
         .unwrap();
-    let resize_2 = tex_pro.write().unwrap()
+    let resize_node_2 = tex_pro
         .add_node(Node::new(NodeType::OutputRgba).resize_filter(ResizeFilter::Lanczos3).resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE_LARGE, SIZE_LARGE))))
         .unwrap();
-    let resize_3 = tex_pro.write().unwrap()
+    let resize_node_3 = tex_pro
         .add_node(Node::new(NodeType::OutputRgba).resize_filter(ResizeFilter::Lanczos3).resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))))
         .unwrap();
-    let output_node = tex_pro.write().unwrap()
+    let output_node = tex_pro
         .add_node(Node::new(NodeType::OutputRgba))
         .unwrap();
 
     for i in 0..4 {
-        tex_pro.write().unwrap()
-            .connect(input_node, resize_1, SlotId(i), SlotId(i))
+        tex_pro
+            .connect(input_node, resize_node_1, SlotId(i), SlotId(i))
             .unwrap();
-        tex_pro.write().unwrap()
-            .connect(resize_1, resize_2, SlotId(i), SlotId(i))
+        tex_pro
+            .connect(resize_node_1, resize_node_2, SlotId(i), SlotId(i))
             .unwrap();
-        tex_pro.write().unwrap()
-            .connect(resize_2, resize_3, SlotId(i), SlotId(i))
+        tex_pro
+            .connect(resize_node_2, resize_node_3, SlotId(i), SlotId(i))
             .unwrap();
-        tex_pro.write().unwrap()
-            .connect(resize_3, output_node, SlotId(i), SlotId(i))
+        tex_pro
+            .connect(resize_node_3, output_node, SlotId(i), SlotId(i))
             .unwrap();
     }
 
-    TextureProcessor::process_internal(Arc::clone(&tex_pro));
+    tex_pro.process();
 
     let mut intercepted = false;
     loop {
-        if let Ok(tex_pro) = tex_pro.try_read() {
-            if !intercepted {
-                if let Ok(buffer) = tex_pro.get_output(resize_1) {
-                    ensure_out_dir();
-                    image::save_buffer(
-                        &Path::new(&PATH_OUT_INTERCEPT),
-                        &image::RgbaImage::from_vec(SIZE_SMALL, SIZE_SMALL, buffer).unwrap(),
-                        SIZE_SMALL,
-                        SIZE_SMALL,
-                        image::ColorType::RGBA(8),
-                    )
-                    .unwrap();
-                    intercepted = true;
-                }
+        if !intercepted {
+            if let Ok(buffer) = tex_pro.try_get_output(resize_node_1) {
+                ensure_out_dir();
+                image::save_buffer(
+                    &Path::new(&PATH_OUT_INTERCEPT),
+                    &image::RgbaImage::from_vec(SIZE_SMALL, SIZE_SMALL, buffer).unwrap(),
+                    SIZE_SMALL,
+                    SIZE_SMALL,
+                    image::ColorType::RGBA(8),
+                )
+                .unwrap();
+                intercepted = true;
             }
-            
-            if let Ok(finished_processing) = tex_pro.finished_processing.try_read() {
-                if *finished_processing {
-                    ensure_out_dir();
-                    image::save_buffer(
-                        &Path::new(&PATH_OUT),
-                        &image::RgbaImage::from_vec(SIZE, SIZE, tex_pro.get_output(output_node).unwrap()).unwrap(),
-                        SIZE,
-                        SIZE,
-                        image::ColorType::RGBA(8),
-                    )
-                    .unwrap();
-                
-                    // assert!(images_equal(PATH_IN, PATH_OUT));
-                    break;
-                }
-            }
+        }
+        
+        if let Ok(buffer) = tex_pro.try_get_output(output_node) {
+            ensure_out_dir();
+            image::save_buffer(
+                &Path::new(&PATH_OUT),
+                &image::RgbaImage::from_vec(SIZE, SIZE, buffer).unwrap(),
+                SIZE,
+                SIZE,
+                image::ColorType::RGBA(8),
+            )
+            .unwrap();
+        
+            break;
         }
     }
 

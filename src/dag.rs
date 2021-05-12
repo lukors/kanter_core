@@ -6,38 +6,110 @@ use crate::shared::*;
 
 #[derive(Default)]
 pub struct TextureProcessor {
-    pub node_graph: Arc<RwLock<NodeGraph>>,
-    pub node_datas: Arc<RwLock<Vec<Arc<NodeData>>>>,
-    pub embedded_node_datas: Arc<RwLock<Vec<Arc<EmbeddedNodeData>>>>,
-    pub input_node_datas: Arc<RwLock<Vec<Arc<NodeData>>>>,
-    pub finished_processing: Arc<RwLock<bool>>,
+    tpi: Arc<RwLock<TexProInt>>,
 }
 
 impl TextureProcessor {
     pub fn new() -> Self {
         Self {
-            node_graph: Arc::new(RwLock::new(NodeGraph::new())),
-            node_datas: Arc::new(RwLock::new(Vec::new())),
-            embedded_node_datas: Arc::new(RwLock::new(Vec::new())),
-            input_node_datas: Arc::new(RwLock::new(Vec::new())),
-            finished_processing: Arc::new(RwLock::new(false)),
+            tpi: Arc::new(RwLock::new(TexProInt::new())),
         }
     }
 
-    pub fn process_internal(tex_pro: Arc<RwLock<TextureProcessor>>) {
+    pub fn process(&self) {
+        TexProInt::process(Arc::clone(&self.tpi));
+    }
+
+    pub fn get_output(&self, node_id: NodeId) -> Vec<u8> {
+        loop {
+            if let Ok(tpi) = self.tpi.try_read() {
+                if let Ok(output) = tpi.get_output(node_id) {
+                    return output;
+                }
+            }
+        }
+    }
+
+    pub fn try_get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
+        if let Ok(tpi) = self.tpi.try_read() {
+            return tpi.get_output(node_id);
+        } else {
+            return Err(TexProError::UnableToLock);
+        }
+    }
+
+    pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
+        self.tpi.read().unwrap().node_graph.input_mapping(external_slot)
+    }
+
+    pub fn external_output_ids(&self) -> Vec<NodeId> {
+        self.tpi.read().unwrap().node_graph.external_output_ids()
+    }
+    
+    pub fn node_graph_set(&self, node_graph: NodeGraph) {
+        self.tpi.write().unwrap().node_graph = node_graph;
+    }
+    
+    pub fn input_node_datas_push(&self, node_data: Arc<NodeData>) {
+        &mut self.tpi.write().unwrap().input_node_datas.push(node_data);
+    }
+
+    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
+        self.tpi.read().unwrap().node_datas(id)
+    }
+
+    pub fn add_node(&self, node: Node) -> Result<NodeId> {
+        self.tpi.write().unwrap().node_graph.add_node(node)
+    }
+
+    pub fn connect(&self, 
+        output_node: NodeId,
+        input_node: NodeId,
+        output_slot: SlotId,
+        input_slot: SlotId,) -> Result<()> {
+        self.tpi.write().unwrap().node_graph.connect(
+            output_node,
+            input_node,
+            output_slot,
+            input_slot,
+        )
+    }
+}
+
+#[derive(Default)]
+struct TexProInt {
+    node_graph: NodeGraph,
+    node_datas: Vec<Arc<NodeData>>,
+    embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
+    input_node_datas: Vec<Arc<NodeData>>,
+    finished_processing: bool,
+}
+
+impl TexProInt {
+    pub fn new() -> Self {
+        Self {
+            node_graph: NodeGraph::new(),
+            node_datas: Vec::new(),
+            embedded_node_datas: Vec::new(),
+            input_node_datas: Vec::new(),
+            finished_processing: false,
+        }
+    }
+
+    pub fn process(tex_pro: Arc<RwLock<TexProInt>>) {
         thread::spawn(move || {
             struct ThreadMessage {
                 node_id: NodeId,
                 node_datas: Result<Vec<Arc<NodeData>>>,
             }
             
-            tex_pro.read().unwrap().node_datas.write().unwrap().clear();
+            tex_pro.write().unwrap().node_datas.clear();
     
             let (send, recv) = mpsc::channel::<ThreadMessage>();
             let mut finished_nodes: HashSet<NodeId> =
-                HashSet::with_capacity(tex_pro.read().unwrap().node_graph.read().unwrap().nodes().len());
+                HashSet::with_capacity(tex_pro.read().unwrap().node_graph.nodes().len());
             let mut started_nodes: HashSet<NodeId> =
-                HashSet::with_capacity(tex_pro.read().unwrap().node_graph.read().unwrap().nodes().len());
+                HashSet::with_capacity(tex_pro.read().unwrap().node_graph.nodes().len());
     
             let mut queued_ids: VecDeque<NodeId> = VecDeque::from(tex_pro.read().unwrap().get_root_ids());
             for item in &queued_ids {
@@ -50,7 +122,7 @@ impl TextureProcessor {
     
             'outer: while finished_nodes.len() < started_nodes.len() {
                 for message in recv.try_iter() {
-                    tex_pro.read().unwrap().set_node_finished(
+                    tex_pro.write().unwrap().set_node_finished(
                         message.node_id,
                         &mut Some(message.node_datas.unwrap()),
                         &mut started_nodes,
@@ -66,8 +138,6 @@ impl TextureProcessor {
     
                 let parent_node_ids = tex_pro.read().unwrap()
                     .node_graph
-                    .read()
-                    .unwrap()
                     .edges
                     .iter()
                     .filter(|edge| edge.input_id == current_id)
@@ -82,8 +152,8 @@ impl TextureProcessor {
                 }
     
                 let mut relevant_ids: Vec<NodeId> = Vec::new();
-                for node_data in tex_pro.read().unwrap().node_datas.read().unwrap().iter() {
-                    for edge in &tex_pro.read().unwrap().node_graph.read().unwrap().edges {
+                for node_data in tex_pro.read().unwrap().node_datas.iter() {
+                    for edge in &tex_pro.read().unwrap().node_graph.edges {
                         if edge.output_id != node_data.node_id {
                             continue;
                         } else {
@@ -96,11 +166,11 @@ impl TextureProcessor {
                 // lists.
                 let mut relevant_edges: Vec<Edge> = Vec::new();
                 let mut input_data: Vec<Arc<NodeData>> = Vec::new();
-                for node_data in tex_pro.read().unwrap().node_datas.read().unwrap().iter() {
+                for node_data in tex_pro.read().unwrap().node_datas.iter() {
                     if !relevant_ids.contains(&node_data.node_id) {
                         continue;
                     }
-                    for edge in &tex_pro.read().unwrap().node_graph.read().unwrap().edges {
+                    for edge in &tex_pro.read().unwrap().node_graph.edges {
                         if node_data.slot_id == edge.output_slot
                             && node_data.node_id == edge.output_id
                             && current_id == edge.input_id
@@ -113,18 +183,16 @@ impl TextureProcessor {
     
                 // Spawn a thread and calculate the node in it and send back the new `node_data`s for
                 // each slot in the node.
-                let current_node = tex_pro.read().unwrap().node_graph.read().unwrap().node_with_id(current_id).unwrap().clone();
+                let current_node = tex_pro.read().unwrap().node_graph.node_with_id(current_id).unwrap().clone();
                 let send = send.clone();
     
                 let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = tex_pro.read().unwrap()
                     .embedded_node_datas
-                    .read().unwrap()
                     .iter()
                     .map(|end| Arc::clone(&end))
                     .collect();
                 let input_node_datas: Vec<Arc<NodeData>> = tex_pro.read().unwrap()
                     .input_node_datas
-                    .read().unwrap()
                     .iter()
                     .map(|nd| Arc::clone(&nd))
                     .collect();
@@ -148,25 +216,30 @@ impl TextureProcessor {
                 });
             }
 
-            *tex_pro.read().unwrap().finished_processing.write().unwrap() = true;
+            tex_pro.write().unwrap().finished_processing = true;
         });
-        
     }
 
-    /// Returns the width and height of the `NodeData` for the given `NodeId` as a `Size`.
-    pub fn get_node_size(&self, node_id: NodeId) -> Option<Size> {
-        if let Some(node_data) = self.node_datas.read().unwrap().iter().find(|nd| nd.node_id == node_id) {
-            Some(node_data.size)
-        } else {
-            None
-        }
+    pub fn get_root_ids(&self) -> Vec<NodeId> {
+        self.node_graph
+            .nodes()
+            .iter()
+            .filter(|node| {
+                self.node_graph
+                    .edges
+                    .iter()
+                    .map(|edge| edge.output_id)
+                    .any(|x| x == node.node_id)
+            })
+            .map(|node| node.node_id)
+            .collect::<Vec<NodeId>>()
     }
 
     /// Takes a node and the data it generated, marks it as finished and puts the data in the
     /// `TextureProcessor`'s data vector.
     /// Then it adds any child `NodeId`s of the input `NodeId` to the list of `NodeId`s to process.
     fn set_node_finished(
-        &self,
+        &mut self,
         id: NodeId,
         node_datas: &mut Option<Vec<Arc<NodeData>>>,
         started_nodes: &mut HashSet<NodeId>,
@@ -176,16 +249,25 @@ impl TextureProcessor {
         finished_nodes.insert(id);
 
         if let Some(node_datas) = node_datas {
-            self.node_datas.write().unwrap().append(node_datas);
+            self.node_datas.append(node_datas);
         }
 
         // Add any child node of the input `NodeId` to the list of nodes to potentially process.
-        for edge in &self.node_graph.read().unwrap().edges {
+        for edge in &self.node_graph.edges {
             let input_id = edge.input_id;
             if edge.output_id == id && !started_nodes.contains(&input_id) {
                 queued_ids.push_back(input_id);
                 started_nodes.insert(input_id);
             }
+        }
+    }
+
+    /// Returns the width and height of the `NodeData` for the given `NodeId` as a `Size`.
+    pub fn get_node_size(&self, node_id: NodeId) -> Option<Size> {
+        if let Some(node_data) = self.node_datas.iter().find(|nd| nd.node_id == node_id) {
+            Some(node_data.size)
+        } else {
+            None
         }
     }
 
@@ -202,11 +284,11 @@ impl TextureProcessor {
         id: EmbeddedNodeDataId,
     ) -> Result<EmbeddedNodeDataId> {
         if self
-            .embedded_node_datas.read().unwrap()
+            .embedded_node_datas
             .iter()
             .all(|end| end.node_data_id != id)
         {
-            self.embedded_node_datas.write().unwrap()
+            self.embedded_node_datas
                 .push(Arc::new(EmbeddedNodeData::from_node_data(node_data, id)));
             Ok(id)
         } else {
@@ -216,7 +298,7 @@ impl TextureProcessor {
 
     /// Gets all `NodeData`s in this `TextureProcessor`.
     pub fn node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
-        self.node_datas.read().unwrap()
+        self.node_datas
             .iter()
             .filter(|&x| x.node_id == id)
             .map(|x| Arc::clone(x))
@@ -225,7 +307,7 @@ impl TextureProcessor {
 
     /// Gets any `NodeData`s associated with a given `NodeId`.
     pub fn get_node_data(&self, id: NodeId) -> Vec<Arc<NodeData>> {
-        self.node_datas.read().unwrap()
+        self.node_datas
             .iter()
             .filter(|nd| nd.node_id == id)
             .map(|nd| Arc::clone(&nd))
@@ -239,7 +321,7 @@ impl TextureProcessor {
         }
 
         let output_vecs = match self
-            .node_graph.read().unwrap()
+            .node_graph
             .node_with_id(node_id)
             .ok_or(TexProError::InvalidNodeId)?
             .node_type
@@ -296,31 +378,16 @@ impl TextureProcessor {
         Ok(sorted_value_vecs)
     }
 
-    pub fn get_root_ids(&self) -> Vec<NodeId> {
-        self.node_graph.read().unwrap()
-            .nodes()
-            .iter()
-            .filter(|node| {
-                self.node_graph.read().unwrap()
-                    .edges
-                    .iter()
-                    .map(|edge| edge.output_id)
-                    .any(|x| x == node.node_id)
-            })
-            .map(|node| node.node_id)
-            .collect::<Vec<NodeId>>()
+    pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
+        self.node_graph.add_node(node)
     }
 
-    pub fn add_node(&self, node: Node) -> Result<NodeId> {
-        self.node_graph.write().unwrap().add_node(node)
-    }
-
-    pub fn connect(&self,
+    pub fn connect(&mut self,
         output_node: NodeId,
         input_node: NodeId,
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        self.node_graph.write().unwrap().connect(output_node, input_node, output_slot, input_slot)
+        self.node_graph.connect(output_node, input_node, output_slot, input_slot)
     }
 }
