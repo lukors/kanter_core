@@ -8,7 +8,7 @@ use crate::{
 };
 use image::{ImageBuffer, Luma};
 use nalgebra::{Cross, Norm, Vector3};
-use std::{path::Path, sync::Arc};
+use std::{path::Path, sync::{Arc, RwLock}};
 
 pub fn process_node(
     node: Node,
@@ -147,16 +147,16 @@ fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Node) -> Vec<Arc
 /// Executes the node graph contained in the node.
 fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
     let mut output: Vec<Arc<NodeData>> = Vec::new();
-    let mut tex_pro = TextureProcessor::new();
-    tex_pro.node_graph = (*graph).clone();
+    let tex_pro = Arc::new(RwLock::new(TextureProcessor::new()));
+    tex_pro.write().unwrap().node_graph = Arc::new(RwLock::new((*graph).clone()));
 
     // Take the `NodeData`s that are fed into this node from the parent node and associate
     // them with the correct outputs on the input nodes in the child graph.
     for node_data in node_datas {
         let (target_node, target_slot) =
-            tex_pro.node_graph.input_mapping(node_data.slot_id).unwrap();
+            tex_pro.read().unwrap().node_graph.read().unwrap().input_mapping(node_data.slot_id).unwrap();
 
-        tex_pro.input_node_datas.push(Arc::new(NodeData::new(
+        tex_pro.read().unwrap().input_node_datas.write().unwrap().push(Arc::new(NodeData::new(
             target_node,
             target_slot,
             node_data.size,
@@ -164,11 +164,11 @@ fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
         )));
     }
 
-    tex_pro.process();
+    TextureProcessor::process_internal(Arc::clone(&tex_pro));
 
     // Fill the output vector with `NodeData`.
-    for output_node_id in tex_pro.node_graph.external_output_ids() {
-        for node_data in tex_pro.node_datas(output_node_id) {
+    for output_node_id in tex_pro.read().unwrap().node_graph.read().unwrap().external_output_ids() {
+        for node_data in tex_pro.read().unwrap().node_datas(output_node_id) {
             let output_node_data = NodeData::new(
                 node.node_id,
                 node_data.slot_id,
