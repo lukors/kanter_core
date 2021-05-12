@@ -35,7 +35,7 @@ pub fn process_node(
         }
         NodeType::Write(ref path) => write(&node_datas, path)?,
         NodeType::Value(val) => value(&node, val),
-        NodeType::Mix(mix_type) => process_mix(&node_datas, &node, edges, mix_type)?,
+        NodeType::Mix(mix_type) => process_mix(&node_datas, &node, edges, mix_type),
         NodeType::HeightToNormal => process_height_to_normal(&node_datas, &node),
     };
 
@@ -241,23 +241,22 @@ fn process_mix(
     node: &Node,
     edges: &[Edge],
     mix_type: MixType,
-) -> Result<Vec<Arc<NodeData>>> {
+) -> Vec<Arc<NodeData>> {
     let size = node_datas[0].size;
 
-    let buffer = if node_datas.len() == 1 {
-        Arc::clone(&node_datas[0].buffer)
-    } else {
-        match mix_type {
-            MixType::Add => process_add(&node_datas, size),
-            MixType::Subtract => process_subtract(&node_datas, size, edges)?,
-            MixType::Multiply => process_multiply(&node_datas, size),
-            MixType::Divide => process_divide(&node_datas, size, edges)?,
-        }
+    let buffer = match mix_type {
+        MixType::Add => process_add(&node_datas, size),
+        MixType::Subtract => process_subtract(&node_datas, size, edges),
+        MixType::Multiply => process_multiply(&node_datas, size),
+        MixType::Divide => process_divide(&node_datas, size, edges),
     };
 
-    let node_data = Arc::new(NodeData::new(node.node_id, SlotId(0), size, buffer));
-
-    Ok(vec![node_data])
+    vec![Arc::new(NodeData::new(
+        node.node_id,
+        SlotId(0),
+        size,
+        buffer,
+    ))]
 }
 
 fn process_add(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
@@ -265,28 +264,58 @@ fn process_add(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
         size.width,
         size.height,
         |x, y| {
-            Luma([node_datas[0].buffer.get_pixel(x, y).data[0]
-                + node_datas[1].buffer.get_pixel(x, y).data[0]])
+            Luma([node_datas
+                .iter()
+                .map(|nd| nd.buffer.get_pixel(x, y).data[0])
+                .sum()])
         },
     )))
 }
 
-fn process_subtract(
-    node_datas: &[Arc<NodeData>],
-    size: Size,
-    edges: &[Edge],
-) -> Result<Arc<Buffer>> {
-    let node_datas_ordered = order_node_datas(node_datas, edges)?;
+fn process_subtract(node_datas: &[Arc<NodeData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
+    let mut node_datas = node_datas.to_vec();
 
-    Ok(Arc::new(Box::new(ImageBuffer::from_fn(
+    let node_data_first = split_first_node_data(&mut node_datas, size, edges);
+
+    Arc::new(Box::new(ImageBuffer::from_fn(
         size.width,
         size.height,
         |x, y| {
-            let left_side_pixel = node_datas_ordered[0].buffer.get_pixel(x, y).data[0];
-            let right_side_pixel = node_datas_ordered[1].buffer.get_pixel(x, y).data[0];
-            Luma([left_side_pixel - right_side_pixel])
+            let value = node_data_first.buffer.get_pixel(x, y).data[0]
+                - node_datas
+                    .iter()
+                    .map(|nd| nd.buffer.get_pixel(x, y).data[0])
+                    .sum::<ChannelPixel>();
+            Luma([value])
         },
-    ))))
+    )))
+}
+
+fn split_first_node_data(
+    node_datas: &mut Vec<Arc<NodeData>>,
+    size: Size,
+    edges: &[Edge],
+) -> Arc<NodeData> {
+    let first_index = first_node_data_index(node_datas, edges);
+
+    // Return the first `NodeData` if there is one. Otherwise return a new `NodeData` filled with black.
+    if let Some(index) = first_index {
+        node_datas.remove(index)
+    } else {
+        Arc::new(NodeData::new(
+            NodeId(0),
+            SlotId(0),
+            size,
+            Arc::new(Box::new(
+                ImageBuffer::from_raw(
+                    size.width,
+                    size.height,
+                    vec![0.; (size.width * size.height) as usize],
+                )
+                .unwrap(),
+            )),
+        ))
+    }
 }
 
 fn process_multiply(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
@@ -294,59 +323,87 @@ fn process_multiply(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
         size.width,
         size.height,
         |x, y| {
-            let left_side = node_datas[0].buffer.get_pixel(x, y).data[0];
-            let right_side = node_datas[1].buffer.get_pixel(x, y).data[0];
-
-            Luma([left_side * right_side])
+            Luma([node_datas
+                .iter()
+                .map(|nd| nd.buffer.get_pixel(x, y).data[0])
+                .product()])
         },
     )))
 }
 
-fn process_divide(node_datas: &[Arc<NodeData>], size: Size, edges: &[Edge]) -> Result<Arc<Buffer>> {
-    let node_datas_ordered = order_node_datas(node_datas, edges)?;
+fn process_divide(node_datas: &[Arc<NodeData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
+    let mut node_datas = node_datas.to_vec();
 
-    Ok(Arc::new(Box::new(ImageBuffer::from_fn(
+    let node_data_first = split_first_node_data(&mut node_datas, size, edges);
+
+    Arc::new(Box::new(ImageBuffer::from_fn(
         size.width,
         size.height,
         |x, y| {
-            let left_side_pixel = node_datas_ordered[0].buffer.get_pixel(x, y).data[0];
-            let right_side_pixel = node_datas_ordered[1].buffer.get_pixel(x, y).data[0];
-            Luma([left_side_pixel / right_side_pixel])
+            Luma([node_data_first.buffer.get_pixel(x, y).data[0]
+                / node_datas
+                    .iter()
+                    .map(|nd| nd.buffer.get_pixel(x, y).data[0])
+                    .sum::<ChannelPixel>()])
         },
-    ))))
+    )))
 }
 
-/// Orders two node datas so they are in the correct order for order-dependent processing.
-/// Todo: Allow an arbitrary number of inputs.
-fn order_node_datas(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<NodeData>>> {
-    if node_datas.len() != 2 {
-        return Err(TexProError::InvalidBufferCount);
+/// Returns the position of the `NodeData` connected to the first input slot along with the
+/// index it was found at.
+fn first_node_data_index(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Option<usize> {
+    assert!(
+        edges
+            .iter()
+            .all(|edge| edge.input_id() == edges[0].input_id()),
+        "All edges must be connected to the same node"
+    );
+    {
+        let mut input_slots = edges
+            .iter()
+            .map(|edge| edge.input_slot().0)
+            .collect::<Vec<u32>>();
+        input_slots.sort_unstable();
+        assert!(
+            !has_dulicates(&input_slots),
+            "A slot cannot have more than one input"
+        );
     }
+    let edge = edges.iter().find(|edge| edge.input_slot == SlotId(0))?;
 
-    let left_side_edge = edges
-        .iter()
-        .find(|edge| edge.input_slot == SlotId(0))
-        .ok_or(TexProError::NodeProcessing)?;
-
-    let left_side_node_data = Arc::clone(
-        node_datas
-            .iter()
-            .find(|node_data| {
-                node_data.node_id == left_side_edge.output_id
-                    && node_data.slot_id == left_side_edge.output_slot
-            })
-            .ok_or(TexProError::NodeProcessing)?,
-    );
-
-    let right_side_node_data = Arc::clone(
-        node_datas
-            .iter()
-            .find(|node_data| **node_data != left_side_node_data)
-            .ok_or(TexProError::NodeProcessing)?,
-    );
-
-    Ok(vec![left_side_node_data, right_side_node_data])
+    node_datas.iter().position(|node_data| {
+        node_data.node_id == edge.output_id && node_data.slot_id == edge.output_slot
+    })
 }
+
+/// Checks if the input slice has any duplicates.
+/// Note: The slice has to be sorted.
+fn has_dulicates<T: PartialEq>(slice: &[T]) -> bool {
+    for i in 1..slice.len() {
+        if slice[i] == slice[i - 1] {
+            return true;
+        }
+    }
+    false
+}
+
+/// Orders node datas so they are in the same order as the input slots for order-dependent processing.
+// fn order_node_datas(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Vec<Arc<NodeData>> {
+//     let mut edges = edges.to_vec();
+//     edges.sort_by(|a, b| a.input_slot().partial_cmp(&b.input_slot()).unwrap());
+
+//     edges
+//         .iter()
+//         .map(|edge| {
+//             Arc::clone(
+//                 node_datas
+//                     .iter()
+//                     .find(|nd| nd.slot_id == edge.output_slot() && nd.node_id == edge.output_id())
+//                     .unwrap(),
+//             )
+//         })
+//         .collect::<Vec<Arc<NodeData>>>()
+// }
 
 fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
     let channel_count = 3;

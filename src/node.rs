@@ -196,7 +196,7 @@ impl Node {
                 NodeType::NodeData(_) => 0,
                 NodeType::Write(_) => 4,
                 NodeType::Value(_) => 0,
-                NodeType::Mix(_) => 2,
+                NodeType::Mix(_) => 4,
                 NodeType::HeightToNormal => 1,
             },
             Side::Output => match self.node_type {
