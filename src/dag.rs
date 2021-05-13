@@ -7,12 +7,25 @@ use crate::{
 };
 use image::ImageBuffer;
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{BTreeMap, HashSet, VecDeque},
     sync::{mpsc, Arc, RwLock},
     thread,
 };
 
 use crate::shared::*;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum NodeState {
+    Clean,
+    Touched,
+    Dirty,
+}
+
+impl Default for NodeState {
+    fn default() -> Self {
+        Self::Dirty
+    }
+}
 
 #[derive(Default)]
 pub struct TexProInt {
@@ -21,7 +34,7 @@ pub struct TexProInt {
     pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
     pub input_node_datas: Vec<Arc<NodeData>>,
     pub task_finished: bool,
-    pub clean: Vec<NodeId>,
+    node_states: BTreeMap<NodeId, NodeState>,
 }
 
 impl TexProInt {
@@ -32,8 +45,27 @@ impl TexProInt {
             embedded_node_datas: Vec::new(),
             input_node_datas: Vec::new(),
             task_finished: false,
-            clean: Vec::new(),
+            node_states: BTreeMap::new(),
         }
+    }
+
+    fn set_all_node_state(&mut self, node_state: NodeState) {
+        for ns in self.node_states.values_mut() {
+            *ns = node_state;
+        }
+    }
+
+    pub fn get_all_clean(&mut self) -> Vec<NodeId> {
+        let mut output = Vec::new();
+
+        for (id, state) in self.node_states.iter_mut() {
+            if *state == NodeState::Clean {
+                *state = NodeState::Touched;
+                output.push(*id);
+            }
+        }
+
+        output
     }
 
     pub fn process(tex_pro: Arc<RwLock<TexProInt>>) {
@@ -45,7 +77,7 @@ impl TexProInt {
 
             if let Ok(mut tex_pro) = tex_pro.write() {
                 tex_pro.node_datas.clear();
-                tex_pro.clean.clear();
+                tex_pro.set_all_node_state(NodeState::Dirty);
             }
 
             let (send, recv) = mpsc::channel::<ThreadMessage>();
@@ -203,7 +235,7 @@ impl TexProInt {
         queued_ids: &mut VecDeque<NodeId>,
     ) {
         finished_nodes.insert(id);
-        self.clean.push(id);
+        self.node_states.insert(id, NodeState::Clean);
 
         if let Some(node_datas) = node_datas {
             self.node_datas.append(node_datas);

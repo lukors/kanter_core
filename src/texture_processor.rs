@@ -83,14 +83,8 @@ impl TextureProcessor {
 
     /// Returns a vector of `NodeId`s that have been processed (are clean). Also clears the vector
     /// of clean `NodeId`s.
-    pub fn clean_consume(&self) -> Vec<NodeId> {
-        if let Ok(mut tpi) = self.tpi.write() {
-            let output = tpi.clean.clone();
-            tpi.clean.clear();
-            output
-        } else {
-            panic!("The RwLock was poisoned");
-        }
+    pub fn get_all_clean(&self) -> Vec<NodeId> {
+        self.tpi.write().unwrap().get_all_clean()
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {
