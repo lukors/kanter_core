@@ -61,8 +61,8 @@ impl TextureProcessor {
         self.tpi.read().unwrap().node_graph.external_output_ids()
     }
 
-    pub fn node_graph_set(&self, node_graph: NodeGraph) {
-        self.tpi.write().unwrap().node_graph = node_graph;
+    pub fn set_node_graph(&self, node_graph: NodeGraph) {
+        self.tpi.write().unwrap().set_node_graph(node_graph);
     }
 
     pub fn input_node_datas_push(&self, node_data: Arc<NodeData>) {
@@ -74,25 +74,24 @@ impl TextureProcessor {
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {
-        self.tpi.write().unwrap().node_graph.add_node(node)
+        self.tpi.write().unwrap().add_node(node)
     }
 
     pub fn remove_node(&self, node_id: NodeId) -> Result<()> {
-        self.tpi.write().unwrap().node_graph.remove_node(node_id)
+        self.tpi.write().unwrap().remove_node(node_id)
     }
 
-    /// Returns a vector of `NodeId`s that have been processed (are clean). Also clears the vector
-    /// of clean `NodeId`s.
+    /// Returns a vector of `NodeId`s that have been processed and not checked (are clean).
     pub fn get_all_clean(&self) -> Vec<NodeId> {
         self.tpi.write().unwrap().get_all_clean()
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {
-        self.tpi.read().unwrap().node_graph.node_ids()
+        self.tpi.read().unwrap().node_ids()
     }
 
     pub fn edges(&self) -> Vec<Edge> {
-        self.tpi.read().unwrap().node_graph.edges.to_owned()
+        self.tpi.read().unwrap().edges()
     }
 
     pub fn connect_arbitrary(
@@ -107,7 +106,6 @@ impl TextureProcessor {
         self.tpi
             .write()
             .unwrap()
-            .node_graph
             .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)
     }
 
@@ -115,7 +113,6 @@ impl TextureProcessor {
         self.tpi
             .write()
             .unwrap()
-            .node_graph
             .disconnect_slot(node_id, side, slot_id)
     }
 
@@ -144,7 +141,7 @@ impl TextureProcessor {
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        self.tpi.write().unwrap().node_graph.connect(
+        self.tpi.write().unwrap().connect(
             output_node,
             input_node,
             output_slot,
@@ -156,7 +153,7 @@ impl TextureProcessor {
         self.tpi.read().unwrap().node_graph.node_with_id(node_id)
     }
 
-    pub fn node_with_id_set(&self, node_id: NodeId, node: Node) -> Result<()> {
+    pub fn set_node_with_id(&self, node_id: NodeId, node: Node) -> Result<()> {
         let mut tpi = self.tpi.write().unwrap();
         let found_node = tpi
             .node_graph

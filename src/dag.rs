@@ -1,10 +1,4 @@
-use crate::{
-    error::{Result, TexProError},
-    node::{EmbeddedNodeDataId, Node, NodeType},
-    node_data::*,
-    node_graph::*,
-    process::*,
-};
+use crate::{error::{Result, TexProError}, node::{EmbeddedNodeDataId, Node, NodeType, Side}, node_data::*, node_graph::*, process::*};
 use image::ImageBuffer;
 use std::{
     collections::{BTreeMap, HashSet, VecDeque},
@@ -368,7 +362,18 @@ impl TexProInt {
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
-        self.node_graph.add_node(node)
+        let result = self.node_graph.add_node(node);
+
+        if let Ok(node_id) = result {
+            self.node_states.insert(node_id, NodeState::Dirty);
+        }
+        
+        result
+    }
+
+    pub fn remove_node(&mut self, node_id: NodeId) -> Result<()> {
+        self.node_states.remove(&node_id);
+        self.node_graph.remove_node(node_id)
     }
 
     pub fn connect(
@@ -378,7 +383,57 @@ impl TexProInt {
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        self.node_graph
-            .connect(output_node, input_node, output_slot, input_slot)
+        let result = self.node_graph.connect(output_node, input_node, output_slot, input_slot);
+
+        if result.is_ok() {
+            self.node_states.insert(input_node, NodeState::Dirty);
+        }
+
+        result
+    }
+
+    pub fn connect_arbitrary(
+        &mut self,
+        a_node: NodeId,
+        a_side: Side,
+        a_slot: SlotId,
+        b_node: NodeId,
+        b_side: Side,
+        b_slot: SlotId,
+    ) -> Result<()> {
+        let result = self
+            .node_graph
+            .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot);
+        
+        if result.is_ok() {
+            self.node_states.insert(b_node, NodeState::Dirty);
+        }
+
+        result
+    }
+
+    pub fn disconnect_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) {
+        self.node_graph.disconnect_slot(node_id, side, slot_id);
+
+        if side == Side::Input {
+            self.node_states.insert(node_id, NodeState::Dirty);
+        }
+    }
+
+    pub fn set_node_graph(&mut self, node_graph: NodeGraph) {
+        self.node_states.clear();
+        for node_id in node_graph.node_ids() {
+            self.node_states.insert(node_id, NodeState::Dirty);
+        }
+
+        self.node_graph = node_graph;
+    }
+
+    pub fn node_ids(&self) -> Vec<NodeId> {
+        self.node_graph.node_ids()
+    }
+
+    pub fn edges(&self) -> Vec<Edge> {
+        self.node_graph.edges.to_owned()
     }
 }

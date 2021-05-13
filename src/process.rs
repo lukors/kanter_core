@@ -148,7 +148,7 @@ fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Node) -> Vec<Arc
 fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
     let mut output: Vec<Arc<NodeData>> = Vec::new();
     let tex_pro = TextureProcessor::new();
-    tex_pro.node_graph_set((*graph).clone());
+    tex_pro.set_node_graph((*graph).clone());
 
     // Take the `NodeData`s that are fed into this node from the parent node and associate
     // them with the correct outputs on the input nodes in the child graph.
