@@ -19,6 +19,10 @@ impl TextureProcessor {
         }
     }
 
+    pub fn inner(&self) -> Arc<RwLock<TexProInt>> {
+        Arc::clone(&self.tpi)
+    }
+
     pub fn process(&self) {
         TexProInt::process(Arc::clone(&self.tpi));
     }
@@ -49,6 +53,10 @@ impl TextureProcessor {
             .input_mapping(external_slot)
     }
 
+    pub fn finished(&self) -> bool {
+        self.tpi.read().unwrap().task_finished
+    }
+
     pub fn external_output_ids(&self) -> Vec<NodeId> {
         self.tpi.read().unwrap().node_graph.external_output_ids()
     }
@@ -71,6 +79,18 @@ impl TextureProcessor {
 
     pub fn remove_node(&self, node_id: NodeId) -> Result<()> {
         self.tpi.write().unwrap().node_graph.remove_node(node_id)
+    }
+
+    /// Returns a vector of `NodeId`s that have been processed (are clean). Also clears the vector
+    /// of clean `NodeId`s.
+    pub fn clean_consume(&self) -> Vec<NodeId> {
+        if let Ok(mut tpi) = self.tpi.write() {
+            let output = tpi.clean.clone();
+            tpi.clean.clear();
+            output
+        } else {
+            panic!("The RwLock was poisoned");
+        }
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {
@@ -153,9 +173,5 @@ impl TextureProcessor {
         *found_node = node;
 
         Ok(())
-    }
-
-    pub fn node_with_id_mut(&self, node_id: NodeId) -> Option<Node> {
-        self.tpi.write().unwrap().node_graph.node_with_id(node_id)
     }
 }

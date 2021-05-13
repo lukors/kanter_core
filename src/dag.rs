@@ -20,7 +20,8 @@ pub struct TexProInt {
     pub node_datas: Vec<Arc<NodeData>>,
     pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
     pub input_node_datas: Vec<Arc<NodeData>>,
-    pub finished_processing: bool,
+    pub task_finished: bool,
+    pub clean: Vec<NodeId>,
 }
 
 impl TexProInt {
@@ -30,7 +31,8 @@ impl TexProInt {
             node_datas: Vec::new(),
             embedded_node_datas: Vec::new(),
             input_node_datas: Vec::new(),
-            finished_processing: false,
+            task_finished: false,
+            clean: Vec::new(),
         }
     }
 
@@ -41,7 +43,10 @@ impl TexProInt {
                 node_datas: Result<Vec<Arc<NodeData>>>,
             }
 
-            tex_pro.write().unwrap().node_datas.clear();
+            if let Ok(mut tex_pro) = tex_pro.write() {
+                tex_pro.node_datas.clear();
+                tex_pro.clean.clear();
+            }
 
             let (send, recv) = mpsc::channel::<ThreadMessage>();
             let mut finished_nodes: HashSet<NodeId> =
@@ -167,7 +172,7 @@ impl TexProInt {
                 });
             }
 
-            tex_pro.write().unwrap().finished_processing = true;
+            tex_pro.write().unwrap().task_finished = true;
         });
     }
 
@@ -198,6 +203,7 @@ impl TexProInt {
         queued_ids: &mut VecDeque<NodeId>,
     ) {
         finished_nodes.insert(id);
+        self.clean.push(id);
 
         if let Some(node_datas) = node_datas {
             self.node_datas.append(node_datas);
