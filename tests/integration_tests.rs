@@ -1,7 +1,7 @@
 use kanter_core::{
     node::{EmbeddedNodeDataId, MixType, Node, NodeType, ResizeFilter, ResizePolicy},
-    slot_data::Size,
     node_graph::{NodeGraph, NodeId, SlotId},
+    slot_data::Size,
     texture_processor::TextureProcessor,
 };
 use ntest::timeout;

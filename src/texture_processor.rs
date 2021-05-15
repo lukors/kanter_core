@@ -2,8 +2,8 @@ use crate::{
     dag::*,
     error::{Result, TexProError},
     node::{EmbeddedNodeDataId, Node, Side},
-    slot_data::*,
     node_graph::*,
+    slot_data::*,
 };
 use std::sync::{Arc, RwLock};
 
@@ -88,7 +88,7 @@ impl TextureProcessor {
 
     /// Returns a vector of `NodeId`s that have been changed since last processing.
     pub fn get_all_dirty(&self) -> Vec<NodeId> {
-        self.tpi.write().unwrap().get_all_dirty()
+        self.tpi.write().unwrap().get_dirty()
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {

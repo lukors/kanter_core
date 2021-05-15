@@ -1,9 +1,9 @@
 use crate::{
     error::{Result, TexProError},
     node::*,
-    slot_data::*,
     node_graph::*,
     shared::*,
+    slot_data::*,
     texture_processor::TextureProcessor,
 };
 use image::{ImageBuffer, Luma};

@@ -1,9 +1,9 @@
 use crate::{
     error::{Result, TexProError},
     node::{EmbeddedNodeDataId, Node, NodeType, Side},
-    slot_data::*,
     node_graph::*,
     process::*,
+    slot_data::*,
 };
 use image::ImageBuffer;
 use std::{
@@ -56,14 +56,22 @@ impl TexProInt {
                 node_datas: Result<Vec<Arc<SlotData>>>,
             }
 
-            let dirty_node_ids = if let Ok(mut tex_pro) = tex_pro.write() {
-                let dirty_node_ids = tex_pro.get_all_dirty();
-
+            let nodes_to_process = if let Ok(mut tex_pro) = tex_pro.write() {
+                let dirty_node_ids = tex_pro.get_dirty();
+                
+                let mut dirty_and_children = dirty_node_ids.clone();
                 for node_id in &dirty_node_ids {
+                    dirty_and_children.append(&mut tex_pro.get_children_recursive(*node_id));
+                }
+
+                dirty_and_children.sort_unstable();
+                dirty_and_children.dedup();
+
+                for node_id in &dirty_and_children {
                     tex_pro.remove_nodes_data(*node_id);
                 }
 
-                dirty_node_ids
+                dirty_and_children
             } else {
                 unreachable!();
             };
@@ -74,7 +82,7 @@ impl TexProInt {
             let mut started_nodes: HashSet<NodeId> =
                 HashSet::with_capacity(tex_pro.read().unwrap().node_graph.nodes().len());
 
-            let mut queued_ids: VecDeque<NodeId> = VecDeque::from(dirty_node_ids);
+            let mut queued_ids: VecDeque<NodeId> = VecDeque::from(nodes_to_process);
             for node_id in &queued_ids {
                 started_nodes.insert(*node_id);
             }
@@ -214,7 +222,8 @@ impl TexProInt {
         output
     }
 
-    pub fn get_all_dirty(&self) -> Vec<NodeId> {
+    /// Returns all nodes that are marked dirty.
+    pub fn get_dirty(&self) -> Vec<NodeId> {
         self.node_states
             .iter()
             .filter(|(_, ns)| **ns == NodeState::Dirty)
@@ -263,6 +272,50 @@ impl TexProInt {
                 started_nodes.insert(input_id);
             }
         }
+    }
+
+    /// Returns the NodeIds of all immediate children of this node (not recursive).
+    pub fn get_children(&self, node_id: NodeId) -> Vec<NodeId> {
+        self.node_graph
+            .edges
+            .iter()
+            .filter(|edge| edge.output_id == node_id)
+            .map(|edge| edge.input_id)
+            .collect()
+    }
+
+    /// Returns the NodeIds of all children of this node.
+    pub fn get_children_recursive(&self, node_id: NodeId) -> Vec<NodeId> {
+        let children = self.get_children(node_id);
+        let mut output = children.clone();
+
+        for child in children {
+            output.append(&mut self.get_children_recursive(child));
+        }
+
+        output
+    }
+
+    /// Returns the NodeIds of all immediate parents of this node (not recursive).
+    pub fn get_parents(&self, node_id: NodeId) -> Vec<NodeId> {
+        self.node_graph
+            .edges
+            .iter()
+            .filter(|edge| edge.input_id == node_id)
+            .map(|edge| edge.output_id)
+            .collect()
+    }
+
+    /// Returns the NodeIds of all parents of this node.
+    pub fn get_parents_recursive(&self, node_id: NodeId) -> Vec<NodeId> {
+        let parents = self.get_parents(node_id);
+        let mut output = parents.clone();
+
+        for parent in parents {
+            output.append(&mut self.get_parents_recursive(parent));
+        }
+
+        output
     }
 
     /// Returns the width and height of the `NodeData` for the given `NodeId` as a `Size`.
