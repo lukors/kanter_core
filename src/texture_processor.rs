@@ -2,7 +2,7 @@ use crate::{
     dag::*,
     error::{Result, TexProError},
     node::{EmbeddedNodeDataId, Node, Side},
-    node_data::*,
+    slot_data::*,
     node_graph::*,
 };
 use std::sync::{Arc, RwLock};
@@ -65,11 +65,11 @@ impl TextureProcessor {
         self.tpi.write().unwrap().set_node_graph(node_graph);
     }
 
-    pub fn input_node_datas_push(&self, node_data: Arc<NodeData>) {
+    pub fn input_node_datas_push(&self, node_data: Arc<SlotData>) {
         &mut self.tpi.write().unwrap().input_node_datas.push(node_data);
     }
 
-    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
+    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<SlotData>> {
         self.tpi.read().unwrap().node_datas(id)
     }
 
@@ -84,6 +84,11 @@ impl TextureProcessor {
     /// Returns a vector of `NodeId`s that have been processed and not checked (are clean).
     pub fn get_all_clean(&self) -> Vec<NodeId> {
         self.tpi.write().unwrap().get_all_clean()
+    }
+
+    /// Returns a vector of `NodeId`s that have been changed since last processing.
+    pub fn get_all_dirty(&self) -> Vec<NodeId> {
+        self.tpi.write().unwrap().get_all_dirty()
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {
@@ -116,12 +121,12 @@ impl TextureProcessor {
             .disconnect_slot(node_id, side, slot_id)
     }
 
-    pub fn get_node_data(&self, id: NodeId) -> Vec<Arc<NodeData>> {
+    pub fn get_node_data(&self, id: NodeId) -> Vec<Arc<SlotData>> {
         self.tpi.read().unwrap().get_node_data(id)
     }
     pub fn embed_node_data_with_id(
         &self,
-        node_data: Arc<NodeData>,
+        node_data: Arc<SlotData>,
         id: EmbeddedNodeDataId,
     ) -> Result<EmbeddedNodeDataId> {
         self.tpi
@@ -141,12 +146,10 @@ impl TextureProcessor {
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        self.tpi.write().unwrap().connect(
-            output_node,
-            input_node,
-            output_slot,
-            input_slot,
-        )
+        self.tpi
+            .write()
+            .unwrap()
+            .connect(output_node, input_node, output_slot, input_slot)
     }
 
     pub fn node_with_id(&self, node_id: NodeId) -> Option<Node> {

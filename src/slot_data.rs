@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt, sync::Arc};
 
 #[derive(Debug, Clone)]
-pub struct NodeData {
+pub struct SlotData {
     pub size: Size,
     pub slot_id: SlotId,
     pub node_id: NodeId,
@@ -19,7 +19,7 @@ pub struct EmbeddedNodeData {
 }
 
 impl EmbeddedNodeData {
-    pub fn from_node_data(node_data: Arc<NodeData>, node_data_id: EmbeddedNodeDataId) -> Self {
+    pub fn from_node_data(node_data: Arc<SlotData>, node_data_id: EmbeddedNodeDataId) -> Self {
         Self {
             size: node_data.size,
             buffer: Arc::clone(&node_data.buffer),
@@ -55,7 +55,7 @@ impl Size {
 
 pub type ChannelPixel = f32;
 
-impl PartialEq for NodeData {
+impl PartialEq for SlotData {
     fn eq(&self, other: &Self) -> bool {
         self.size == other.size
             && self
@@ -66,9 +66,9 @@ impl PartialEq for NodeData {
     }
 }
 
-impl Eq for NodeData {}
+impl Eq for SlotData {}
 
-impl NodeData {
+impl SlotData {
     pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Arc<Buffer>) -> Self {
         Self {
             node_id,

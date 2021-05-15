@@ -1,6 +1,6 @@
 use kanter_core::{
     node::{EmbeddedNodeDataId, MixType, Node, NodeType, ResizeFilter, ResizePolicy},
-    node_data::Size,
+    slot_data::Size,
     node_graph::{NodeGraph, NodeId, SlotId},
     texture_processor::TextureProcessor,
 };

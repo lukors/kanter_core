@@ -1,4 +1,10 @@
-use crate::{error::{Result, TexProError}, node::{EmbeddedNodeDataId, Node, NodeType, Side}, node_data::*, node_graph::*, process::*};
+use crate::{
+    error::{Result, TexProError},
+    node::{EmbeddedNodeDataId, Node, NodeType, Side},
+    slot_data::*,
+    node_graph::*,
+    process::*,
+};
 use image::ImageBuffer;
 use std::{
     collections::{BTreeMap, HashSet, VecDeque},
@@ -24,9 +30,9 @@ impl Default for NodeState {
 #[derive(Default)]
 pub struct TexProInt {
     pub node_graph: NodeGraph,
-    pub node_datas: Vec<Arc<NodeData>>,
+    pub slot_datas: Vec<Arc<SlotData>>,
     pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
-    pub input_node_datas: Vec<Arc<NodeData>>,
+    pub input_node_datas: Vec<Arc<SlotData>>,
     pub task_finished: bool,
     node_states: BTreeMap<NodeId, NodeState>,
 }
@@ -35,7 +41,7 @@ impl TexProInt {
     pub fn new() -> Self {
         Self {
             node_graph: NodeGraph::new(),
-            node_datas: Vec::new(),
+            slot_datas: Vec::new(),
             embedded_node_datas: Vec::new(),
             input_node_datas: Vec::new(),
             task_finished: false,
@@ -43,36 +49,24 @@ impl TexProInt {
         }
     }
 
-    fn set_all_node_state(&mut self, node_state: NodeState) {
-        for ns in self.node_states.values_mut() {
-            *ns = node_state;
-        }
-    }
-
-    pub fn get_all_clean(&mut self) -> Vec<NodeId> {
-        let mut output = Vec::new();
-
-        for (id, state) in self.node_states.iter_mut() {
-            if *state == NodeState::Clean {
-                *state = NodeState::Touched;
-                output.push(*id);
-            }
-        }
-
-        output
-    }
-
     pub fn process(tex_pro: Arc<RwLock<TexProInt>>) {
         thread::spawn(move || {
             struct ThreadMessage {
                 node_id: NodeId,
-                node_datas: Result<Vec<Arc<NodeData>>>,
+                node_datas: Result<Vec<Arc<SlotData>>>,
             }
 
-            if let Ok(mut tex_pro) = tex_pro.write() {
-                tex_pro.node_datas.clear();
-                tex_pro.set_all_node_state(NodeState::Dirty);
-            }
+            let dirty_node_ids = if let Ok(mut tex_pro) = tex_pro.write() {
+                let dirty_node_ids = tex_pro.get_all_dirty();
+
+                for node_id in &dirty_node_ids {
+                    tex_pro.remove_nodes_data(*node_id);
+                }
+
+                dirty_node_ids
+            } else {
+                unreachable!();
+            };
 
             let (send, recv) = mpsc::channel::<ThreadMessage>();
             let mut finished_nodes: HashSet<NodeId> =
@@ -80,10 +74,9 @@ impl TexProInt {
             let mut started_nodes: HashSet<NodeId> =
                 HashSet::with_capacity(tex_pro.read().unwrap().node_graph.nodes().len());
 
-            let mut queued_ids: VecDeque<NodeId> =
-                VecDeque::from(tex_pro.read().unwrap().get_root_ids());
-            for item in &queued_ids {
-                started_nodes.insert(*item);
+            let mut queued_ids: VecDeque<NodeId> = VecDeque::from(dirty_node_ids);
+            for node_id in &queued_ids {
+                started_nodes.insert(*node_id);
             }
 
             if queued_ids.is_empty() {
@@ -124,7 +117,7 @@ impl TexProInt {
                 }
 
                 let mut relevant_ids: Vec<NodeId> = Vec::new();
-                for node_data in tex_pro.read().unwrap().node_datas.iter() {
+                for node_data in tex_pro.read().unwrap().slot_datas.iter() {
                     for edge in &tex_pro.read().unwrap().node_graph.edges {
                         if edge.output_id != node_data.node_id {
                             continue;
@@ -137,8 +130,8 @@ impl TexProInt {
                 // Put the `Arc<Buffer>`s and `Edge`s relevant for the calculation of this node into
                 // lists.
                 let mut relevant_edges: Vec<Edge> = Vec::new();
-                let mut input_data: Vec<Arc<NodeData>> = Vec::new();
-                for node_data in tex_pro.read().unwrap().node_datas.iter() {
+                let mut input_data: Vec<Arc<SlotData>> = Vec::new();
+                for node_data in tex_pro.read().unwrap().slot_datas.iter() {
                     if !relevant_ids.contains(&node_data.node_id) {
                         continue;
                     }
@@ -171,7 +164,7 @@ impl TexProInt {
                     .iter()
                     .map(|end| Arc::clone(&end))
                     .collect();
-                let input_node_datas: Vec<Arc<NodeData>> = tex_pro
+                let input_node_datas: Vec<Arc<SlotData>> = tex_pro
                     .read()
                     .unwrap()
                     .input_node_datas
@@ -180,7 +173,7 @@ impl TexProInt {
                     .collect();
 
                 thread::spawn(move || {
-                    let node_datas: Result<Vec<Arc<NodeData>>> = process_node(
+                    let node_datas: Result<Vec<Arc<SlotData>>> = process_node(
                         current_node,
                         &input_data,
                         &embedded_node_datas,
@@ -200,6 +193,33 @@ impl TexProInt {
 
             tex_pro.write().unwrap().task_finished = true;
         });
+    }
+
+    fn set_all_node_state(&mut self, node_state: NodeState) {
+        for ns in self.node_states.values_mut() {
+            *ns = node_state;
+        }
+    }
+
+    pub fn get_all_clean(&mut self) -> Vec<NodeId> {
+        let mut output = Vec::new();
+
+        for (id, state) in self.node_states.iter_mut() {
+            if *state == NodeState::Clean {
+                *state = NodeState::Touched;
+                output.push(*id);
+            }
+        }
+
+        output
+    }
+
+    pub fn get_all_dirty(&self) -> Vec<NodeId> {
+        self.node_states
+            .iter()
+            .filter(|(_, ns)| **ns == NodeState::Dirty)
+            .map(|(id, _)| *id)
+            .collect::<Vec<NodeId>>()
     }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {
@@ -223,7 +243,7 @@ impl TexProInt {
     fn set_node_finished(
         &mut self,
         id: NodeId,
-        node_datas: &mut Option<Vec<Arc<NodeData>>>,
+        node_datas: &mut Option<Vec<Arc<SlotData>>>,
         started_nodes: &mut HashSet<NodeId>,
         finished_nodes: &mut HashSet<NodeId>,
         queued_ids: &mut VecDeque<NodeId>,
@@ -232,7 +252,7 @@ impl TexProInt {
         self.node_states.insert(id, NodeState::Clean);
 
         if let Some(node_datas) = node_datas {
-            self.node_datas.append(node_datas);
+            self.slot_datas.append(node_datas);
         }
 
         // Add any child node of the input `NodeId` to the list of nodes to potentially process.
@@ -247,7 +267,7 @@ impl TexProInt {
 
     /// Returns the width and height of the `NodeData` for the given `NodeId` as a `Size`.
     pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
-        if let Some(node_data) = self.node_datas.iter().find(|nd| nd.node_id == node_id) {
+        if let Some(node_data) = self.slot_datas.iter().find(|nd| nd.node_id == node_id) {
             Some(node_data.size)
         } else {
             None
@@ -263,7 +283,7 @@ impl TexProInt {
     /// function.
     pub fn embed_node_data_with_id(
         &mut self,
-        node_data: Arc<NodeData>,
+        node_data: Arc<SlotData>,
         id: EmbeddedNodeDataId,
     ) -> Result<EmbeddedNodeDataId> {
         if self
@@ -279,9 +299,18 @@ impl TexProInt {
         }
     }
 
+    /// Removes all the `slot_data` associated with the given `NodeId`.
+    pub(crate) fn remove_nodes_data(&mut self, id: NodeId) {
+        for i in (0..self.slot_datas.len()).rev() {
+            if self.slot_datas[i].node_id == id {
+                self.slot_datas.remove(i);
+            }
+        }
+    }
+
     /// Gets all `NodeData`s in this `TextureProcessor`.
-    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<NodeData>> {
-        self.node_datas
+    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<SlotData>> {
+        self.slot_datas
             .iter()
             .filter(|&x| x.node_id == id)
             .map(|x| Arc::clone(x))
@@ -289,8 +318,8 @@ impl TexProInt {
     }
 
     /// Gets any `NodeData`s associated with a given `NodeId`.
-    pub fn get_node_data(&self, id: NodeId) -> Vec<Arc<NodeData>> {
-        self.node_datas
+    pub fn get_node_data(&self, id: NodeId) -> Vec<Arc<SlotData>> {
+        self.slot_datas
             .iter()
             .filter(|nd| nd.node_id == id)
             .map(|nd| Arc::clone(&nd))
@@ -317,7 +346,7 @@ impl TexProInt {
         channels_to_rgba(&output_vecs)
     }
 
-    fn get_output_rgba(&self, node_datas: &[Arc<NodeData>]) -> Result<Vec<Arc<Buffer>>> {
+    fn get_output_rgba(&self, node_datas: &[Arc<SlotData>]) -> Result<Vec<Arc<Buffer>>> {
         let empty_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::new(0, 0)));
         let mut sorted_value_vecs: Vec<Arc<Buffer>> = vec![Arc::clone(&empty_buffer); 4];
 
@@ -348,7 +377,7 @@ impl TexProInt {
         Ok(sorted_value_vecs)
     }
 
-    fn get_output_gray(&self, node_datas: &[Arc<NodeData>]) -> Result<Vec<Arc<Buffer>>> {
+    fn get_output_gray(&self, node_datas: &[Arc<SlotData>]) -> Result<Vec<Arc<Buffer>>> {
         assert_eq!(node_datas.len(), 1);
         let (width, height) = (node_datas[0].size.width, node_datas[0].size.height);
         let size = (width * height) as usize;
@@ -367,7 +396,7 @@ impl TexProInt {
         if let Ok(node_id) = result {
             self.node_states.insert(node_id, NodeState::Dirty);
         }
-        
+
         result
     }
 
@@ -383,7 +412,9 @@ impl TexProInt {
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        let result = self.node_graph.connect(output_node, input_node, output_slot, input_slot);
+        let result = self
+            .node_graph
+            .connect(output_node, input_node, output_slot, input_slot);
 
         if result.is_ok() {
             self.node_states.insert(input_node, NodeState::Dirty);
@@ -404,7 +435,7 @@ impl TexProInt {
         let result = self
             .node_graph
             .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot);
-        
+
         if result.is_ok() {
             self.node_states.insert(b_node, NodeState::Dirty);
         }

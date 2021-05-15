@@ -1,5 +1,5 @@
 use crate::error::{Result, TexProError};
-use crate::{node::*, node_data::*};
+use crate::{node::*, slot_data::*};
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer};
 use std::{
     cmp::{max, min},
@@ -102,10 +102,10 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 }
 
 pub fn resize_buffers(
-    node_datas: &[Arc<NodeData>],
+    node_datas: &[Arc<SlotData>],
     policy: ResizePolicy,
     filter: ResizeFilter,
-) -> Result<Vec<Arc<NodeData>>> {
+) -> Result<Vec<Arc<SlotData>>> {
     if node_datas.is_empty() {
         return Ok(node_datas.into());
     }
@@ -139,7 +139,7 @@ pub fn resize_buffers(
         ResizePolicy::SpecificSize(size) => size,
     };
 
-    let output: Vec<Arc<NodeData>> = node_datas
+    let output: Vec<Arc<SlotData>> = node_datas
         .iter()
         .map(|ref node_data| {
             if node_data.size != size {
@@ -150,7 +150,7 @@ pub fn resize_buffers(
                     size.height,
                     filter.into(),
                 )));
-                Arc::new(NodeData::new(
+                Arc::new(SlotData::new(
                     node_data.node_id,
                     node_data.slot_id,
                     size,

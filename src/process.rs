@@ -1,7 +1,7 @@
 use crate::{
     error::{Result, TexProError},
     node::*,
-    node_data::*,
+    slot_data::*,
     node_graph::*,
     shared::*,
     texture_processor::TextureProcessor,
@@ -12,18 +12,18 @@ use std::{path::Path, sync::Arc};
 
 pub fn process_node(
     node: Node,
-    node_datas: &[Arc<NodeData>],
+    node_datas: &[Arc<SlotData>],
     embedded_node_datas: &[Arc<EmbeddedNodeData>],
-    input_node_datas: &[Arc<NodeData>],
+    input_node_datas: &[Arc<SlotData>],
     edges: &[Edge],
-) -> Result<Vec<Arc<NodeData>>> {
+) -> Result<Vec<Arc<SlotData>>> {
     assert!(node_datas.len() <= node.capacity(Side::Input));
     assert_eq!(edges.len(), node_datas.len());
 
-    let node_datas: Vec<Arc<NodeData>> =
+    let node_datas: Vec<Arc<SlotData>> =
         resize_buffers(&node_datas, node.resize_policy, node.resize_filter)?;
 
-    let output: Vec<Arc<NodeData>> = match node.node_type {
+    let output: Vec<Arc<SlotData>> = match node.node_type {
         NodeType::InputRgba => input_rgba(&node, &input_node_datas),
         NodeType::InputGray => input_gray(&node, &input_node_datas),
         NodeType::OutputRgba => output_rgba(&node_datas, edges)?,
@@ -43,7 +43,7 @@ pub fn process_node(
     Ok(output)
 }
 
-fn input_gray(node: &Node, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
+fn input_gray(node: &Node, input_node_datas: &[Arc<SlotData>]) -> Vec<Arc<SlotData>> {
     if let Some(node_data) = input_node_datas
         .iter()
         .find(|nd| nd.node_id == node.node_id)
@@ -54,8 +54,8 @@ fn input_gray(node: &Node, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeDa
     }
 }
 
-fn input_rgba(node: &Node, input_node_datas: &[Arc<NodeData>]) -> Vec<Arc<NodeData>> {
-    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(node.capacity(Side::Input));
+fn input_rgba(node: &Node, input_node_datas: &[Arc<SlotData>]) -> Vec<Arc<SlotData>> {
+    let mut new_node_datas: Vec<Arc<SlotData>> = Vec::with_capacity(node.capacity(Side::Input));
 
     for node_data in input_node_datas
         .iter()
@@ -71,12 +71,12 @@ fn image_buffer(
     node: &Node,
     embedded_node_datas: &[Arc<EmbeddedNodeData>],
     embedded_node_data_id: EmbeddedNodeDataId,
-) -> Result<Vec<Arc<NodeData>>> {
+) -> Result<Vec<Arc<SlotData>>> {
     if let Some(enode_data) = embedded_node_datas
         .iter()
         .find(|end| end.node_data_id == embedded_node_data_id)
     {
-        Ok(vec![Arc::new(NodeData::new(
+        Ok(vec![Arc::new(SlotData::new(
             node.node_id,
             SlotId(0),
             enode_data.size,
@@ -88,8 +88,8 @@ fn image_buffer(
 }
 
 /// Finds the `NodeData`s relevant for this `Node` and outputs them.
-fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<NodeData>>> {
-    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(4);
+fn output_rgba(node_datas: &[Arc<SlotData>], edges: &[Edge]) -> Result<Vec<Arc<SlotData>>> {
+    let mut new_node_datas: Vec<Arc<SlotData>> = Vec::with_capacity(4);
 
     for edge in edges {
         let node_data = node_datas
@@ -99,7 +99,7 @@ fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<N
             })
             .ok_or(TexProError::NodeProcessing)?;
 
-        let new_node_data = Arc::new(NodeData::new(
+        let new_node_data = Arc::new(SlotData::new(
             edge.input_id,
             edge.input_slot,
             node_data.size,
@@ -115,8 +115,8 @@ fn output_rgba(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Result<Vec<Arc<N
 }
 
 /// Finds the `NodeData` relevant for this `Node` and outputs them.
-fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Node) -> Vec<Arc<NodeData>> {
-    let mut new_node_datas: Vec<Arc<NodeData>> = Vec::with_capacity(1);
+fn output_gray(inputs: &[Arc<SlotData>], edges: &[Edge], node: &Node) -> Vec<Arc<SlotData>> {
+    let mut new_node_datas: Vec<Arc<SlotData>> = Vec::with_capacity(1);
 
     // Find a `NodeData` in `inputs` that matches the current `Edge`.
     for edge in edges {
@@ -145,8 +145,8 @@ fn output_gray(inputs: &[Arc<NodeData>], edges: &[Edge], node: &Node) -> Vec<Arc
 }
 
 /// Executes the node graph contained in the node.
-fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Arc<NodeData>> {
-    let mut output: Vec<Arc<NodeData>> = Vec::new();
+fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Vec<Arc<SlotData>> {
+    let mut output: Vec<Arc<SlotData>> = Vec::new();
     let tex_pro = TextureProcessor::new();
     tex_pro.set_node_graph((*graph).clone());
 
@@ -155,7 +155,7 @@ fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
     for node_data in node_datas {
         let (target_node, target_slot) = tex_pro.input_mapping(node_data.slot_id).unwrap();
 
-        tex_pro.input_node_datas_push(Arc::new(NodeData::new(
+        tex_pro.input_node_datas_push(Arc::new(SlotData::new(
             target_node,
             target_slot,
             node_data.size,
@@ -168,7 +168,7 @@ fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
     // Fill the output vector with `NodeData`.
     for output_node_id in tex_pro.external_output_ids() {
         for node_data in tex_pro.node_datas(output_node_id) {
-            let output_node_data = NodeData::new(
+            let output_node_data = SlotData::new(
                 node.node_id,
                 node_data.slot_id,
                 node_data.size,
@@ -181,16 +181,16 @@ fn graph(node_datas: &[Arc<NodeData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
     output
 }
 
-fn read(node: &Node, path: &Path) -> Result<Vec<Arc<NodeData>>> {
+fn read(node: &Node, path: &Path) -> Result<Vec<Arc<SlotData>>> {
     let buffers = read_image(path)?;
     let size = Size {
         width: buffers[0].width(),
         height: buffers[0].height(),
     };
 
-    let mut output: Vec<Arc<NodeData>> = Vec::with_capacity(4);
+    let mut output: Vec<Arc<SlotData>> = Vec::with_capacity(4);
     for (channel, buffer) in buffers.into_iter().enumerate() {
-        output.push(Arc::new(NodeData::new(
+        output.push(Arc::new(SlotData::new(
             node.node_id,
             SlotId(channel as u32),
             size,
@@ -201,7 +201,7 @@ fn read(node: &Node, path: &Path) -> Result<Vec<Arc<NodeData>>> {
     Ok(output)
 }
 
-fn write(inputs: &[Arc<NodeData>], path: &Path) -> Result<Vec<Arc<NodeData>>> {
+fn write(inputs: &[Arc<SlotData>], path: &Path) -> Result<Vec<Arc<SlotData>>> {
     let channel_vec: Vec<Arc<Buffer>> = inputs
         .iter()
         .map(|node_data| Arc::clone(&node_data.buffer))
@@ -220,10 +220,10 @@ fn write(inputs: &[Arc<NodeData>], path: &Path) -> Result<Vec<Arc<NodeData>>> {
     Ok(Vec::new())
 }
 
-fn value(node: &Node, value: f32) -> Vec<Arc<NodeData>> {
+fn value(node: &Node, value: f32) -> Vec<Arc<SlotData>> {
     let (width, height) = (1, 1);
 
-    vec![Arc::new(NodeData::new(
+    vec![Arc::new(SlotData::new(
         node.node_id,
         SlotId(0),
         Size::new(width, height),
@@ -236,11 +236,11 @@ fn value(node: &Node, value: f32) -> Vec<Arc<NodeData>> {
 // TODO: Look into optimizing this by sampling straight into the un-resized image instead of
 // resizing the image before blending.
 fn process_mix(
-    node_datas: &[Arc<NodeData>],
+    node_datas: &[Arc<SlotData>],
     node: &Node,
     edges: &[Edge],
     mix_type: MixType,
-) -> Vec<Arc<NodeData>> {
+) -> Vec<Arc<SlotData>> {
     let size = node_datas[0].size;
 
     let buffer = match mix_type {
@@ -250,7 +250,7 @@ fn process_mix(
         MixType::Divide => process_divide(&node_datas, size, edges),
     };
 
-    vec![Arc::new(NodeData::new(
+    vec![Arc::new(SlotData::new(
         node.node_id,
         SlotId(0),
         size,
@@ -258,7 +258,7 @@ fn process_mix(
     ))]
 }
 
-fn process_add(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
+fn process_add(node_datas: &[Arc<SlotData>], size: Size) -> Arc<Buffer> {
     Arc::new(Box::new(ImageBuffer::from_fn(
         size.width,
         size.height,
@@ -271,7 +271,7 @@ fn process_add(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
     )))
 }
 
-fn process_subtract(node_datas: &[Arc<NodeData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
+fn process_subtract(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
     let mut node_datas = node_datas.to_vec();
 
     let node_data_first = split_first_node_data(&mut node_datas, size, edges);
@@ -291,17 +291,17 @@ fn process_subtract(node_datas: &[Arc<NodeData>], size: Size, edges: &[Edge]) ->
 }
 
 fn split_first_node_data(
-    node_datas: &mut Vec<Arc<NodeData>>,
+    node_datas: &mut Vec<Arc<SlotData>>,
     size: Size,
     edges: &[Edge],
-) -> Arc<NodeData> {
+) -> Arc<SlotData> {
     let first_index = first_node_data_index(node_datas, edges);
 
     // Return the first `NodeData` if there is one. Otherwise return a new `NodeData` filled with black.
     if let Some(index) = first_index {
         node_datas.remove(index)
     } else {
-        Arc::new(NodeData::new(
+        Arc::new(SlotData::new(
             NodeId(0),
             SlotId(0),
             size,
@@ -317,7 +317,7 @@ fn split_first_node_data(
     }
 }
 
-fn process_multiply(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
+fn process_multiply(node_datas: &[Arc<SlotData>], size: Size) -> Arc<Buffer> {
     Arc::new(Box::new(ImageBuffer::from_fn(
         size.width,
         size.height,
@@ -330,7 +330,7 @@ fn process_multiply(node_datas: &[Arc<NodeData>], size: Size) -> Arc<Buffer> {
     )))
 }
 
-fn process_divide(node_datas: &[Arc<NodeData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
+fn process_divide(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
     let mut node_datas = node_datas.to_vec();
 
     let node_data_first = split_first_node_data(&mut node_datas, size, edges);
@@ -350,7 +350,7 @@ fn process_divide(node_datas: &[Arc<NodeData>], size: Size, edges: &[Edge]) -> A
 
 /// Returns the position of the `NodeData` connected to the first input slot along with the
 /// index it was found at.
-fn first_node_data_index(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Option<usize> {
+fn first_node_data_index(node_datas: &[Arc<SlotData>], edges: &[Edge]) -> Option<usize> {
     assert!(
         edges
             .iter()
@@ -404,7 +404,7 @@ fn has_dulicates<T: PartialEq>(slice: &[T]) -> bool {
 //         .collect::<Vec<Arc<NodeData>>>()
 // }
 
-fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: &Node) -> Vec<Arc<NodeData>> {
+fn process_height_to_normal(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
     let channel_count = 3;
     let heightmap = &node_datas[0].buffer;
     let (width, height) = (heightmap.width(), heightmap.height());
@@ -429,7 +429,7 @@ fn process_height_to_normal(node_datas: &[Arc<NodeData>], node: &Node) -> Vec<Ar
 
     let mut output_node_datas = Vec::with_capacity(channel_count);
     for (i, buffer) in output_buffers.into_iter().enumerate() {
-        output_node_datas.push(Arc::new(NodeData::new(
+        output_node_datas.push(Arc::new(SlotData::new(
             node.node_id,
             SlotId(i as u32),
             Size::new(heightmap.width(), heightmap.height()),

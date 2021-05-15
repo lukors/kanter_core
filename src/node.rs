@@ -1,4 +1,4 @@
-use crate::{node_data::*, node_graph::*};
+use crate::{slot_data::*, node_graph::*};
 use image::FilterType;
 use serde::{Deserialize, Serialize};
 use std::{
