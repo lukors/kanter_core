@@ -155,7 +155,7 @@ fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
     for node_data in node_datas {
         let (target_node, target_slot) = tex_pro.input_mapping(node_data.slot_id).unwrap();
 
-        tex_pro.input_node_datas_push(Arc::new(SlotData::new(
+        tex_pro.input_slot_datas_push(Arc::new(SlotData::new(
             target_node,
             target_slot,
             node_data.size,
@@ -164,10 +164,11 @@ fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
     }
 
     tex_pro.process();
+    tex_pro.wait_until_finished();
 
     // Fill the output vector with `NodeData`.
     for output_node_id in tex_pro.external_output_ids() {
-        for node_data in tex_pro.node_datas(output_node_id) {
+        for node_data in tex_pro.node_slot_datas(output_node_id) {
             let output_node_data = SlotData::new(
                 node.node_id,
                 node_data.slot_id,

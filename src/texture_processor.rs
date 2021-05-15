@@ -39,9 +39,9 @@ impl TextureProcessor {
 
     pub fn try_get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
         if let Ok(tpi) = self.tpi.try_read() {
-            return tpi.get_output(node_id);
+            tpi.get_output(node_id)
         } else {
-            return Err(TexProError::UnableToLock);
+            Err(TexProError::UnableToLock)
         }
     }
 
@@ -65,16 +65,24 @@ impl TextureProcessor {
         self.tpi.write().unwrap().set_node_graph(node_graph);
     }
 
-    pub fn input_node_datas_push(&self, node_data: Arc<SlotData>) {
-        &mut self.tpi.write().unwrap().input_node_datas.push(node_data);
+    pub fn input_slot_datas_push(&self, node_data: Arc<SlotData>) {
+        self.tpi.write().unwrap().input_node_datas.push(node_data);
     }
 
-    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<SlotData>> {
-        self.tpi.read().unwrap().node_datas(id)
+    pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
+        self.tpi.read().unwrap().slot_datas()
+    }
+
+    pub fn node_slot_datas(&self, node_id: NodeId) -> Vec<Arc<SlotData>> {
+        self.tpi.read().unwrap().node_slot_datas(node_id)
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {
         self.tpi.write().unwrap().add_node(node)
+    }
+
+    pub fn add_node_with_id(&self, node: Node, node_id: NodeId) -> Result<NodeId> {
+        self.tpi.write().unwrap().add_node_with_id(node, node_id)
     }
 
     pub fn remove_node(&self, node_id: NodeId) -> Result<()> {
@@ -121,18 +129,27 @@ impl TextureProcessor {
             .disconnect_slot(node_id, side, slot_id)
     }
 
-    pub fn get_node_data(&self, id: NodeId) -> Vec<Arc<SlotData>> {
-        self.tpi.read().unwrap().get_node_data(id)
+    pub fn node_slot_data(&self, id: NodeId) -> Vec<Arc<SlotData>> {
+        self.tpi.read().unwrap().node_slot_datas(id)
     }
-    pub fn embed_node_data_with_id(
+
+    pub fn wait_until_finished(&self) {
+        loop {
+            if self.finished() {
+                return;
+            }
+        }
+    }
+
+    pub fn embed_slot_data_with_id(
         &self,
-        node_data: Arc<SlotData>,
+        slot_data: Arc<SlotData>,
         id: EmbeddedNodeDataId,
     ) -> Result<EmbeddedNodeDataId> {
         self.tpi
             .write()
             .unwrap()
-            .embed_node_data_with_id(node_data, id)
+            .embed_node_data_with_id(slot_data, id)
     }
 
     pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {

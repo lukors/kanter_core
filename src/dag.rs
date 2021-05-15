@@ -58,7 +58,7 @@ impl TexProInt {
 
             let nodes_to_process = if let Ok(mut tex_pro) = tex_pro.write() {
                 let dirty_node_ids = tex_pro.get_dirty();
-                
+
                 let mut dirty_and_children = dirty_node_ids.clone();
                 for node_id in &dirty_node_ids {
                     dirty_and_children.append(&mut tex_pro.get_children_recursive(*node_id));
@@ -203,12 +203,6 @@ impl TexProInt {
         });
     }
 
-    fn set_all_node_state(&mut self, node_state: NodeState) {
-        for ns in self.node_states.values_mut() {
-            *ns = node_state;
-        }
-    }
-
     pub fn get_all_clean(&mut self) -> Vec<NodeId> {
         let mut output = Vec::new();
 
@@ -318,7 +312,7 @@ impl TexProInt {
         output
     }
 
-    /// Returns the width and height of the `NodeData` for the given `NodeId` as a `Size`.
+    /// Returns the width and height of the `SlotData` for the given `NodeId` as a `Size`.
     pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
         if let Some(node_data) = self.slot_datas.iter().find(|nd| nd.node_id == node_id) {
             Some(node_data.size)
@@ -327,12 +321,12 @@ impl TexProInt {
         }
     }
 
-    /// Embeds a `NodeData` in the `TextureProcessor` with an associated `EmbeddedNodeDataId`.
+    /// Embeds a `SlotData` in the `TextureProcessor` with an associated `EmbeddedNodeDataId`.
     /// The `EmbeddedNodeDataId` can be referenced using the assigned `EmbeddedNodeDataId` in a
     /// `NodeType::NodeData` node. This is useful when you want to transfer and use 'NodeData'
     /// between several `TextureProcessor`s.
     ///
-    /// Get the `NodeData`s from a `Node` in a `TextureProcessor` by using the `get_node_data()`
+    /// Get the `SlotData`s from a `Node` in a `TextureProcessor` by using the `get_node_data()`
     /// function.
     pub fn embed_node_data_with_id(
         &mut self,
@@ -361,17 +355,13 @@ impl TexProInt {
         }
     }
 
-    /// Gets all `NodeData`s in this `TextureProcessor`.
-    pub fn node_datas(&self, id: NodeId) -> Vec<Arc<SlotData>> {
-        self.slot_datas
-            .iter()
-            .filter(|&x| x.node_id == id)
-            .map(|x| Arc::clone(x))
-            .collect()
+    /// Gets all `SlotData`s in this `TextureProcessor`.
+    pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
+        self.slot_datas.clone()
     }
 
-    /// Gets any `NodeData`s associated with a given `NodeId`.
-    pub fn get_node_data(&self, id: NodeId) -> Vec<Arc<SlotData>> {
+    /// Gets any `SlotData`s associated with a given `NodeId`.
+    pub fn node_slot_datas(&self, id: NodeId) -> Vec<Arc<SlotData>> {
         self.slot_datas
             .iter()
             .filter(|nd| nd.node_id == id)
@@ -380,7 +370,7 @@ impl TexProInt {
     }
 
     pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        let node_datas = self.node_datas(node_id);
+        let node_datas = self.node_slot_datas(node_id);
         if node_datas.is_empty() {
             return Err(TexProError::Generic);
         }
@@ -441,6 +431,10 @@ impl TexProInt {
         )));
 
         Ok(sorted_value_vecs)
+    }
+
+    pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
+        self.node_graph.add_node_with_id(node, node_id)
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
