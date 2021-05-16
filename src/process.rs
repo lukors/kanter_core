@@ -12,26 +12,28 @@ use std::{path::Path, sync::Arc};
 
 pub fn process_node(
     node: Node,
-    node_datas: &[Arc<SlotData>],
-    embedded_node_datas: &[Arc<EmbeddedNodeData>],
-    input_node_datas: &[Arc<SlotData>],
+    slot_datas: &[Arc<SlotData>],
+    embedded_slot_datas: &[Arc<EmbeddedNodeData>],
+    input_slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<SlotData>>> {
-    assert!(node_datas.len() <= node.capacity(Side::Input));
-    assert_eq!(edges.len(), node_datas.len());
+    assert!(slot_datas.len() <= node.capacity(Side::Input));
+    assert_eq!(edges.len(), slot_datas.len());
+
+    // edges.sort_by(|a, b| a.input_slot.cmp(&b.input_slot));
 
     let node_datas: Vec<Arc<SlotData>> =
-        resize_buffers(&node_datas, node.resize_policy, node.resize_filter)?;
+        resize_buffers(&slot_datas, node.resize_policy, node.resize_filter)?;
 
     let output: Vec<Arc<SlotData>> = match node.node_type {
-        NodeType::InputRgba => input_rgba(&node, &input_node_datas),
-        NodeType::InputGray => input_gray(&node, &input_node_datas),
+        NodeType::InputRgba => input_rgba(&node, &input_slot_datas),
+        NodeType::InputGray => input_gray(&node, &input_slot_datas),
         NodeType::OutputRgba => output_rgba(&node_datas, edges)?,
         NodeType::OutputGray => output_gray(&node_datas, edges, &node),
         NodeType::Graph(ref node_graph) => graph(&node_datas, &node, node_graph),
         NodeType::Image(ref path) => read(&node, path)?,
         NodeType::NodeData(embedded_node_data_id) => {
-            image_buffer(&node, embedded_node_datas, embedded_node_data_id)?
+            image_buffer(&node, embedded_slot_datas, embedded_node_data_id)?
         }
         NodeType::Write(ref path) => write(&node_datas, path)?,
         NodeType::Value(val) => value(&node, val),
@@ -163,9 +165,6 @@ fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
         )));
     }
 
-    tex_pro.process();
-    tex_pro.wait_until_finished();
-
     // Fill the output vector with `NodeData`.
     for output_node_id in tex_pro.external_output_ids() {
         for node_data in tex_pro.node_slot_datas(output_node_id) {
@@ -242,6 +241,10 @@ fn process_mix(
     edges: &[Edge],
     mix_type: MixType,
 ) -> Vec<Arc<SlotData>> {
+    if node_datas.is_empty() {
+        return Vec::new();
+    }
+
     let size = node_datas[0].size;
 
     let buffer = match mix_type {

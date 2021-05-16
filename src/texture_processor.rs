@@ -5,33 +5,58 @@ use crate::{
     node_graph::*,
     slot_data::*,
 };
-use std::sync::{Arc, RwLock};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, RwLock,
+    },
+    thread,
+};
 
 #[derive(Default)]
 pub struct TextureProcessor {
     tpi: Arc<RwLock<TexProInt>>,
+    shutdown: Arc<AtomicBool>,
+}
+
+impl Drop for TextureProcessor {
+    fn drop(&mut self) {
+        self.shutdown.store(true, Ordering::Relaxed);
+    }
 }
 
 impl TextureProcessor {
     pub fn new() -> Self {
-        Self {
-            tpi: Arc::new(RwLock::new(TexProInt::new())),
-        }
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let tpi = Arc::new(RwLock::new(TexProInt::new()));
+
+        let output = Self {
+            tpi: Arc::clone(&tpi),
+            shutdown: Arc::clone(&shutdown),
+        };
+
+        thread::spawn(move || {
+            TexProInt::process_loop(tpi, shutdown);
+        });
+
+        output
     }
 
-    pub fn inner(&self) -> Arc<RwLock<TexProInt>> {
+    pub fn tex_pro_int(&self) -> Arc<RwLock<TexProInt>> {
         Arc::clone(&self.tpi)
     }
 
-    pub fn process(&self) {
-        TexProInt::process(Arc::clone(&self.tpi));
-    }
+    // pub fn process(&self) {
+    //     TexProInt::process(Arc::clone(&self.tpi));
+    // }
 
-    pub fn get_output(&self, node_id: NodeId) -> Vec<u8> {
+    pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
+        self.tex_pro_int().write().unwrap().prioritise(node_id)?;
+        
         loop {
             if let Ok(tpi) = self.tpi.try_read() {
                 if let Ok(output) = tpi.get_output(node_id) {
-                    return output;
+                    return Ok(output);
                 }
             }
         }
@@ -39,7 +64,9 @@ impl TextureProcessor {
 
     pub fn try_get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
         if let Ok(tpi) = self.tpi.try_read() {
-            tpi.get_output(node_id)
+            if tpi.node_state(node_id) == NodeState::Clean {
+                tpi.get_output(node_id) // TODO: need to make a request here if unable to get the output
+            }
         } else {
             Err(TexProError::UnableToLock)
         }
@@ -53,9 +80,9 @@ impl TextureProcessor {
             .input_mapping(external_slot)
     }
 
-    pub fn finished(&self) -> bool {
-        self.tpi.read().unwrap().task_finished
-    }
+    // pub fn processing(&self) -> bool {
+    //     self.tpi.read().unwrap().processing
+    // }
 
     pub fn external_output_ids(&self) -> Vec<NodeId> {
         self.tpi.read().unwrap().node_graph.external_output_ids()
@@ -74,7 +101,15 @@ impl TextureProcessor {
     }
 
     pub fn node_slot_datas(&self, node_id: NodeId) -> Vec<Arc<SlotData>> {
-        self.tpi.read().unwrap().node_slot_datas(node_id)
+        loop {
+            if let Ok(tpi) = self.tpi.read() {
+                if let Ok(node_state) = tpi.node_state(node_id) {
+                    if node_state == NodeState::Clean {
+                        return tpi.node_slot_datas(node_id);
+                    }
+                }
+            }
+        }
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {
@@ -90,13 +125,14 @@ impl TextureProcessor {
     }
 
     /// Returns a vector of `NodeId`s that have been processed and not checked (are clean).
-    pub fn get_all_clean(&self) -> Vec<NodeId> {
-        self.tpi.write().unwrap().get_all_clean()
-    }
+    // pub fn get_clean(&self) -> Vec<NodeId> {
+    //     self.tpi.write().unwrap().get_all_clean()
+    // }
 
-    /// Returns a vector of `NodeId`s that have been changed since last processing.
-    pub fn get_all_dirty(&self) -> Vec<NodeId> {
-        self.tpi.write().unwrap().get_dirty()
+    /// Returns a vector of `NodeId`s that are not clean. That is, not up to date compared to the
+    /// state of the graph.
+    pub fn get_dirty(&self) -> Vec<NodeId> {
+        self.tpi.read().unwrap().get_dirty()
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {
@@ -133,13 +169,13 @@ impl TextureProcessor {
         self.tpi.read().unwrap().node_slot_datas(id)
     }
 
-    pub fn wait_until_finished(&self) {
-        loop {
-            if self.finished() {
-                return;
-            }
-        }
-    }
+    // pub fn wait_until_finished(&self) {
+    //     loop {
+    //         if !self.processing() {
+    //             return;
+    //         }
+    //     }
+    // }
 
     pub fn embed_slot_data_with_id(
         &self,
