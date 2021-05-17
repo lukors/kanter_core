@@ -17,7 +17,12 @@ pub fn process_node(
     input_slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<SlotData>>> {
-    assert!(slot_datas.len() <= node.capacity(Side::Input));
+    assert!(
+        slot_datas.len() <= node.capacity(Side::Input),
+        "slot_datas.len(): {:?}, node.capacity(Side::Input): {:?}",
+        slot_datas.len(),
+        node.capacity(Side::Input)
+    );
     assert_eq!(edges.len(), slot_datas.len());
 
     // edges.sort_by(|a, b| a.input_slot.cmp(&b.input_slot));
@@ -30,7 +35,7 @@ pub fn process_node(
         NodeType::InputGray => input_gray(&node, &input_slot_datas),
         NodeType::OutputRgba => output_rgba(&node_datas, edges)?,
         NodeType::OutputGray => output_gray(&node_datas, edges, &node),
-        NodeType::Graph(ref node_graph) => graph(&node_datas, &node, node_graph),
+        NodeType::Graph(ref node_graph) => graph(&node_datas, &node, node_graph)?,
         NodeType::Image(ref path) => read(&node, path)?,
         NodeType::NodeData(embedded_node_data_id) => {
             image_buffer(&node, embedded_slot_datas, embedded_node_data_id)?
@@ -147,7 +152,7 @@ fn output_gray(inputs: &[Arc<SlotData>], edges: &[Edge], node: &Node) -> Vec<Arc
 }
 
 /// Executes the node graph contained in the node.
-fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Vec<Arc<SlotData>> {
+fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Result<Vec<Arc<SlotData>>> {
     let mut output: Vec<Arc<SlotData>> = Vec::new();
     let tex_pro = TextureProcessor::new();
     tex_pro.set_node_graph((*graph).clone());
@@ -155,7 +160,7 @@ fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
     // Take the `NodeData`s that are fed into this node from the parent node and associate
     // them with the correct outputs on the input nodes in the child graph.
     for node_data in node_datas {
-        let (target_node, target_slot) = tex_pro.input_mapping(node_data.slot_id).unwrap();
+        let (target_node, target_slot) = tex_pro.input_mapping(node_data.slot_id)?;
 
         tex_pro.input_slot_datas_push(Arc::new(SlotData::new(
             target_node,
@@ -165,20 +170,20 @@ fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Vec<Ar
         )));
     }
 
-    // Fill the output vector with `NodeData`.
+    // Fill the output vector with `SlotData`.
     for output_node_id in tex_pro.external_output_ids() {
-        for node_data in tex_pro.node_slot_datas(output_node_id) {
+        for slot_data in tex_pro.node_slot_datas(output_node_id)? {
             let output_node_data = SlotData::new(
                 node.node_id,
-                node_data.slot_id,
-                node_data.size,
-                Arc::clone(&node_data.buffer),
+                slot_data.slot_id,
+                slot_data.size,
+                Arc::clone(&slot_data.buffer),
             );
             output.push(Arc::new(output_node_data));
         }
     }
 
-    output
+    Ok(output)
 }
 
 fn read(node: &Node, path: &Path) -> Result<Vec<Arc<SlotData>>> {

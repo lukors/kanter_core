@@ -1,17 +1,5 @@
-use crate::{
-    dag::*,
-    error::{Result, TexProError},
-    node::{EmbeddedNodeDataId, Node, Side},
-    node_graph::*,
-    slot_data::*,
-};
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, RwLock,
-    },
-    thread,
-};
+use crate::{dag::*, error::{Result, TexProError}, node::{self, EmbeddedNodeDataId, Node, Side}, node_graph::*, slot_data::*};
+use std::{sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicBool, Ordering}}, thread};
 
 #[derive(Default)]
 pub struct TextureProcessor {
@@ -51,25 +39,34 @@ impl TextureProcessor {
     // }
 
     pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        self.tex_pro_int().write().unwrap().prioritise(node_id)?;
-        
-        loop {
-            if let Ok(tpi) = self.tpi.try_read() {
-                if let Ok(output) = tpi.get_output(node_id) {
-                    return Ok(output);
-                }
-            }
-        }
+        self.wait_for_state_read(node_id, NodeState::Clean)?.get_output(node_id)
     }
 
+    /// Tries to get the output of a node. If it can't it submits a request for it.
     pub fn try_get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
+        let result;
+
         if let Ok(tpi) = self.tpi.try_read() {
-            if tpi.node_state(node_id) == NodeState::Clean {
-                tpi.get_output(node_id) // TODO: need to make a request here if unable to get the output
+            if let Ok(node_state) = tpi.node_state(node_id) {
+                if node_state == NodeState::Clean {
+                    result = tpi.get_output(node_id);
+                } else {
+                    result = Err(TexProError::InvalidNodeId);
+                }
+            } else {
+                result = Err(TexProError::InvalidNodeId);
             }
         } else {
-            Err(TexProError::UnableToLock)
+            result = Err(TexProError::UnableToLock);
         }
+
+        if result.is_err() {
+            // This is blocking, should probably make requests go through an
+            // `RwLock<BTreeSet<NodeId>>`.
+            self.tpi.write().unwrap().request(node_id)?
+        }
+
+        result
     }
 
     pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
@@ -79,10 +76,6 @@ impl TextureProcessor {
             .node_graph
             .input_mapping(external_slot)
     }
-
-    // pub fn processing(&self) -> bool {
-    //     self.tpi.read().unwrap().processing
-    // }
 
     pub fn external_output_ids(&self) -> Vec<NodeId> {
         self.tpi.read().unwrap().node_graph.external_output_ids()
@@ -100,16 +93,8 @@ impl TextureProcessor {
         self.tpi.read().unwrap().slot_datas()
     }
 
-    pub fn node_slot_datas(&self, node_id: NodeId) -> Vec<Arc<SlotData>> {
-        loop {
-            if let Ok(tpi) = self.tpi.read() {
-                if let Ok(node_state) = tpi.node_state(node_id) {
-                    if node_state == NodeState::Clean {
-                        return tpi.node_slot_datas(node_id);
-                    }
-                }
-            }
-        }
+    pub fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
+        Ok(self.wait_for_state_read(node_id, NodeState::Clean)?.node_slot_datas(node_id))
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {
@@ -165,8 +150,16 @@ impl TextureProcessor {
             .disconnect_slot(node_id, side, slot_id)
     }
 
-    pub fn node_slot_data(&self, id: NodeId) -> Vec<Arc<SlotData>> {
-        self.tpi.read().unwrap().node_slot_datas(id)
+    pub fn node_slot_data(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
+        Ok(self.wait_for_state_read(node_id, NodeState::Clean)?.node_slot_datas(node_id))
+    }
+
+    pub fn wait_for_state_write(&self, node_id: NodeId, node_state: NodeState) -> Result<RwLockWriteGuard<TexProInt>> {
+        TexProInt::wait_for_state_write(&self.tpi, node_id, node_state)
+    }
+
+    pub fn wait_for_state_read(&self, node_id: NodeId, node_state: NodeState) -> Result<RwLockReadGuard<TexProInt>> {
+        TexProInt::wait_for_state_read(&self.tpi, node_id, node_state)
     }
 
     // pub fn wait_until_finished(&self) {
@@ -188,9 +181,25 @@ impl TextureProcessor {
             .embed_node_data_with_id(slot_data, id)
     }
 
-    pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
-        self.tpi.read().unwrap().get_node_data_size(node_id)
+    /// Returns the size of a given `SlotData`.
+    pub fn get_slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
+        // This mgiht be able to work without any actual existing `SlotData`. It might be possible
+        // to calculate what the output size would be if the `SlotData` existed, without looking
+        // at an actual `SlotData`.
+        self.tpi.write().unwrap().prioritise(node_id)?;
+
+        loop {
+            if let Ok(tpi) = self.tpi.try_read() {
+                if let Some(size) = tpi.get_slot_data_size(node_id, slot_id) {
+                    return Ok(size);
+                }
+            }
+        }
     }
+
+    // pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
+    //     self.tpi.read().unwrap().get_node_data_size(node_id)
+    // }
 
     pub fn connect(
         &self,

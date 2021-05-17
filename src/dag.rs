@@ -6,14 +6,7 @@ use crate::{
     slot_data::*,
 };
 use image::ImageBuffer;
-use std::{
-    collections::{BTreeMap, BTreeSet, HashSet, VecDeque},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc, Arc, RwLock,
-    },
-    thread,
-};
+use std::{collections::{BTreeMap, BTreeSet, HashSet, VecDeque}, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicBool, Ordering}, mpsc}, thread};
 
 use crate::shared::*;
 
@@ -58,26 +51,6 @@ impl TexProInt {
         }
     }
 
-    pub fn request(&mut self, node_id: NodeId) -> Result<()> {
-        let node_state = self.node_state_mut(node_id)?;
-
-        if *node_state == NodeState::Dirty {
-            *node_state = NodeState::Requested;
-        }
-
-        Ok(())
-    }
-
-    pub fn prioritise(&mut self, node_id: NodeId) -> Result<()> {
-        let node_state = self.node_state_mut(node_id)?;
-
-        if matches!(node_state, NodeState::Dirty | NodeState::Requested) {
-            *node_state = NodeState::Prioritised;
-        }
-
-        Ok(())
-    }
-
     pub(crate) fn process_loop(tex_pro: Arc<RwLock<TexProInt>>, shutdown: Arc<AtomicBool>) {
         struct ThreadMessage {
             node_id: NodeId,
@@ -115,7 +88,9 @@ impl TexProInt {
                 let requested = tex_pro
                     .node_states
                     .iter()
-                    .filter(|(_, node_state)| matches!(**node_state, NodeState::Requested | NodeState::Prioritised))
+                    .filter(|(_, node_state)| {
+                        matches!(**node_state, NodeState::Requested | NodeState::Prioritised)
+                    })
                     .map(|(node_id, _)| *node_id)
                     .collect::<Vec<NodeId>>();
 
@@ -127,11 +102,10 @@ impl TexProInt {
                 closest_processable.sort_unstable();
                 closest_processable.dedup();
 
-                
                 // Attempt to process all non-clean parents
                 for node_id in closest_processable {
                     *tex_pro.node_state_mut(node_id).unwrap() = NodeState::Processing;
-                    
+
                     let node = tex_pro.node_graph.node_with_id(node_id).unwrap();
 
                     let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = tex_pro
@@ -157,7 +131,10 @@ impl TexProInt {
                         .slot_datas
                         .iter()
                         .filter(|slot_data| {
-                            edges.iter().any(|edge| edge.output_id == slot_data.node_id)
+                            edges.iter().any(|edge| {
+                                edge.output_id == slot_data.node_id
+                                    && edge.output_slot == slot_data.slot_id
+                            })
                         })
                         .cloned()
                         .collect::<Vec<Arc<SlotData>>>();
@@ -186,6 +163,50 @@ impl TexProInt {
 
             // Consider sleeping here, test to make sure it actually reduces CPU load by a lot when idle.
         }
+    }
+
+    pub fn wait_for_state_write(tpi: &Arc<RwLock<Self>>, node_id: NodeId, node_state: NodeState) -> Result<RwLockWriteGuard<TexProInt>> {
+        loop {
+            if let Ok(mut tpi) = tpi.write() {
+                if node_state == tpi.node_state(node_id)? {
+                    return Ok(tpi);
+                } else {
+                    tpi.prioritise(node_id)?;
+                }
+            }
+        }
+    }
+
+    pub fn wait_for_state_read(tpi: &Arc<RwLock<Self>>, node_id: NodeId, node_state: NodeState) -> Result<RwLockReadGuard<TexProInt>> {
+        loop {
+            if let Ok(tpi) = tpi.read() {
+                if node_state == tpi.node_state(node_id)? {
+                    return Ok(tpi);
+                }
+            }
+
+            tpi.write().unwrap().prioritise(node_id)?;
+        }
+    }
+
+    pub fn request(&mut self, node_id: NodeId) -> Result<()> {
+        let node_state = self.node_state_mut(node_id)?;
+
+        if *node_state == NodeState::Dirty {
+            *node_state = NodeState::Requested;
+        }
+
+        Ok(())
+    }
+
+    pub fn prioritise(&mut self, node_id: NodeId) -> Result<()> {
+        let node_state = self.node_state_mut(node_id)?;
+
+        if matches!(node_state, NodeState::Dirty | NodeState::Requested) {
+            *node_state = NodeState::Prioritised;
+        }
+
+        Ok(())
     }
 
     // pub fn process(tex_pro: Arc<RwLock<TexProInt>>) {
@@ -544,14 +565,26 @@ impl TexProInt {
         closest_processable
     }
 
-    /// Returns the width and height of the `SlotData` for the given `NodeId` as a `Size`.
-    pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
-        if let Some(node_data) = self.slot_datas.iter().find(|nd| nd.node_id == node_id) {
+    /// Returns the `Size` of the `SlotData` for the given `NodeId` and `SlotId`.
+    pub fn get_slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Option<Size> {
+        if let Some(node_data) = self
+            .slot_datas
+            .iter()
+            .find(|nd| nd.node_id == node_id && nd.slot_id == slot_id)
+        {
             Some(node_data.size)
         } else {
             None
         }
     }
+
+    // pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
+    //     if let Some(node_data) = self.slot_datas.iter().find(|nd| nd.node_id == node_id) {
+    //         Some(node_data.size)
+    //     } else {
+    //         None
+    //     }
+    // }
 
     /// Embeds a `SlotData` in the `TextureProcessor` with an associated `EmbeddedNodeDataId`.
     /// The `EmbeddedNodeDataId` can be referenced using the assigned `EmbeddedNodeDataId` in a

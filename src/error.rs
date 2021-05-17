@@ -13,6 +13,7 @@ pub enum TexProError {
     SlotOccupied,
     UnableToLock,
     NodeProcessing,
+    PoisonError,
     Io(io::Error),
 }
 
@@ -28,6 +29,7 @@ impl fmt::Display for TexProError {
             Self::SlotOccupied => f.write_str("`SlotId` is already in use"),
             Self::UnableToLock => f.write_str("Unable to get a lock"),
             Self::NodeProcessing => f.write_str("Error during node processing"),
+            Self::PoisonError => f.write_str("Error with poisoned lock"),
             Self::Io(ref e) => e.fmt(f),
         }
     }
@@ -42,5 +44,11 @@ impl From<image::ImageError> for TexProError {
 impl From<io::Error> for TexProError {
     fn from(cause: io::Error) -> TexProError {
         Self::Io(cause)
+    }
+}
+
+impl<T> From<std::sync::PoisonError<T>> for TexProError {
+    fn from(cause: std::sync::PoisonError<T>) -> TexProError {
+        Self::PoisonError
     }
 }
