@@ -603,654 +603,654 @@ fn shuffle_channels() {
     assert!(images_equal(PATH_OUT, PATH_CMP));
 }
 
-// #[test]
-// #[timeout(20000)]
-// fn resize_policy_most_pixels() {
-//     let tex_pro = TextureProcessor::new();
-
-//     let node_128 = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_128.into())))
-//         .unwrap();
-//     let node_256 = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_256.into())))
-//         .unwrap();
-//     let output = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba).resize_policy(ResizePolicy::MostPixels))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(node_128, output, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(node_256, output, SlotId(0), SlotId(1))
-//         .unwrap();
-
-//     assert!(tex_pro.node_slot_datas(output)[0].size == tex_pro.node_slot_datas(output)[1].size);
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn resize_policy_least_pixels() {
-//     let tex_pro = TextureProcessor::new();
-
-//     let node_128 = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_128.into())))
-//         .unwrap();
-//     let node_256 = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_256.into())))
-//         .unwrap();
-
-//     let mut passthrough_node = Node::new(NodeType::OutputRgba);
-//     passthrough_node.resize_policy = ResizePolicy::LeastPixels;
-//     let passthrough_node = tex_pro.add_node(passthrough_node).unwrap();
-//     let output_128 = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
-//     let output_256 = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
-
-//     tex_pro
-//         .connect(node_128, passthrough_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(node_256, passthrough_node, SlotId(1), SlotId(1))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(passthrough_node, output_128, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(passthrough_node, output_256, SlotId(1), SlotId(0))
-//         .unwrap();
-
-//     assert!(
-//         tex_pro.get_node_data_size(output_256).unwrap()
-//             == tex_pro.get_node_data_size(node_128).unwrap()
-//     );
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn resize_policy_largest_axes() {
-//     let tex_pro = TextureProcessor::new();
-
-//     let node_256x128 = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_WIDE.into())))
-//         .unwrap();
-//     let node_128x256 = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_TALL.into())))
-//         .unwrap();
-//     let output = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba).resize_policy(ResizePolicy::LargestAxes))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(node_256x128, output, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(node_128x256, output, SlotId(1), SlotId(1))
-//         .unwrap();
-
-//     let target_size = Size::new(
-//         tex_pro.node_slot_datas(node_256x128)[0].size.width,
-//         tex_pro.node_slot_datas(node_128x256)[0].size.height,
-//     );
-
-//     assert_eq!(tex_pro.node_slot_datas(output)[0].size, target_size);
-//     assert_eq!(tex_pro.node_slot_datas(output)[1].size, target_size);
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn add_node() {
-//     const PATH_OUT: &str = &"out/add_node.png";
-//     const PATH_CMP: &str = &"data/test_compare/add_node.png";
-
-//     let tex_pro = TextureProcessor::new();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let white_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
-//     let add_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Add)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-//     tex_pro
-//         .connect(image_node, add_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node, add_node, SlotId(1), SlotId(1))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(add_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(add_node, output_node, SlotId(0), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(add_node, output_node, SlotId(0), SlotId(2))
-//         .unwrap();
-//     tex_pro
-//         .connect(white_node, output_node, SlotId(0), SlotId(3))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     let size = 256;
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node)).unwrap(),
-//         size,
-//         size,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn subtract_node() {
-//     const PATH_OUT: &str = &"out/subtract_node.png";
-//     const PATH_CMP: &str = &"data/test_compare/subtract_node.png";
-
-//     let tex_pro = TextureProcessor::new();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let subtract_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
-
-//     tex_pro
-//         .connect(image_node, subtract_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node, subtract_node, SlotId(1), SlotId(1))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(subtract_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     let size = 256;
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node)).unwrap(),
-//         size,
-//         size,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn subtract_node_several() {
-//     const PATH_OUT: &str = &"out/subtract_node_several.png";
-//     const PATH_CMP: &str = &"data/test_compare/subtract_node_several.png";
-
-//     let tex_pro = TextureProcessor::new();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let subtract_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
-
-//     tex_pro
-//         .connect(image_node, subtract_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node, subtract_node, SlotId(1), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node, subtract_node, SlotId(2), SlotId(2))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(subtract_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     let size = 256;
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node)).unwrap(),
-//         size,
-//         size,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn invert_graph_node() {
-//     const PATH_OUT: &str = &"out/invert_graph_node.png";
-//     const PATH_CMP: &str = &"data/test_compare/invert_graph_node.png";
-//     // Nested invert graph
-//     let mut invert_graph = NodeGraph::new();
-
-//     let white_node_nested = invert_graph
-//         .add_node(Node::new(NodeType::Value(1.)))
-//         .unwrap();
-//     let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
-//     let subtract_node = invert_graph
-//         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
-//         .unwrap();
-//     let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
-
-//     invert_graph
-//         .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     invert_graph
-//         .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
-//         .unwrap();
-
-//     invert_graph
-//         .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     // Main graph
-//     let tex_pro = TextureProcessor::new();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_256.into())))
-//         .unwrap();
-//     let white_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
-//     let invert_graph_node = tex_pro
-//         .add_node(Node::new(NodeType::Graph(invert_graph)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-//     tex_pro
-//         .connect(image_node, invert_graph_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(invert_graph_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(invert_graph_node, output_node, SlotId(0), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(invert_graph_node, output_node, SlotId(0), SlotId(2))
-//         .unwrap();
-//     tex_pro
-//         .connect(white_node, output_node, SlotId(0), SlotId(3))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     let size = 256;
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node)).unwrap(),
-//         size,
-//         size,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn invert_graph_node_export() {
-//     // Nested invert graph
-//     let mut invert_graph = NodeGraph::new();
-
-//     let white_node_nested = invert_graph
-//         .add_node(Node::new(NodeType::Value(1.)))
-//         .unwrap();
-//     let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
-//     let subtract_node = invert_graph
-//         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
-//         .unwrap();
-//     let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
-
-//     invert_graph
-//         .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     invert_graph
-//         .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
-//         .unwrap();
-
-//     invert_graph
-//         .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     invert_graph
-//         .export_json("out/invert_graph.json".into())
-//         .unwrap();
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn invert_graph_node_import() {
-//     const PATH_OUT: &str = &"out/invert_graph_node_import.png";
-//     const PATH_CMP: &str = &"data/test_compare/invert_graph_node_import.png";
-
-//     // Nested invert graph
-//     let invert_graph = NodeGraph::from_path("data/invert_graph.json".into()).unwrap();
-
-//     // Main graph
-//     let tex_pro = TextureProcessor::new();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image("data/heart_256.png".into())))
-//         .unwrap();
-//     let white_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
-//     let invert_graph_node = tex_pro
-//         .add_node(Node::new(NodeType::Graph(invert_graph)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-//     tex_pro
-//         .connect(image_node, invert_graph_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(invert_graph_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(invert_graph_node, output_node, SlotId(0), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(invert_graph_node, output_node, SlotId(0), SlotId(2))
-//         .unwrap();
-//     tex_pro
-//         .connect(white_node, output_node, SlotId(0), SlotId(3))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     let size = 256;
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node)).unwrap(),
-//         size,
-//         size,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn graph_node_rgba() {
-//     const PATH_OUT: &str = &"out/graph_node_rgba.png";
-//     const PATH_CMP: &str = &"data/test_compare/graph_node_rgba.png";
-
-//     // Nested graph
-//     let mut nested_graph = NodeGraph::new();
-
-//     let nested_input_node = nested_graph
-//         .add_external_input_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)])
-//         .unwrap();
-//     let nested_output_node = nested_graph
-//         .add_external_output_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)])
-//         .unwrap();
-
-//     nested_graph
-//         .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     nested_graph
-//         .connect(nested_input_node, nested_output_node, SlotId(1), SlotId(1))
-//         .unwrap();
-//     nested_graph
-//         .connect(nested_input_node, nested_output_node, SlotId(2), SlotId(2))
-//         .unwrap();
-//     nested_graph
-//         .connect(nested_input_node, nested_output_node, SlotId(3), SlotId(3))
-//         .unwrap();
-
-//     // Texture Processor
-//     let tex_pro = TextureProcessor::new();
-
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let graph_node = tex_pro
-//         .add_node(Node::new(NodeType::Graph(nested_graph)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-//     tex_pro
-//         .connect(input_node, graph_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(input_node, graph_node, SlotId(1), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(input_node, graph_node, SlotId(2), SlotId(2))
-//         .unwrap();
-//     tex_pro
-//         .connect(input_node, graph_node, SlotId(3), SlotId(3))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(graph_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(graph_node, output_node, SlotId(1), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(graph_node, output_node, SlotId(2), SlotId(2))
-//         .unwrap();
-//     tex_pro
-//         .connect(graph_node, output_node, SlotId(3), SlotId(3))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     // Output
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node)).unwrap(),
-//         256,
-//         256,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// /// Grayscale passthrough node.
-// #[test]
-// #[timeout(20000)]
-// fn graph_node_gray() {
-//     const PATH_OUT: &str = &"out/graph_node_gray.png";
-//     const PATH_CMP: &str = &"data/test_compare/graph_node_gray.png";
-
-//     // Nested graph
-//     let mut nested_graph = NodeGraph::new();
-
-//     let nested_input_node = nested_graph.add_external_input_gray(SlotId(0)).unwrap();
-//     let nested_output_node = nested_graph
-//         .add_node(Node::new(NodeType::OutputGray))
-//         .unwrap();
-
-//     nested_graph
-//         .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     // Texture Processor
-//     let tex_pro = TextureProcessor::new();
-
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let graph_node = tex_pro
-//         .add_node(Node::new(NodeType::Graph(nested_graph)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-//     tex_pro
-//         .connect(input_node, graph_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(graph_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(graph_node, output_node, SlotId(0), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(graph_node, output_node, SlotId(0), SlotId(2))
-//         .unwrap();
-//     tex_pro
-//         .connect(graph_node, output_node, SlotId(0), SlotId(3))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     // Output
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node)).unwrap(),
-//         256,
-//         256,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn height_to_normal_node() {
-//     const PATH_OUT: &str = &"out/height_to_normal_node.png";
-//     const PATH_CMP: &str = &"data/test_compare/height_to_normal_node.png";
-
-//     // Texture Processor
-//     let tex_pro = TextureProcessor::new();
-
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(CLOUDS.into())))
-//         .unwrap();
-//     let h2n_node = tex_pro
-//         .add_node(Node::new(NodeType::HeightToNormal))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-//     tex_pro
-//         .connect(input_node, h2n_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(h2n_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(h2n_node, output_node, SlotId(1), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(h2n_node, output_node, SlotId(2), SlotId(2))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     // Output
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node)).unwrap(),
-//         256,
-//         256,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn multiply_node() {
-//     const PATH_OUT: &str = &"out/multiply_node.png";
-//     const PATH_CMP: &str = &"data/test_compare/multiply_node.png";
-
-//     let tex_pro = TextureProcessor::new();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
-//         .unwrap();
-//     let multiply_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Multiply)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
-
-//     tex_pro
-//         .connect(image_node, multiply_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node, multiply_node, SlotId(3), SlotId(1))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(multiply_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     let size = 256;
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node)).unwrap(),
-//         size,
-//         size,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn divide_node() {
-//     const PATH_OUT: &str = &"out/divide_node.png";
-//     const PATH_CMP: &str = &"data/test_compare/divide_node.png";
-
-//     let tex_pro = TextureProcessor::new();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
-//         .unwrap();
-//     let divide_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Divide)))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
-
-//     tex_pro
-//         .connect(image_node, divide_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node, divide_node, SlotId(3), SlotId(1))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(divide_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     let size = 256;
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node)).unwrap(),
-//         size,
-//         size,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
+#[test]
+#[timeout(20000)]
+fn resize_policy_most_pixels() {
+    let tex_pro = TextureProcessor::new();
+
+    let node_128 = tex_pro
+        .add_node(Node::new(NodeType::Image(HEART_128.into())))
+        .unwrap();
+    let node_256 = tex_pro
+        .add_node(Node::new(NodeType::Image(HEART_256.into())))
+        .unwrap();
+    let output = tex_pro
+        .add_node(Node::new(NodeType::OutputRgba).resize_policy(ResizePolicy::MostPixels))
+        .unwrap();
+
+    tex_pro
+        .connect(node_128, output, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(node_256, output, SlotId(0), SlotId(1))
+        .unwrap();
+
+    assert!(tex_pro.node_slot_datas(output).unwrap()[0].size == tex_pro.node_slot_datas(output).unwrap()[1].size);
+}
+
+#[test]
+#[timeout(20000)]
+fn resize_policy_least_pixels() {
+    let tex_pro = TextureProcessor::new();
+
+    let node_128 = tex_pro
+        .add_node(Node::new(NodeType::Image(HEART_128.into())))
+        .unwrap();
+    let node_256 = tex_pro
+        .add_node(Node::new(NodeType::Image(HEART_256.into())))
+        .unwrap();
+
+    let mut passthrough_node = Node::new(NodeType::OutputRgba);
+    passthrough_node.resize_policy = ResizePolicy::LeastPixels;
+    let passthrough_node = tex_pro.add_node(passthrough_node).unwrap();
+    let output_128 = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_256 = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+
+    tex_pro
+        .connect(node_128, passthrough_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(node_256, passthrough_node, SlotId(1), SlotId(1))
+        .unwrap();
+
+    tex_pro
+        .connect(passthrough_node, output_128, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(passthrough_node, output_256, SlotId(1), SlotId(0))
+        .unwrap();
+
+    assert!(
+        tex_pro.get_slot_data_size(output_256, SlotId(0)).unwrap()
+            == tex_pro.get_slot_data_size(node_128, SlotId(0)).unwrap()
+    );
+}
+
+#[test]
+#[timeout(20000)]
+fn resize_policy_largest_axes() {
+    let tex_pro = TextureProcessor::new();
+
+    let node_256x128 = tex_pro
+        .add_node(Node::new(NodeType::Image(HEART_WIDE.into())))
+        .unwrap();
+    let node_128x256 = tex_pro
+        .add_node(Node::new(NodeType::Image(HEART_TALL.into())))
+        .unwrap();
+    let output = tex_pro
+        .add_node(Node::new(NodeType::OutputRgba).resize_policy(ResizePolicy::LargestAxes))
+        .unwrap();
+
+    tex_pro
+        .connect(node_256x128, output, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(node_128x256, output, SlotId(1), SlotId(1))
+        .unwrap();
+
+    let target_size = Size::new(
+        tex_pro.node_slot_datas(node_256x128).unwrap()[0].size.width,
+        tex_pro.node_slot_datas(node_128x256).unwrap()[0].size.height,
+    );
+
+    assert_eq!(tex_pro.node_slot_datas(output).unwrap()[0].size, target_size);
+    assert_eq!(tex_pro.node_slot_datas(output).unwrap()[1].size, target_size);
+}
+
+#[test]
+#[timeout(20000)]
+fn add_node() {
+    const PATH_OUT: &str = &"out/add_node.png";
+    const PATH_CMP: &str = &"data/test_compare/add_node.png";
+
+    let tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+        .unwrap();
+    let white_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
+    let add_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro
+        .connect(image_node, add_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(image_node, add_node, SlotId(1), SlotId(1))
+        .unwrap();
+
+    tex_pro
+        .connect(add_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(add_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro
+        .connect(add_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro
+        .connect(white_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+
+    ensure_out_dir();
+    let size = 256;
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+#[test]
+#[timeout(20000)]
+fn subtract_node() {
+    const PATH_OUT: &str = &"out/subtract_node.png";
+    const PATH_CMP: &str = &"data/test_compare/subtract_node.png";
+
+    let tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+        .unwrap();
+    let subtract_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+
+    tex_pro
+        .connect(image_node, subtract_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(image_node, subtract_node, SlotId(1), SlotId(1))
+        .unwrap();
+
+    tex_pro
+        .connect(subtract_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    ensure_out_dir();
+    let size = 256;
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+#[test]
+#[timeout(20000)]
+fn subtract_node_several() {
+    const PATH_OUT: &str = &"out/subtract_node_several.png";
+    const PATH_CMP: &str = &"data/test_compare/subtract_node_several.png";
+
+    let tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+        .unwrap();
+    let subtract_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+
+    tex_pro
+        .connect(image_node, subtract_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(image_node, subtract_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .connect(image_node, subtract_node, SlotId(2), SlotId(2))
+        .unwrap();
+
+    tex_pro
+        .connect(subtract_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    ensure_out_dir();
+    let size = 256;
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+#[test]
+#[timeout(20000)]
+fn invert_graph_node() {
+    const PATH_OUT: &str = &"out/invert_graph_node.png";
+    const PATH_CMP: &str = &"data/test_compare/invert_graph_node.png";
+    // Nested invert graph
+    let mut invert_graph = NodeGraph::new();
+
+    let white_node_nested = invert_graph
+        .add_node(Node::new(NodeType::Value(1.)))
+        .unwrap();
+    let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
+    let subtract_node = invert_graph
+        .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
+        .unwrap();
+    let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
+
+    invert_graph
+        .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
+        .unwrap();
+    invert_graph
+        .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
+        .unwrap();
+
+    invert_graph
+        .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    // Main graph
+    let tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .add_node(Node::new(NodeType::Image(HEART_256.into())))
+        .unwrap();
+    let white_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
+    let invert_graph_node = tex_pro
+        .add_node(Node::new(NodeType::Graph(invert_graph)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro
+        .connect(image_node, invert_graph_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro
+        .connect(white_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+
+    ensure_out_dir();
+    let size = 256;
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+#[test]
+#[timeout(20000)]
+fn invert_graph_node_export() {
+    // Nested invert graph
+    let mut invert_graph = NodeGraph::new();
+
+    let white_node_nested = invert_graph
+        .add_node(Node::new(NodeType::Value(1.)))
+        .unwrap();
+    let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
+    let subtract_node = invert_graph
+        .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
+        .unwrap();
+    let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
+
+    invert_graph
+        .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
+        .unwrap();
+    invert_graph
+        .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
+        .unwrap();
+
+    invert_graph
+        .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    invert_graph
+        .export_json("out/invert_graph.json".into())
+        .unwrap();
+}
+
+#[test]
+#[timeout(20000)]
+fn invert_graph_node_import() {
+    const PATH_OUT: &str = &"out/invert_graph_node_import.png";
+    const PATH_CMP: &str = &"data/test_compare/invert_graph_node_import.png";
+
+    // Nested invert graph
+    let invert_graph = NodeGraph::from_path("data/invert_graph.json".into()).unwrap();
+
+    // Main graph
+    let tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .add_node(Node::new(NodeType::Image("data/heart_256.png".into())))
+        .unwrap();
+    let white_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
+    let invert_graph_node = tex_pro
+        .add_node(Node::new(NodeType::Graph(invert_graph)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro
+        .connect(image_node, invert_graph_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro
+        .connect(invert_graph_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro
+        .connect(white_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+
+    ensure_out_dir();
+    let size = 256;
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+#[test]
+#[timeout(20000)]
+fn graph_node_rgba() {
+    const PATH_OUT: &str = &"out/graph_node_rgba.png";
+    const PATH_CMP: &str = &"data/test_compare/graph_node_rgba.png";
+
+    // Nested graph
+    let mut nested_graph = NodeGraph::new();
+
+    let nested_input_node = nested_graph
+        .add_external_input_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)])
+        .unwrap();
+    let nested_output_node = nested_graph
+        .add_external_output_rgba(vec![SlotId(0), SlotId(1), SlotId(2), SlotId(3)])
+        .unwrap();
+
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(2), SlotId(2))
+        .unwrap();
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(3), SlotId(3))
+        .unwrap();
+
+    // Texture Processor
+    let tex_pro = TextureProcessor::new();
+
+    let input_node = tex_pro
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+        .unwrap();
+    let graph_node = tex_pro
+        .add_node(Node::new(NodeType::Graph(nested_graph)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro
+        .connect(input_node, graph_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(input_node, graph_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .connect(input_node, graph_node, SlotId(2), SlotId(2))
+        .unwrap();
+    tex_pro
+        .connect(input_node, graph_node, SlotId(3), SlotId(3))
+        .unwrap();
+
+    tex_pro
+        .connect(graph_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(graph_node, output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .connect(graph_node, output_node, SlotId(2), SlotId(2))
+        .unwrap();
+    tex_pro
+        .connect(graph_node, output_node, SlotId(3), SlotId(3))
+        .unwrap();
+
+    ensure_out_dir();
+    // Output
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        256,
+        256,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+/// Grayscale passthrough node.
+#[test]
+#[timeout(20000)]
+fn graph_node_gray() {
+    const PATH_OUT: &str = &"out/graph_node_gray.png";
+    const PATH_CMP: &str = &"data/test_compare/graph_node_gray.png";
+
+    // Nested graph
+    let mut nested_graph = NodeGraph::new();
+
+    let nested_input_node = nested_graph.add_external_input_gray(SlotId(0)).unwrap();
+    let nested_output_node = nested_graph
+        .add_node(Node::new(NodeType::OutputGray))
+        .unwrap();
+
+    nested_graph
+        .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    // Texture Processor
+    let tex_pro = TextureProcessor::new();
+
+    let input_node = tex_pro
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+        .unwrap();
+    let graph_node = tex_pro
+        .add_node(Node::new(NodeType::Graph(nested_graph)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro
+        .connect(input_node, graph_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .connect(graph_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(graph_node, output_node, SlotId(0), SlotId(1))
+        .unwrap();
+    tex_pro
+        .connect(graph_node, output_node, SlotId(0), SlotId(2))
+        .unwrap();
+    tex_pro
+        .connect(graph_node, output_node, SlotId(0), SlotId(3))
+        .unwrap();
+
+    ensure_out_dir();
+    // Output
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        256,
+        256,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+#[test]
+#[timeout(20000)]
+fn height_to_normal_node() {
+    const PATH_OUT: &str = &"out/height_to_normal_node.png";
+    const PATH_CMP: &str = &"data/test_compare/height_to_normal_node.png";
+
+    // Texture Processor
+    let tex_pro = TextureProcessor::new();
+
+    let input_node = tex_pro
+        .add_node(Node::new(NodeType::Image(CLOUDS.into())))
+        .unwrap();
+    let h2n_node = tex_pro
+        .add_node(Node::new(NodeType::HeightToNormal))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro
+        .connect(input_node, h2n_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .connect(h2n_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(h2n_node, output_node, SlotId(1), SlotId(1))
+        .unwrap();
+    tex_pro
+        .connect(h2n_node, output_node, SlotId(2), SlotId(2))
+        .unwrap();
+
+    ensure_out_dir();
+    // Output
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        256,
+        256,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+#[test]
+#[timeout(20000)]
+fn multiply_node() {
+    const PATH_OUT: &str = &"out/multiply_node.png";
+    const PATH_CMP: &str = &"data/test_compare/multiply_node.png";
+
+    let tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+        .unwrap();
+    let multiply_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Multiply)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+
+    tex_pro
+        .connect(image_node, multiply_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(image_node, multiply_node, SlotId(3), SlotId(1))
+        .unwrap();
+
+    tex_pro
+        .connect(multiply_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    ensure_out_dir();
+    let size = 256;
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
+
+#[test]
+#[timeout(20000)]
+fn divide_node() {
+    const PATH_OUT: &str = &"out/divide_node.png";
+    const PATH_CMP: &str = &"data/test_compare/divide_node.png";
+
+    let tex_pro = TextureProcessor::new();
+
+    let image_node = tex_pro
+        .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+        .unwrap();
+    let divide_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Divide)))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+
+    tex_pro
+        .connect(image_node, divide_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(image_node, divide_node, SlotId(3), SlotId(1))
+        .unwrap();
+
+    tex_pro
+        .connect(divide_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    ensure_out_dir();
+    let size = 256;
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        size,
+        size,
+        image::ColorType::RGBA(8),
+    )
+    .unwrap();
+
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}

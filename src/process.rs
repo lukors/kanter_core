@@ -23,7 +23,7 @@ pub fn process_node(
         slot_datas.len(),
         node.capacity(Side::Input)
     );
-    assert_eq!(edges.len(), slot_datas.len());
+    assert_eq!(edges.len(), slot_datas.len(), "NodeType: {:?}", node.node_type);
 
     // edges.sort_by(|a, b| a.input_slot.cmp(&b.input_slot));
 

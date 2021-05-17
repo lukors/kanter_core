@@ -127,17 +127,15 @@ impl TexProInt {
                         .copied()
                         .collect::<Vec<Edge>>();
 
-                    let input_data = tex_pro
-                        .slot_datas
+                    let input_data = edges
                         .iter()
-                        .filter(|slot_data| {
-                            edges.iter().any(|edge| {
-                                edge.output_id == slot_data.node_id
-                                    && edge.output_slot == slot_data.slot_id
-                            })
-                        })
-                        .cloned()
+                        .map(|edge| tex_pro.slot_datas.iter().find(|slot_data| {
+                                slot_data.slot_id == edge.output_slot && slot_data.node_id == edge.output_id
+                            }).unwrap()
+                        ).cloned()
                         .collect::<Vec<Arc<SlotData>>>();
+                    
+                    assert_eq!(edges.len(), input_data.len(), "NodeType: {:?}", node.node_type);
 
                     let send = send.clone();
 
@@ -165,6 +163,8 @@ impl TexProInt {
         }
     }
 
+    /// Waits until a certain NodeId has a certain state, and when it does it returns the
+    /// `RwLockWriteGuard` so changes can be made while the `NodeState` the state remains the same.
     pub fn wait_for_state_write(tpi: &Arc<RwLock<Self>>, node_id: NodeId, node_state: NodeState) -> Result<RwLockWriteGuard<TexProInt>> {
         loop {
             if let Ok(mut tpi) = tpi.write() {
@@ -177,6 +177,8 @@ impl TexProInt {
         }
     }
 
+    /// Waits until a certain NodeId has a certain state, and when it does it returns the
+    /// `RwLockReadGuard` so reads can be made while the `NodeState` remains the same.
     pub fn wait_for_state_read(tpi: &Arc<RwLock<Self>>, node_id: NodeId, node_state: NodeState) -> Result<RwLockReadGuard<TexProInt>> {
         loop {
             if let Ok(tpi) = tpi.read() {
