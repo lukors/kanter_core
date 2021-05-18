@@ -417,25 +417,6 @@ impl NodeGraph {
         Ok(())
     }
 
-    pub fn try_connect_arbitrary(
-        &mut self,
-        a_node: NodeId,
-        a_side: Side,
-        a_slot: SlotId,
-        b_node: NodeId,
-        b_side: Side,
-        b_slot: SlotId,
-    ) -> Result<()> {
-        if a_node == b_node || a_side == b_side {
-            return Err(TexProError::Generic);
-        }
-
-        match a_side {
-            Side::Input => self.try_connect(b_node, a_node, b_slot, a_slot),
-            Side::Output => self.try_connect(a_node, b_node, a_slot, b_slot),
-        }
-    }
-
     pub fn connect_arbitrary(
         &mut self,
         a_node: NodeId,

@@ -86,6 +86,21 @@ impl TextureProcessor {
         self.tpi.write().unwrap().process_then_kill();
     }
 
+    /// Returns the current generation of nodes.
+    pub fn node_generation(&self) -> usize {
+        self.tpi.read().unwrap().node_generation()
+    }
+
+    /// Returns the current generation of edges.
+    pub fn edge_generation(&self) -> usize {
+        self.tpi.read().unwrap().edge_generation()
+    }
+
+    /// Returns the current generation of states.
+    pub fn state_generation(&self) -> usize {
+        self.tpi.read().unwrap().state_generation()
+    }
+
     pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
         self.tpi
             .read()
@@ -98,8 +113,10 @@ impl TextureProcessor {
         self.tpi.read().unwrap().node_graph.output_ids()
     }
 
-    pub fn set_node_graph(&self, node_graph: NodeGraph) {
-        self.tpi.write().unwrap().set_node_graph(node_graph);
+    pub fn set_node_graph(&self, node_graph: NodeGraph) -> Result<()> {
+        self.tpi.write()?.set_node_graph(node_graph);
+
+        Ok(())
     }
 
     pub fn input_slot_datas_push(&self, node_data: Arc<SlotData>) {
@@ -127,11 +144,6 @@ impl TextureProcessor {
     pub fn remove_node(&self, node_id: NodeId) -> Result<Vec<Edge>> {
         self.tpi.write().unwrap().remove_node(node_id)
     }
-
-    /// Returns a vector of `NodeId`s that have been processed and not checked (are clean).
-    // pub fn get_clean(&self) -> Vec<NodeId> {
-    //     self.tpi.write().unwrap().get_all_clean()
-    // }
 
     /// Returns a vector of `NodeId`s that are not clean. That is, not up to date compared to the
     /// state of the graph.
@@ -194,6 +206,10 @@ impl TextureProcessor {
         node_state: NodeState,
     ) -> Result<RwLockReadGuard<TexProInt>> {
         TexProInt::wait_for_state_read(&self.tpi, node_id, node_state)
+    }
+
+    pub fn node_state(&self, node_id: NodeId) -> Result<NodeState> {
+        self.tpi.read()?.node_state(node_id)
     }
 
     /// Returns all `NodeId`s with the given `NodeState`.

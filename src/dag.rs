@@ -202,10 +202,11 @@ impl TexProInt {
                 }
 
                 // If the tex_pro is set to one_shot and all nodes are clean, shut it down.
-                if tex_pro.one_shot && tex_pro
-                    .node_states
-                    .iter()
-                    .all(|(_, node_state)| *node_state == NodeState::Clean)
+                if tex_pro.one_shot
+                    && tex_pro
+                        .node_states
+                        .iter()
+                        .all(|(_, node_state)| *node_state == NodeState::Clean)
                 {
                     shutdown.store(true, Ordering::Relaxed);
                     break;
@@ -222,6 +223,21 @@ impl TexProInt {
         for node_id in self.node_graph.output_ids() {
             self.request(node_id).unwrap();
         }
+    }
+
+    /// Returns the current generation of nodes.
+    pub fn node_generation(&self) -> usize {
+        self.node_generation.0
+    }
+
+    /// Returns the current generation of edges.
+    pub fn edge_generation(&self) -> usize {
+        self.edge_generation.0
+    }
+
+    /// Returns the current generation of states.
+    pub fn state_generation(&self) -> usize {
+        self.state_generation.0
     }
 
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
@@ -314,16 +330,16 @@ impl TexProInt {
     }
 
     /// Sets a node and all its children as dirty.
-    fn set_dirty(&mut self, node_id: NodeId) -> Result<Vec<NodeId>> {
-        let children = self.get_children_recursive(node_id)?;
+    // fn set_dirty(&mut self, node_id: NodeId) -> Result<Vec<NodeId>> {
+    //     let children = self.get_children_recursive(node_id)?;
 
-        for node_id in children.iter().chain(vec![node_id].iter()) {
-            self.node_states.insert(*node_id, NodeState::Dirty);
-        }
+    //     for node_id in children.iter().chain(vec![node_id].iter()) {
+    //         self.set_state(*node_id, NodeState::Dirty)?;
+    //     }
 
-        self.state_generation.add();
-        Ok(children)
-    }
+    //     self.state_generation.add();
+    //     Ok(children)
+    // }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {
         self.node_graph
@@ -560,7 +576,7 @@ impl TexProInt {
         let node_id = self.node_graph.add_node(node)?;
 
         self.node_generation.add();
-        self.node_states.insert(node_id, NodeState::default());
+        self.set_state(node_id, NodeState::default())?;
 
         Ok(node_id)
     }
@@ -588,7 +604,8 @@ impl TexProInt {
         self.node_graph
             .connect(output_node, input_node, output_slot, input_slot)?;
 
-        self.set_dirty(input_node)?;
+        self.edge_generation.add();
+        self.set_state(input_node, NodeState::Dirty)?;
 
         Ok(())
     }
@@ -602,15 +619,27 @@ impl TexProInt {
         b_side: Side,
         b_slot: SlotId,
     ) -> Result<()> {
-        let result = self
-            .node_graph
-            .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot);
+        self.node_graph
+            .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)?;
 
-        if result.is_ok() {
-            self.node_states.insert(b_node, NodeState::Dirty);
+        self.edge_generation.add();
+        self.set_state(b_node, NodeState::Dirty)?;
+
+        Ok(())
+    }
+
+    /// Sets the state of a node and updates the `state_generation`. This function should be used
+    /// any time a `Node`'s state is changed to ensure the `state_generation` is kept up to date.
+    fn set_state(&mut self, node_id: NodeId, node_state: NodeState) -> Result<()> {
+        self.node_graph.has_node_with_id(node_id)?;
+
+        if let Some(old_state) = self.node_states.insert(node_id, node_state) {
+            if old_state != node_state {
+                self.state_generation.add();
+            }
         }
 
-        result
+        Ok(())
     }
 
     pub fn disconnect_slot(
@@ -622,19 +651,27 @@ impl TexProInt {
         let edges = self.node_graph.disconnect_slot(node_id, side, slot_id)?;
 
         if !edges.is_empty() {
-            self.node_states.insert(node_id, NodeState::Dirty);
+            self.edge_generation.add();
+            self.set_state(node_id, NodeState::Dirty)?;
         }
 
         Ok(edges)
     }
 
     pub fn set_node_graph(&mut self, node_graph: NodeGraph) {
+        self.node_graph = node_graph;
+        self.reset_node_states();
+    }
+
+    /// Clears all node states and resets them to dirty.
+    ///
+    /// Note: It's important that this function does not use `set_state()`.
+    pub(crate) fn reset_node_states(&mut self) {
         self.node_states.clear();
-        for node_id in node_graph.node_ids() {
+        for node_id in self.node_ids() {
             self.node_states.insert(node_id, NodeState::Dirty);
         }
-
-        self.node_graph = node_graph;
+        self.state_generation.add();
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {

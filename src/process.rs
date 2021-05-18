@@ -30,8 +30,6 @@ pub fn process_node(
         node.node_type
     );
 
-    // edges.sort_by(|a, b| a.input_slot.cmp(&b.input_slot));
-
     let node_datas: Vec<Arc<SlotData>> =
         resize_buffers(&slot_datas, node.resize_policy, node.resize_filter)?;
 
@@ -164,7 +162,7 @@ fn graph(
 ) -> Result<Vec<Arc<SlotData>>> {
     let mut output: Vec<Arc<SlotData>> = Vec::new();
     let tex_pro = TextureProcessor::new();
-    tex_pro.set_node_graph((*graph).clone());
+    tex_pro.set_node_graph((*graph).clone())?;
 
     // Take the `NodeData`s that are fed into this node from the parent node and associate
     // them with the correct outputs on the input nodes in the child graph.
