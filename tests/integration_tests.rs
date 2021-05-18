@@ -5,7 +5,7 @@ use kanter_core::{
     texture_processor::TextureProcessor,
 };
 use ntest::timeout;
-use std::{fs::create_dir, path::Path, sync::Arc, time::Duration};
+use std::{fs::create_dir, path::Path, sync::Arc};
 
 const OUT_DIR: &str = "out";
 const IMAGE_1: &str = "data/image_1.png";

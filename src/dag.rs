@@ -32,10 +32,12 @@ impl Default for NodeState {
     }
 }
 
-impl NodeState {
-    fn is_dirty(&self) -> bool {
-        *self != Self::Clean
-    }
+#[derive(Default)]
+struct NodeMetadata {
+    node_state: NodeState,
+    state_generation: Generation,
+    node_generation: Generation,
+    edge_generation: Generation,
 }
 
 #[derive(Default)]
@@ -44,11 +46,8 @@ pub struct TexProInt {
     pub slot_datas: Vec<Arc<SlotData>>,
     pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
     pub input_node_datas: Vec<Arc<SlotData>>,
-    node_states: BTreeMap<NodeId, NodeState>,
+    node_metadata: BTreeMap<NodeId, NodeMetadata>,
     one_shot: bool,
-    state_generation: Generation,
-    node_generation: Generation,
-    edge_generation: Generation,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -67,11 +66,8 @@ impl TexProInt {
             slot_datas: Vec::new(),
             embedded_node_datas: Vec::new(),
             input_node_datas: Vec::new(),
-            node_states: BTreeMap::new(),
+            node_metadata: BTreeMap::new(),
             one_shot: false,
-            state_generation: Default::default(),
-            node_generation: Default::default(),
-            edge_generation: Default::default(),
         }
     }
 
@@ -106,15 +102,21 @@ impl TexProInt {
                         }
                     }
 
-                    tex_pro.node_states.insert(node_id, NodeState::Clean);
+                    if tex_pro.set_state(node_id, NodeState::Clean).is_err() {
+                        shutdown.store(true, Ordering::Relaxed);
+                        return;
+                    }
                 }
 
                 // Get requested nodes
                 let requested = tex_pro
-                    .node_states
+                    .node_metadata
                     .iter()
-                    .filter(|(_, node_state)| {
-                        matches!(**node_state, NodeState::Requested | NodeState::Prioritised)
+                    .filter(|(_, node_meta)| {
+                        matches!(
+                            node_meta.node_state,
+                            NodeState::Requested | NodeState::Prioritised
+                        )
                     })
                     .map(|(node_id, _)| *node_id)
                     .collect::<Vec<NodeId>>();
@@ -204,9 +206,9 @@ impl TexProInt {
                 // If the tex_pro is set to one_shot and all nodes are clean, shut it down.
                 if tex_pro.one_shot
                     && tex_pro
-                        .node_states
+                        .node_metadata
                         .iter()
-                        .all(|(_, node_state)| *node_state == NodeState::Clean)
+                        .all(|(_, node_meta)| node_meta.node_state == NodeState::Clean)
                 {
                     shutdown.store(true, Ordering::Relaxed);
                     break;
@@ -225,19 +227,56 @@ impl TexProInt {
         }
     }
 
-    /// Returns the current generation of nodes.
-    pub fn node_generation(&self) -> usize {
-        self.node_generation.0
+    /// Returns a mutable reference to the `NodeMetadata` of a given node.
+    fn node_metadata_mut(&mut self, node_id: NodeId) -> Result<&mut NodeMetadata> {
+        Ok(self
+            .node_metadata
+            .iter_mut()
+            .find(|(node_id_, _)| **node_id_ == node_id)
+            .ok_or(TexProError::InvalidNodeId)?
+            .1)
     }
 
-    /// Returns the current generation of edges.
-    pub fn edge_generation(&self) -> usize {
-        self.edge_generation.0
+    /// Returns all node generations.
+    pub fn node_generations(&self) -> Vec<(NodeId, usize)> {
+        self.node_metadata
+            .iter()
+            .map(|(node_id, node_meta)| (*node_id, node_meta.node_generation.0))
+            .collect()
     }
 
-    /// Returns the current generation of states.
-    pub fn state_generation(&self) -> usize {
-        self.state_generation.0
+    /// Increments the node generation of a node.
+    pub fn node_generation_add(&mut self, node_id: NodeId) -> Result<()> {
+        self.node_metadata_mut(node_id)?.node_generation.add();
+        Ok(())
+    }
+
+    /// Returns all edge generations.
+    pub fn edge_generations(&self) -> Vec<(NodeId, usize)> {
+        self.node_metadata
+            .iter()
+            .map(|(node_id, node_meta)| (*node_id, node_meta.edge_generation.0))
+            .collect()
+    }
+
+    /// Increments the edge generation of a node.
+    pub fn edge_generation_add(&mut self, node_id: NodeId) -> Result<()> {
+        self.node_metadata_mut(node_id)?.edge_generation.add();
+        Ok(())
+    }
+
+    /// Returns all state generations.
+    pub fn state_generations(&self) -> Vec<(NodeId, usize)> {
+        self.node_metadata
+            .iter()
+            .map(|(node_id, node_meta)| (*node_id, node_meta.state_generation.0))
+            .collect()
+    }
+
+    /// Increments the state generation of a node.
+    pub fn state_generation_add(&mut self, node_id: NodeId) -> Result<()> {
+        self.node_metadata_mut(node_id)?.state_generation.add();
+        Ok(())
     }
 
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
@@ -296,35 +335,38 @@ impl TexProInt {
         Ok(())
     }
 
+    /// Gets the NodeState of the node with the given `NodeId`.
     pub fn node_state(&self, node_id: NodeId) -> Result<NodeState> {
-        if let Some(node_state) = self.node_states.get(&node_id) {
-            Ok(*node_state)
+        if let Some(node_meta) = self.node_metadata.get(&node_id) {
+            Ok(node_meta.node_state)
         } else {
             Err(TexProError::InvalidNodeId)
         }
     }
 
+    /// Gets a mutable reference to the NodeState of the node with the given `NodeId`.
     pub fn node_state_mut(&mut self, node_id: NodeId) -> Result<&mut NodeState> {
-        if let Some(node_state) = self.node_states.get_mut(&node_id) {
-            Ok(node_state)
+        if let Some(node_meta) = self.node_metadata.get_mut(&node_id) {
+            Ok(&mut node_meta.node_state)
         } else {
             Err(TexProError::InvalidNodeId)
         }
     }
 
-    pub fn get_dirty(&self) -> Vec<NodeId> {
-        self.node_states
+    /// Gets all `NodeId`s that are not clean.
+    pub fn non_clean(&self) -> Vec<NodeId> {
+        self.node_metadata
             .iter()
-            .filter(|(_, node_state)| node_state.is_dirty())
+            .filter(|(_, node_meta)| node_meta.node_state != NodeState::Clean)
             .map(|(node_id, _)| *node_id)
             .collect()
     }
 
     /// Returns all `NodeId`s with the given `NodeState`.
     pub fn node_ids_with_state(&self, node_state: NodeState) -> Vec<NodeId> {
-        self.node_states
+        self.node_metadata
             .iter()
-            .filter(|(_, ns)| **ns == node_state)
+            .filter(|(_, node_meta)| node_meta.node_state == node_state)
             .map(|(id, _)| *id)
             .collect()
     }
@@ -383,12 +425,17 @@ impl TexProInt {
 
     /// Returns the NodeIds of all immediate parents of this node (not recursive).
     pub fn get_parents(&self, node_id: NodeId) -> Vec<NodeId> {
-        self.node_graph
+        let mut node_ids = self
+            .node_graph
             .edges
             .iter()
             .filter(|edge| edge.input_id == node_id)
             .map(|edge| edge.output_id)
-            .collect()
+            .collect::<Vec<NodeId>>();
+
+        node_ids.sort_unstable();
+        node_ids.dedup();
+        node_ids
     }
 
     /// Returns the NodeIds of all parents of this node.
@@ -411,7 +458,7 @@ impl TexProInt {
         let mut dirty = Vec::new();
         let mut processing = Vec::new();
         for node_id in self.get_parents(node_id) {
-            match *self.node_states.get(&node_id).unwrap() {
+            match self.node_state(node_id).unwrap() {
                 NodeState::Processing => processing.push(node_id),
                 NodeState::Dirty | NodeState::Requested | NodeState::Prioritised => {
                     dirty.push(node_id)
@@ -568,15 +615,14 @@ impl TexProInt {
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
         let node_id = self.node_graph.add_node_with_id(node, node_id)?;
-        self.node_generation.add();
+        self.node_generation_add(node_id)?;
         Ok(node_id)
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
         let node_id = self.node_graph.add_node(node)?;
 
-        self.node_generation.add();
-        self.set_state(node_id, NodeState::default())?;
+        self.node_metadata.insert(node_id, NodeMetadata::default());
 
         Ok(node_id)
     }
@@ -584,11 +630,11 @@ impl TexProInt {
     pub fn remove_node(&mut self, node_id: NodeId) -> Result<Vec<Edge>> {
         let (_, edges) = self.node_graph.remove_node(node_id)?;
 
-        self.node_generation.add();
-        self.node_states.remove(&node_id);
+        self.node_generation_add(node_id)?;
+        self.node_metadata.remove(&node_id);
 
         if !edges.is_empty() {
-            self.edge_generation.add();
+            self.edge_generation_add(node_id)?;
         }
 
         Ok(edges)
@@ -604,7 +650,7 @@ impl TexProInt {
         self.node_graph
             .connect(output_node, input_node, output_slot, input_slot)?;
 
-        self.edge_generation.add();
+        self.edge_generation_add(input_node)?;
         self.set_state(input_node, NodeState::Dirty)?;
 
         Ok(())
@@ -619,24 +665,30 @@ impl TexProInt {
         b_side: Side,
         b_slot: SlotId,
     ) -> Result<()> {
-        self.node_graph
-            .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)?;
+        let new_edge = self
+            .node_graph
+            .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)?
+            .to_owned();
 
-        self.edge_generation.add();
-        self.set_state(b_node, NodeState::Dirty)?;
+        self.edge_generation_add(new_edge.input_id)?;
+        self.set_state(new_edge.input_id, NodeState::Dirty)?;
 
         Ok(())
     }
 
-    /// Sets the state of a node and updates the `state_generation`. This function should be used
-    /// any time a `Node`'s state is changed to ensure the `state_generation` is kept up to date.
-    fn set_state(&mut self, node_id: NodeId, node_state: NodeState) -> Result<()> {
-        self.node_graph.has_node_with_id(node_id)?;
+    fn state_mut(&mut self, node_id: NodeId) -> Result<&mut NodeState> {
+        Ok(&mut self.node_metadata_mut(node_id)?.node_state)
+    }
 
-        if let Some(old_state) = self.node_states.insert(node_id, node_state) {
-            if old_state != node_state {
-                self.state_generation.add();
-            }
+    /// Sets the state of a node and updates the `state_generation`. This function should be used
+    /// any time a `Node`'s state is changed to ensure the node's `state_generation` is kept up to
+    /// date.
+    fn set_state(&mut self, node_id: NodeId, node_state: NodeState) -> Result<()> {
+        let node_state_old = self.node_state(node_id)?;
+
+        if node_state != node_state_old {
+            self.state_generation_add(node_id)?;
+            *self.state_mut(node_id)? = node_state;
         }
 
         Ok(())
@@ -651,7 +703,7 @@ impl TexProInt {
         let edges = self.node_graph.disconnect_slot(node_id, side, slot_id)?;
 
         if !edges.is_empty() {
-            self.edge_generation.add();
+            self.edge_generation_add(node_id)?;
             self.set_state(node_id, NodeState::Dirty)?;
         }
 
@@ -667,11 +719,10 @@ impl TexProInt {
     ///
     /// Note: It's important that this function does not use `set_state()`.
     pub(crate) fn reset_node_states(&mut self) {
-        self.node_states.clear();
+        self.node_metadata.clear();
         for node_id in self.node_ids() {
-            self.node_states.insert(node_id, NodeState::Dirty);
+            self.node_metadata.insert(node_id, NodeMetadata::default());
         }
-        self.state_generation.add();
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {

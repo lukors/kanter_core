@@ -86,19 +86,19 @@ impl TextureProcessor {
         self.tpi.write().unwrap().process_then_kill();
     }
 
-    /// Returns the current generation of nodes.
-    pub fn node_generation(&self) -> usize {
-        self.tpi.read().unwrap().node_generation()
+    /// Returns the current generations of nodes.
+    pub fn node_generations(&self) -> Vec<(NodeId, usize)> {
+        self.tpi.read().unwrap().node_generations()
     }
 
-    /// Returns the current generation of edges.
-    pub fn edge_generation(&self) -> usize {
-        self.tpi.read().unwrap().edge_generation()
+    /// Returns the current generations of edges.
+    pub fn edge_generations(&self) -> Vec<(NodeId, usize)> {
+        self.tpi.read().unwrap().edge_generations()
     }
 
-    /// Returns the current generation of states.
-    pub fn state_generation(&self) -> usize {
-        self.tpi.read().unwrap().state_generation()
+    /// Returns the current generations of states.
+    pub fn state_generations(&self) -> Vec<(NodeId, usize)> {
+        self.tpi.read().unwrap().state_generations()
     }
 
     pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
@@ -147,8 +147,8 @@ impl TextureProcessor {
 
     /// Returns a vector of `NodeId`s that are not clean. That is, not up to date compared to the
     /// state of the graph.
-    pub fn get_dirty(&self) -> Vec<NodeId> {
-        self.tpi.read().unwrap().get_dirty()
+    pub fn non_clean(&self) -> Vec<NodeId> {
+        self.tpi.read().unwrap().non_clean()
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {

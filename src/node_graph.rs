@@ -398,7 +398,7 @@ impl NodeGraph {
         input_node_id: NodeId,
         output_slot: SlotId,
         input_slot: SlotId,
-    ) -> Result<()> {
+    ) -> Result<&Edge> {
         let output_node = self.node_with_id(output_node_id)?;
         let input_node = self.node_with_id(input_node_id)?;
 
@@ -414,7 +414,11 @@ impl NodeGraph {
             input_slot,
         ));
 
-        Ok(())
+        if let Some(edge) = self.edges.last() {
+            Ok(edge)
+        } else {
+            unreachable!("We just added an edge, it can't possibly be empty.");
+        }
     }
 
     pub fn connect_arbitrary(
@@ -425,7 +429,7 @@ impl NodeGraph {
         b_node: NodeId,
         b_side: Side,
         b_slot: SlotId,
-    ) -> Result<()> {
+    ) -> Result<&Edge> {
         if a_node == b_node || a_side == b_side {
             return Err(TexProError::Generic);
         }
