@@ -23,7 +23,12 @@ pub fn process_node(
         slot_datas.len(),
         node.capacity(Side::Input)
     );
-    assert_eq!(edges.len(), slot_datas.len(), "NodeType: {:?}", node.node_type);
+    assert_eq!(
+        edges.len(),
+        slot_datas.len(),
+        "NodeType: {:?}",
+        node.node_type
+    );
 
     // edges.sort_by(|a, b| a.input_slot.cmp(&b.input_slot));
 
@@ -152,7 +157,11 @@ fn output_gray(inputs: &[Arc<SlotData>], edges: &[Edge], node: &Node) -> Vec<Arc
 }
 
 /// Executes the node graph contained in the node.
-fn graph(node_datas: &[Arc<SlotData>], node: &Node, graph: &NodeGraph) -> Result<Vec<Arc<SlotData>>> {
+fn graph(
+    node_datas: &[Arc<SlotData>],
+    node: &Node,
+    graph: &NodeGraph,
+) -> Result<Vec<Arc<SlotData>>> {
     let mut output: Vec<Arc<SlotData>> = Vec::new();
     let tex_pro = TextureProcessor::new();
     tex_pro.set_node_graph((*graph).clone());

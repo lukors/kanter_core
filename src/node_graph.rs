@@ -1,4 +1,8 @@
-use crate::{error::*, node::*, shared::has_dup};
+use crate::{
+    error::*,
+    node::{MixType, Node, NodeType, Side},
+    shared::has_dup,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
@@ -74,7 +78,7 @@ impl NodeGraph {
     pub fn new_id(&mut self) -> NodeId {
         loop {
             let id = NodeId(rand::random());
-            if !self.has_node_with_id(id) {
+            if self.has_node_with_id(id).is_err() {
                 return id;
             }
         }
@@ -127,8 +131,12 @@ impl NodeGraph {
         self.nodes.iter().position(|node| node.node_id == node_id)
     }
 
-    pub fn has_node_with_id(&self, node_id: NodeId) -> bool {
-        self.nodes.iter().any(|node| node.node_id == node_id)
+    pub fn has_node_with_id(&self, node_id: NodeId) -> Result<()> {
+        if self.nodes.iter().any(|node| node.node_id == node_id) {
+            Ok(())
+        } else {
+            Err(TexProError::InvalidNodeId)
+        }
     }
 
     pub fn nodes(&self) -> &Vec<Node> {
@@ -139,15 +147,21 @@ impl NodeGraph {
         self.nodes.iter().map(|node| node.node_id).collect()
     }
 
-    pub fn node_with_id(&self, node_id: NodeId) -> Option<Node> {
+    pub fn node_with_id(&self, node_id: NodeId) -> Result<Node> {
         self.nodes
             .iter()
             .find(|node| node.node_id == node_id)
             .cloned()
+            .ok_or(TexProError::InvalidNodeId)
     }
 
     pub fn node_with_id_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {
         self.nodes.iter_mut().find(|node| node.node_id == node_id)
+    }
+
+    pub fn node_has_slot(&self, node_id: NodeId, side: Side, slot_id: SlotId) -> Result<()> {
+        let node = self.node_with_id(node_id)?;
+        node.slot_exists(slot_id, side)
     }
 
     fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) {
@@ -267,11 +281,11 @@ impl NodeGraph {
     }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
-        if self.node_with_id(node_id).is_some() {
+        if self.node_with_id(node_id).is_err() {
+            self.add_node_internal(node, node_id);
+        } else {
             return Err(TexProError::InvalidNodeId);
         }
-
-        self.add_node_internal(node, node_id);
 
         Ok(node_id)
     }
@@ -308,7 +322,8 @@ impl NodeGraph {
         output_rgba_count * 4 + output_gray_count
     }
 
-    pub fn external_output_ids(&self) -> Vec<NodeId> {
+    /// Returns all `NodeId`s that belong to `OutputRgba` or `OutputGray` nodes.
+    pub fn output_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
             .filter(|node| {
@@ -328,12 +343,24 @@ impl NodeGraph {
             .collect()
     }
 
-    pub fn edges_in_slot(
+    pub fn edge_indices_node(&mut self, node_id: NodeId) -> Result<Vec<usize>> {
+        self.has_node_with_id(node_id)?;
+
+        Ok(self
+            .edges
+            .iter()
+            .enumerate()
+            .filter(|(_, edge)| edge.output_id == node_id || edge.input_id == node_id)
+            .map(|(i, _)| i)
+            .collect())
+    }
+
+    pub fn edge_indices_slot(
         &mut self,
         node_id: NodeId,
         side: Side,
         slot_id: SlotId,
-    ) -> Vec<(usize, &Edge)> {
+    ) -> Vec<usize> {
         self.edges
             .iter()
             .enumerate()
@@ -341,20 +368,8 @@ impl NodeGraph {
                 Side::Input => edge.input_id == node_id && edge.input_slot == slot_id,
                 Side::Output => edge.output_id == node_id && edge.output_slot == slot_id,
             })
+            .map(|(i, _)| i)
             .collect()
-    }
-
-    pub fn disconnect_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) {
-        let mut edge_indices_to_remove: Vec<usize> = self
-            .edges_in_slot(node_id, side, slot_id)
-            .iter()
-            .map(|(i, _)| *i)
-            .collect();
-
-        edge_indices_to_remove.sort_unstable();
-        for i in edge_indices_to_remove.iter().rev() {
-            self.edges.remove(*i);
-        }
     }
 
     pub fn try_connect(
@@ -364,9 +379,8 @@ impl NodeGraph {
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        if !self.has_node_with_id(output_node) || !self.has_node_with_id(input_node) {
-            return Err(TexProError::InvalidNodeId);
-        }
+        self.has_node_with_id(output_node)?;
+        self.has_node_with_id(input_node)?;
 
         if self.slot_occupied(input_node, Side::Input, input_slot) {
             return Err(TexProError::SlotOccupied);
@@ -380,29 +394,25 @@ impl NodeGraph {
 
     pub fn connect(
         &mut self,
-        output_node: NodeId,
-        input_node: NodeId,
+        output_node_id: NodeId,
+        input_node_id: NodeId,
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        if !self.has_node_with_id(output_node) || !self.has_node_with_id(input_node) {
-            return Err(TexProError::InvalidNodeId);
-        }
-        if let Some(node) = self.node_with_id(input_node) {
-            if input_slot.as_usize() >= node.capacity(Side::Input) {
-                return Err(TexProError::InvalidSlotId);
-            }
-        }
-        if let Some(node) = self.node_with_id(output_node) {
-            if output_slot.as_usize() >= node.capacity(Side::Output) {
-                return Err(TexProError::InvalidSlotId);
-            }
-        }
+        let output_node = self.node_with_id(output_node_id)?;
+        let input_node = self.node_with_id(input_node_id)?;
 
-        self.disconnect_slot(input_node, Side::Input, input_slot);
+        output_node.slot_exists(output_slot, Side::Output)?;
+        input_node.slot_exists(input_slot, Side::Input)?;
 
-        self.edges
-            .push(Edge::new(output_node, input_node, output_slot, input_slot));
+        self.disconnect_slot(input_node_id, Side::Input, input_slot)?;
+
+        self.edges.push(Edge::new(
+            output_node_id,
+            input_node_id,
+            output_slot,
+            input_slot,
+        ));
 
         Ok(())
     }
@@ -458,38 +468,60 @@ impl NodeGraph {
         }
     }
 
-    pub fn remove_edge(
+    pub fn remove_edge_specific(
         &mut self,
         output_node: NodeId,
         input_node: NodeId,
         output_slot: SlotId,
         input_slot: SlotId,
-    ) {
+    ) -> Result<Edge> {
         let edge_compare = Edge::new(output_node, input_node, output_slot, input_slot);
 
         if let Some(index_to_remove) = self.edges.iter().position(|edge| *edge == edge_compare) {
-            self.edges.remove(index_to_remove);
-        }
-    }
-
-    pub fn remove_node(&mut self, node_id: NodeId) -> Result<()> {
-        self.disconnect_node(node_id);
-
-        if let Some(index_to_remove) = self.nodes.iter().position(|node| node.node_id == node_id) {
-            self.nodes.remove(index_to_remove);
-            Ok(())
+            Ok(self.edges.remove(index_to_remove))
         } else {
-            Err(TexProError::InvalidNodeId)
+            Err(TexProError::InvalidEdge)
         }
     }
 
-    fn disconnect_node(&mut self, node_id: NodeId) {
-        while let Some(edge_index) = self
-            .edges
+    pub fn remove_node(&mut self, node_id: NodeId) -> Result<(Node, Vec<Edge>)> {
+        let removed_edges = self.disconnect_node(node_id)?;
+        let index_to_remove = self
+            .nodes
             .iter()
-            .rposition(|edge| edge.output_id == node_id || edge.input_id == node_id)
-        {
-            self.edges.remove(edge_index);
+            .position(|node| node.node_id == node_id)
+            .ok_or(TexProError::InvalidNodeId)?;
+        Ok((self.nodes.remove(index_to_remove), removed_edges))
+    }
+
+    fn disconnect_node(&mut self, node_id: NodeId) -> Result<Vec<Edge>> {
+        let mut removed_edges = Vec::new();
+
+        for edge_index in self.edge_indices_node(node_id)? {
+            removed_edges.push(self.edges.remove(edge_index));
+        }
+
+        Ok(removed_edges)
+    }
+
+    pub fn disconnect_slot(
+        &mut self,
+        node_id: NodeId,
+        side: Side,
+        slot_id: SlotId,
+    ) -> Result<Vec<Edge>> {
+        self.has_node_with_id(node_id)?;
+
+        let mut removed_edges = Vec::new();
+
+        for edge_index in self.edge_indices_slot(node_id, side, slot_id) {
+            removed_edges.push(self.edges.remove(edge_index));
+        }
+
+        if !removed_edges.is_empty() {
+            Err(TexProError::SlotNotOccupied)
+        } else {
+            Ok(removed_edges)
         }
     }
 }

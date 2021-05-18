@@ -1,4 +1,8 @@
-use crate::{node_graph::*, slot_data::*};
+use crate::{
+    error::{Result, TexProError},
+    node_graph::*,
+    slot_data::*,
+};
 use image::FilterType;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -215,8 +219,12 @@ impl Node {
         }
     }
 
-    pub fn slot_exists(&self, slot_id: SlotId, side: Side) -> bool {
-        slot_id.0 < self.capacity(side) as u32
+    pub fn slot_exists(&self, slot_id: SlotId, side: Side) -> Result<()> {
+        if slot_id.0 < self.capacity(side) as u32 {
+            Ok(())
+        } else {
+            Err(TexProError::InvalidSlotId)
+        }
     }
 
     pub fn filter_type(&mut self, rf: ResizeFilter) {

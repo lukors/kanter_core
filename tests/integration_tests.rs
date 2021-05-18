@@ -5,7 +5,7 @@ use kanter_core::{
     texture_processor::TextureProcessor,
 };
 use ntest::timeout;
-use std::{fs::create_dir, path::Path, sync::Arc};
+use std::{fs::create_dir, path::Path, sync::Arc, time::Duration};
 
 const OUT_DIR: &str = "out";
 const IMAGE_1: &str = "data/image_1.png";
@@ -625,7 +625,10 @@ fn resize_policy_most_pixels() {
         .connect(node_256, output, SlotId(0), SlotId(1))
         .unwrap();
 
-    assert!(tex_pro.node_slot_datas(output).unwrap()[0].size == tex_pro.node_slot_datas(output).unwrap()[1].size);
+    assert!(
+        tex_pro.node_slot_datas(output).unwrap()[0].size
+            == tex_pro.node_slot_datas(output).unwrap()[1].size
+    );
 }
 
 #[test]
@@ -690,11 +693,19 @@ fn resize_policy_largest_axes() {
 
     let target_size = Size::new(
         tex_pro.node_slot_datas(node_256x128).unwrap()[0].size.width,
-        tex_pro.node_slot_datas(node_128x256).unwrap()[0].size.height,
+        tex_pro.node_slot_datas(node_128x256).unwrap()[0]
+            .size
+            .height,
     );
 
-    assert_eq!(tex_pro.node_slot_datas(output).unwrap()[0].size, target_size);
-    assert_eq!(tex_pro.node_slot_datas(output).unwrap()[1].size, target_size);
+    assert_eq!(
+        tex_pro.node_slot_datas(output).unwrap()[0].size,
+        target_size
+    );
+    assert_eq!(
+        tex_pro.node_slot_datas(output).unwrap()[1].size,
+        target_size
+    );
 }
 
 #[test]

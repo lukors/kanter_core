@@ -6,7 +6,14 @@ use crate::{
     slot_data::*,
 };
 use image::ImageBuffer;
-use std::{collections::{BTreeMap, BTreeSet, HashSet, VecDeque}, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicBool, Ordering}, mpsc}, thread};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
+    },
+    thread,
+};
 
 use crate::shared::*;
 
@@ -38,6 +45,19 @@ pub struct TexProInt {
     pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
     pub input_node_datas: Vec<Arc<SlotData>>,
     node_states: BTreeMap<NodeId, NodeState>,
+    one_shot: bool,
+    state_generation: Generation,
+    node_generation: Generation,
+    edge_generation: Generation,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct Generation(usize);
+
+impl Generation {
+    fn add(&mut self) {
+        self.0 = self.0.wrapping_add(1);
+    }
 }
 
 impl TexProInt {
@@ -48,6 +68,10 @@ impl TexProInt {
             embedded_node_datas: Vec::new(),
             input_node_datas: Vec::new(),
             node_states: BTreeMap::new(),
+            one_shot: false,
+            state_generation: Default::default(),
+            node_generation: Default::default(),
+            edge_generation: Default::default(),
         }
     }
 
@@ -74,9 +98,10 @@ impl TexProInt {
                         Err(e) => {
                             shutdown.store(true, Ordering::Relaxed);
                             panic!(
-                                "Error when processing '{:?}' node with id '{}'",
+                                "Error when processing '{:?}' node with id '{}': {}",
                                 tex_pro.node_graph.node_with_id(node_id).unwrap().node_type,
-                                node_id
+                                node_id,
+                                e
                             );
                         }
                     }
@@ -127,15 +152,33 @@ impl TexProInt {
                         .copied()
                         .collect::<Vec<Edge>>();
 
-                    let input_data = edges
-                        .iter()
-                        .map(|edge| tex_pro.slot_datas.iter().find(|slot_data| {
-                                slot_data.slot_id == edge.output_slot && slot_data.node_id == edge.output_id
-                            }).unwrap()
-                        ).cloned()
-                        .collect::<Vec<Arc<SlotData>>>();
-                    
-                    assert_eq!(edges.len(), input_data.len(), "NodeType: {:?}", node.node_type);
+                    let input_data = {
+                        let input_data = edges
+                            .iter()
+                            .map(|edge| {
+                                tex_pro.slot_datas.iter().find(|slot_data| {
+                                    slot_data.slot_id == edge.output_slot
+                                        && slot_data.node_id == edge.output_id
+                                })
+                            })
+                            .collect::<Vec<Option<&Arc<SlotData>>>>();
+
+                        if input_data.contains(&None) {
+                            continue;
+                        } else {
+                            input_data
+                                .into_iter()
+                                .map(|slot_data| Arc::clone(slot_data.unwrap()))
+                                .collect::<Vec<Arc<SlotData>>>()
+                        }
+                    };
+
+                    assert_eq!(
+                        edges.len(),
+                        input_data.len(),
+                        "NodeType: {:?}",
+                        node.node_type
+                    );
 
                     let send = send.clone();
 
@@ -157,15 +200,37 @@ impl TexProInt {
                         };
                     });
                 }
+
+                // If the tex_pro is set to one_shot and all nodes are clean, shut it down.
+                if tex_pro.one_shot && tex_pro
+                    .node_states
+                    .iter()
+                    .all(|(_, node_state)| *node_state == NodeState::Clean)
+                {
+                    shutdown.store(true, Ordering::Relaxed);
+                    break;
+                }
             }
 
-            // Consider sleeping here, test to make sure it actually reduces CPU load by a lot when idle.
+            // Sleeping to reduce CPU load.
+            thread::sleep(std::time::Duration::from_micros(1));
+        }
+    }
+
+    pub fn process_then_kill(&mut self) {
+        self.one_shot = true;
+        for node_id in self.node_graph.output_ids() {
+            self.request(node_id).unwrap();
         }
     }
 
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
     /// `RwLockWriteGuard` so changes can be made while the `NodeState` the state remains the same.
-    pub fn wait_for_state_write(tpi: &Arc<RwLock<Self>>, node_id: NodeId, node_state: NodeState) -> Result<RwLockWriteGuard<TexProInt>> {
+    pub fn wait_for_state_write(
+        tpi: &Arc<RwLock<Self>>,
+        node_id: NodeId,
+        node_state: NodeState,
+    ) -> Result<RwLockWriteGuard<TexProInt>> {
         loop {
             if let Ok(mut tpi) = tpi.write() {
                 if node_state == tpi.node_state(node_id)? {
@@ -179,7 +244,11 @@ impl TexProInt {
 
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
     /// `RwLockReadGuard` so reads can be made while the `NodeState` remains the same.
-    pub fn wait_for_state_read(tpi: &Arc<RwLock<Self>>, node_id: NodeId, node_state: NodeState) -> Result<RwLockReadGuard<TexProInt>> {
+    pub fn wait_for_state_read(
+        tpi: &Arc<RwLock<Self>>,
+        node_id: NodeId,
+        node_state: NodeState,
+    ) -> Result<RwLockReadGuard<TexProInt>> {
         loop {
             if let Ok(tpi) = tpi.read() {
                 if node_state == tpi.node_state(node_id)? {
@@ -210,197 +279,6 @@ impl TexProInt {
 
         Ok(())
     }
-
-    // pub fn process(tex_pro: Arc<RwLock<TexProInt>>) {
-    //     thread::spawn(move || {
-    //         struct ThreadMessage {
-    //             node_id: NodeId,
-    //             node_datas: Result<Vec<Arc<SlotData>>>,
-    //         }
-
-    //         let nodes_to_process = if let Ok(mut tex_pro) = tex_pro.write() {
-    //             if tex_pro.processing {
-    //                 return;
-    //             } else {
-    //                 tex_pro.processing = true;
-    //             }
-
-    //             let dirty_node_ids = tex_pro.get_dirty();
-
-    //             let mut dirty_and_children = dirty_node_ids.clone();
-    //             for node_id in &dirty_node_ids {
-    //                 dirty_and_children.append(&mut tex_pro.get_children_recursive(*node_id));
-    //             }
-
-    //             dirty_and_children.sort_unstable();
-    //             dirty_and_children.dedup();
-
-    //             for node_id in &dirty_and_children {
-    //                 tex_pro.remove_nodes_data(*node_id);
-    //             }
-
-    //             dirty_and_children
-    //         } else {
-    //             unreachable!();
-    //         };
-
-    //         let (send, recv) = mpsc::channel::<ThreadMessage>();
-    //         let mut finished_nodes: HashSet<NodeId> =
-    //             HashSet::with_capacity(tex_pro.read().unwrap().node_graph.nodes().len());
-    //         // let mut started_nodes: HashSet<NodeId> =
-    //         //     HashSet::with_capacity(tex_pro.read().unwrap().node_graph.nodes().len());
-    //         let mut nodes_processing: HashSet<NodeId> = HashSet::new();
-
-    //         let mut queued_ids: VecDeque<NodeId> = VecDeque::from(nodes_to_process);
-    //         for node_id in &queued_ids {
-    //             nodes_processing.insert(*node_id);
-    //         }
-
-    //         if queued_ids.is_empty() {
-    //             tex_pro.write().unwrap().processing = false;
-    //             return;
-    //         }
-
-    //         'outer: while !queued_ids.is_empty() && !nodes_processing.is_empty() {
-    //             for message in recv.try_iter() {
-    //                 tex_pro.write().unwrap().set_node_finished(
-    //                     message.node_id,
-    //                     &mut Some(message.node_datas.unwrap()),
-    //                     &mut started_nodes,
-    //                     &mut finished_nodes,
-    //                     &mut queued_ids,
-    //                 );
-    //             }
-
-    //             let current_id = match queued_ids.pop_front() {
-    //                 Some(id) => id,
-    //                 None => continue,
-    //             };
-
-    //             let parent_node_ids = tex_pro
-    //                 .read()
-    //                 .unwrap()
-    //                 .node_graph
-    //                 .edges
-    //                 .iter()
-    //                 .filter(|edge| edge.input_id == current_id)
-    //                 .map(|edge| edge.output_id)
-    //                 .collect::<Vec<NodeId>>();
-
-    //             for parent_node_id in parent_node_ids {
-    //                 if !finished_nodes.contains(&parent_node_id) {
-    //                     queued_ids.push_back(current_id);
-    //                     continue 'outer;
-    //                 }
-    //             }
-
-    //             let mut relevant_ids: Vec<NodeId> = Vec::new();
-    //             for node_data in tex_pro.read().unwrap().slot_datas.iter() {
-    //                 for edge in &tex_pro.read().unwrap().node_graph.edges {
-    //                     if edge.output_id != node_data.node_id {
-    //                         continue;
-    //                     } else {
-    //                         relevant_ids.push(node_data.node_id);
-    //                     }
-    //                 }
-    //             }
-
-    //             // Put the `Arc<Buffer>`s and `Edge`s relevant for the calculation of this node into
-    //             // lists.
-    //             let mut relevant_edges: Vec<Edge> = Vec::new();
-    //             let mut input_data: Vec<Arc<SlotData>> = Vec::new();
-    //             for node_data in tex_pro.read().unwrap().slot_datas.iter() {
-    //                 if !relevant_ids.contains(&node_data.node_id) {
-    //                     continue;
-    //                 }
-    //                 for edge in &tex_pro.read().unwrap().node_graph.edges {
-    //                     if node_data.slot_id == edge.output_slot
-    //                         && node_data.node_id == edge.output_id
-    //                         && current_id == edge.input_id
-    //                     {
-    //                         input_data.push(Arc::clone(node_data));
-    //                         relevant_edges.push(*edge);
-    //                     }
-    //                 }
-    //             }
-
-    //             // Spawn a thread and calculate the node in it and send back the new `node_data`s for
-    //             // each slot in the node.
-    //             let current_node = tex_pro
-    //                 .read()
-    //                 .unwrap()
-    //                 .node_graph
-    //                 .node_with_id(current_id);
-
-    //             let current_node = match current_node {
-    //                 Some(node) => node.clone(),
-    //                 None => {
-    //                     // Remove all children of the node and the node from the queue, and
-    //                     // continue. This is a safeguard for if a node gets removed while
-    //                     // processing is taking place. Might want to turn this into a function if
-    //                     // it should be used in other places.
-    //                     let invalid_nodes = if let Ok(mut tex_pro) = tex_pro.write() {
-    //                         let mut invalid_nodes = tex_pro.get_children_recursive(current_id);
-    //                         invalid_nodes.push(current_id);
-
-    //                         for node_id in &invalid_nodes {
-    //                             tex_pro.remove_nodes_data(*node_id);
-    //                         }
-
-    //                         invalid_nodes
-    //                     } else {
-    //                         unreachable!();
-    //                     };
-
-    //                     for node_id in invalid_nodes {
-    //                         if let Some(index) = queued_ids.iter().position(|queued_id| *queued_id == node_id) {
-    //                             queued_ids.remove(index);
-    //                         }
-    //                     }
-
-    //                     continue;
-    //                 }
-    //             };
-
-    //             let send = send.clone();
-
-    //             let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = tex_pro
-    //                 .read()
-    //                 .unwrap()
-    //                 .embedded_node_datas
-    //                 .iter()
-    //                 .map(|end| Arc::clone(&end))
-    //                 .collect();
-    //             let input_node_datas: Vec<Arc<SlotData>> = tex_pro
-    //                 .read()
-    //                 .unwrap()
-    //                 .input_node_datas
-    //                 .iter()
-    //                 .map(|nd| Arc::clone(&nd))
-    //                 .collect();
-
-    //             thread::spawn(move || {
-    //                 let node_datas: Result<Vec<Arc<SlotData>>> = process_node(
-    //                     current_node,
-    //                     &input_data,
-    //                     &embedded_node_datas,
-    //                     &input_node_datas,
-    //                     &relevant_edges,
-    //                 );
-
-    //                 match send.send(ThreadMessage {
-    //                     node_id: current_id,
-    //                     node_datas,
-    //                 }) {
-    //                     Ok(_) => (),
-    //                     Err(e) => println!("{:?}", e),
-    //                 };
-    //             });
-    //         }
-
-    //         tex_pro.write().unwrap().processing = false;
-    //     });
-    // }
 
     pub fn node_state(&self, node_id: NodeId) -> Result<NodeState> {
         if let Some(node_state) = self.node_states.get(&node_id) {
@@ -436,13 +314,15 @@ impl TexProInt {
     }
 
     /// Sets a node and all its children as dirty.
-    fn set_dirty(&mut self, node_id: NodeId) {
-        let mut node_and_children = self.get_children_recursive(node_id);
-        node_and_children.push(node_id);
+    fn set_dirty(&mut self, node_id: NodeId) -> Result<Vec<NodeId>> {
+        let children = self.get_children_recursive(node_id)?;
 
-        for node_id in node_and_children {
-            self.node_states.insert(node_id, NodeState::Dirty);
+        for node_id in children.iter().chain(vec![node_id].iter()) {
+            self.node_states.insert(*node_id, NodeState::Dirty);
         }
+
+        self.state_generation.add();
+        Ok(children)
     }
 
     pub fn get_root_ids(&self) -> Vec<NodeId> {
@@ -460,54 +340,29 @@ impl TexProInt {
             .collect::<Vec<NodeId>>()
     }
 
-    /// Takes a node and the data it generated, marks it as finished and puts the data in the
-    /// `TextureProcessor`'s data vector.
-    /// Then it adds any child `NodeId`s of the input `NodeId` to the list of `NodeId`s to process.
-    fn set_node_finished(
-        &mut self,
-        id: NodeId,
-        node_datas: &mut Option<Vec<Arc<SlotData>>>,
-        started_nodes: &mut HashSet<NodeId>,
-        finished_nodes: &mut HashSet<NodeId>,
-        queued_ids: &mut VecDeque<NodeId>,
-    ) {
-        finished_nodes.insert(id);
-        self.node_states.insert(id, NodeState::Clean);
-
-        if let Some(node_datas) = node_datas {
-            self.slot_datas.append(node_datas);
-        }
-
-        // Add any child node of the input `NodeId` to the list of nodes to potentially process.
-        for edge in &self.node_graph.edges {
-            let input_id = edge.input_id;
-            if edge.output_id == id && !started_nodes.contains(&input_id) {
-                queued_ids.push_back(input_id);
-                started_nodes.insert(input_id);
-            }
-        }
-    }
-
     /// Returns the NodeIds of all immediate children of this node (not recursive).
-    pub fn get_children(&self, node_id: NodeId) -> Vec<NodeId> {
-        self.node_graph
+    pub fn get_children(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
+        self.node_graph.has_node_with_id(node_id)?;
+
+        Ok(self
+            .node_graph
             .edges
             .iter()
             .filter(|edge| edge.output_id == node_id)
             .map(|edge| edge.input_id)
-            .collect()
+            .collect())
     }
 
     /// Returns the NodeIds of all children of this node.
-    pub fn get_children_recursive(&self, node_id: NodeId) -> Vec<NodeId> {
-        let children = self.get_children(node_id);
+    pub fn get_children_recursive(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
+        let children = self.get_children(node_id)?;
         let mut output = children.clone();
 
         for child in children {
-            output.append(&mut self.get_children_recursive(child));
+            output.append(&mut self.get_children_recursive(child)?);
         }
 
-        output
+        Ok(output)
     }
 
     /// Returns the NodeIds of all immediate parents of this node (not recursive).
@@ -614,13 +469,13 @@ impl TexProInt {
     }
 
     /// Removes all the `slot_data` associated with the given `NodeId`.
-    pub(crate) fn remove_nodes_data(&mut self, id: NodeId) {
-        for i in (0..self.slot_datas.len()).rev() {
-            if self.slot_datas[i].node_id == id {
-                self.slot_datas.remove(i);
-            }
-        }
-    }
+    // pub(crate) fn remove_nodes_data(&mut self, id: NodeId) {
+    //     for i in (0..self.slot_datas.len()).rev() {
+    //         if self.slot_datas[i].node_id == id {
+    //             self.slot_datas.remove(i);
+    //         }
+    //     }
+    // }
 
     /// Gets all `SlotData`s in this `TextureProcessor`.
     pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
@@ -642,12 +497,7 @@ impl TexProInt {
             return Err(TexProError::Generic);
         }
 
-        let output_vecs = match self
-            .node_graph
-            .node_with_id(node_id)
-            .ok_or(TexProError::InvalidNodeId)?
-            .node_type
-        {
+        let output_vecs = match self.node_graph.node_with_id(node_id)?.node_type {
             NodeType::OutputRgba => self.get_output_rgba(&node_datas)?,
             NodeType::OutputGray => self.get_output_gray(&node_datas)?,
             _ => return Err(TexProError::InvalidNodeType),
@@ -701,22 +551,31 @@ impl TexProInt {
     }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
-        self.node_graph.add_node_with_id(node, node_id)
+        let node_id = self.node_graph.add_node_with_id(node, node_id)?;
+        self.node_generation.add();
+        Ok(node_id)
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
-        let result = self.node_graph.add_node(node);
+        let node_id = self.node_graph.add_node(node)?;
 
-        if let Ok(node_id) = result {
-            self.node_states.insert(node_id, NodeState::Dirty);
-        }
+        self.node_generation.add();
+        self.node_states.insert(node_id, NodeState::default());
 
-        result
+        Ok(node_id)
     }
 
-    pub fn remove_node(&mut self, node_id: NodeId) -> Result<()> {
+    pub fn remove_node(&mut self, node_id: NodeId) -> Result<Vec<Edge>> {
+        let (_, edges) = self.node_graph.remove_node(node_id)?;
+
+        self.node_generation.add();
         self.node_states.remove(&node_id);
-        self.node_graph.remove_node(node_id)
+
+        if !edges.is_empty() {
+            self.edge_generation.add();
+        }
+
+        Ok(edges)
     }
 
     pub fn connect(
@@ -726,15 +585,12 @@ impl TexProInt {
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        let result = self
-            .node_graph
-            .connect(output_node, input_node, output_slot, input_slot);
+        self.node_graph
+            .connect(output_node, input_node, output_slot, input_slot)?;
 
-        if result.is_ok() {
-            self.set_dirty(input_node);
-        }
+        self.set_dirty(input_node)?;
 
-        result
+        Ok(())
     }
 
     pub fn connect_arbitrary(
@@ -757,12 +613,19 @@ impl TexProInt {
         result
     }
 
-    pub fn disconnect_slot(&mut self, node_id: NodeId, side: Side, slot_id: SlotId) {
-        self.node_graph.disconnect_slot(node_id, side, slot_id);
+    pub fn disconnect_slot(
+        &mut self,
+        node_id: NodeId,
+        side: Side,
+        slot_id: SlotId,
+    ) -> Result<Vec<Edge>> {
+        let edges = self.node_graph.disconnect_slot(node_id, side, slot_id)?;
 
-        if side == Side::Input {
+        if !edges.is_empty() {
             self.node_states.insert(node_id, NodeState::Dirty);
         }
+
+        Ok(edges)
     }
 
     pub fn set_node_graph(&mut self, node_graph: NodeGraph) {

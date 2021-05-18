@@ -1,5 +1,17 @@
-use crate::{dag::*, error::{Result, TexProError}, node::{self, EmbeddedNodeDataId, Node, Side}, node_graph::*, slot_data::*};
-use std::{sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicBool, Ordering}}, thread};
+use crate::{
+    dag::*,
+    error::{Result, TexProError},
+    node::{EmbeddedNodeDataId, Node, Side},
+    node_graph::*,
+    slot_data::*,
+};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
+    },
+    thread,
+};
 
 #[derive(Default)]
 pub struct TextureProcessor {
@@ -39,7 +51,8 @@ impl TextureProcessor {
     // }
 
     pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        self.wait_for_state_read(node_id, NodeState::Clean)?.get_output(node_id)
+        self.wait_for_state_read(node_id, NodeState::Clean)?
+            .get_output(node_id)
     }
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
@@ -69,6 +82,10 @@ impl TextureProcessor {
         result
     }
 
+    pub fn process_then_kill(&self) {
+        self.tpi.write().unwrap().process_then_kill();
+    }
+
     pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
         self.tpi
             .read()
@@ -78,7 +95,7 @@ impl TextureProcessor {
     }
 
     pub fn external_output_ids(&self) -> Vec<NodeId> {
-        self.tpi.read().unwrap().node_graph.external_output_ids()
+        self.tpi.read().unwrap().node_graph.output_ids()
     }
 
     pub fn set_node_graph(&self, node_graph: NodeGraph) {
@@ -94,7 +111,9 @@ impl TextureProcessor {
     }
 
     pub fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
-        Ok(self.wait_for_state_read(node_id, NodeState::Clean)?.node_slot_datas(node_id))
+        Ok(self
+            .wait_for_state_read(node_id, NodeState::Clean)?
+            .node_slot_datas(node_id))
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {
@@ -105,7 +124,7 @@ impl TextureProcessor {
         self.tpi.write().unwrap().add_node_with_id(node, node_id)
     }
 
-    pub fn remove_node(&self, node_id: NodeId) -> Result<()> {
+    pub fn remove_node(&self, node_id: NodeId) -> Result<Vec<Edge>> {
         self.tpi.write().unwrap().remove_node(node_id)
     }
 
@@ -143,7 +162,12 @@ impl TextureProcessor {
             .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)
     }
 
-    pub fn disconnect_slot(&self, node_id: NodeId, side: Side, slot_id: SlotId) {
+    pub fn disconnect_slot(
+        &self,
+        node_id: NodeId,
+        side: Side,
+        slot_id: SlotId,
+    ) -> Result<Vec<Edge>> {
         self.tpi
             .write()
             .unwrap()
@@ -151,15 +175,30 @@ impl TextureProcessor {
     }
 
     pub fn node_slot_data(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
-        Ok(self.wait_for_state_read(node_id, NodeState::Clean)?.node_slot_datas(node_id))
+        Ok(self
+            .wait_for_state_read(node_id, NodeState::Clean)?
+            .node_slot_datas(node_id))
     }
 
-    pub fn wait_for_state_write(&self, node_id: NodeId, node_state: NodeState) -> Result<RwLockWriteGuard<TexProInt>> {
+    pub fn wait_for_state_write(
+        &self,
+        node_id: NodeId,
+        node_state: NodeState,
+    ) -> Result<RwLockWriteGuard<TexProInt>> {
         TexProInt::wait_for_state_write(&self.tpi, node_id, node_state)
     }
 
-    pub fn wait_for_state_read(&self, node_id: NodeId, node_state: NodeState) -> Result<RwLockReadGuard<TexProInt>> {
+    pub fn wait_for_state_read(
+        &self,
+        node_id: NodeId,
+        node_state: NodeState,
+    ) -> Result<RwLockReadGuard<TexProInt>> {
         TexProInt::wait_for_state_read(&self.tpi, node_id, node_state)
+    }
+
+    /// Returns all `NodeId`s with the given `NodeState`.
+    pub fn node_ids_with_state(&self, node_state: NodeState) -> Vec<NodeId> {
+        self.tpi.read().unwrap().node_ids_with_state(node_state)
     }
 
     // pub fn wait_until_finished(&self) {
@@ -197,6 +236,17 @@ impl TextureProcessor {
         }
     }
 
+    /// Returns the size of a given `SlotData`.
+    pub fn try_get_slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
+        // This mgiht be able to work without any actual existing `SlotData`. It might be possible
+        // to calculate what the output size would be if the `SlotData` existed, without looking
+        // at an actual `SlotData`.
+        self.tpi.write().unwrap().prioritise(node_id)?;
+        let tpi = self.tpi.try_read()?;
+        tpi.get_slot_data_size(node_id, slot_id)
+            .ok_or(TexProError::Generic)
+    }
+
     // pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
     //     self.tpi.read().unwrap().get_node_data_size(node_id)
     // }
@@ -214,7 +264,7 @@ impl TextureProcessor {
             .connect(output_node, input_node, output_slot, input_slot)
     }
 
-    pub fn node_with_id(&self, node_id: NodeId) -> Option<Node> {
+    pub fn node_with_id(&self, node_id: NodeId) -> Result<Node> {
         self.tpi.read().unwrap().node_graph.node_with_id(node_id)
     }
 

@@ -10,10 +10,13 @@ pub enum TexProError {
     InvalidNodeId,
     InvalidNodeType,
     InvalidSlotId,
+    InvalidEdge,
     SlotOccupied,
+    SlotNotOccupied,
     UnableToLock,
     NodeProcessing,
     PoisonError,
+    TryLockError,
     Io(io::Error),
 }
 
@@ -26,10 +29,13 @@ impl fmt::Display for TexProError {
             Self::InvalidNodeId => f.write_str("Invalid `NodeId`"),
             Self::InvalidNodeType => f.write_str("Invalid `NodeType`"),
             Self::InvalidSlotId => f.write_str("Invalid `SlotId`"),
+            Self::InvalidEdge => f.write_str("Invalid `Edge`"),
             Self::SlotOccupied => f.write_str("`SlotId` is already in use"),
+            Self::SlotNotOccupied => f.write_str("`SlotId` is not in use"),
             Self::UnableToLock => f.write_str("Unable to get a lock"),
             Self::NodeProcessing => f.write_str("Error during node processing"),
             Self::PoisonError => f.write_str("Error with poisoned lock"),
+            Self::TryLockError => f.write_str("Error when trying to lock"),
             Self::Io(ref e) => e.fmt(f),
         }
     }
@@ -48,7 +54,13 @@ impl From<io::Error> for TexProError {
 }
 
 impl<T> From<std::sync::PoisonError<T>> for TexProError {
-    fn from(cause: std::sync::PoisonError<T>) -> TexProError {
+    fn from(_: std::sync::PoisonError<T>) -> TexProError {
         Self::PoisonError
+    }
+}
+
+impl<T> From<std::sync::TryLockError<T>> for TexProError {
+    fn from(_: std::sync::TryLockError<T>) -> TexProError {
+        Self::TryLockError
     }
 }
