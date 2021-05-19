@@ -405,7 +405,7 @@ impl NodeGraph {
         output_node.slot_exists(output_slot, Side::Output)?;
         input_node.slot_exists(input_slot, Side::Input)?;
 
-        self.disconnect_slot(input_node_id, Side::Input, input_slot)?;
+        let _ = self.disconnect_slot(input_node_id, Side::Input, input_slot);
 
         self.edges.push(Edge::new(
             output_node_id,
@@ -482,7 +482,7 @@ impl NodeGraph {
     fn disconnect_node(&mut self, node_id: NodeId) -> Result<Vec<Edge>> {
         let mut removed_edges = Vec::new();
 
-        for edge_index in self.edge_indices_node(node_id)? {
+        for edge_index in self.edge_indices_node(node_id)?.into_iter().rev() {
             removed_edges.push(self.edges.remove(edge_index));
         }
 
@@ -503,7 +503,7 @@ impl NodeGraph {
             removed_edges.push(self.edges.remove(edge_index));
         }
 
-        if !removed_edges.is_empty() {
+        if removed_edges.is_empty() {
             Err(TexProError::SlotNotOccupied)
         } else {
             Ok(removed_edges)

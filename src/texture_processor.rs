@@ -86,21 +86,6 @@ impl TextureProcessor {
         self.tpi.write().unwrap().process_then_kill();
     }
 
-    /// Returns the current generations of nodes.
-    pub fn node_generations(&self) -> Vec<(NodeId, usize)> {
-        self.tpi.read().unwrap().node_generations()
-    }
-
-    /// Returns the current generations of edges.
-    pub fn edge_generations(&self) -> Vec<(NodeId, usize)> {
-        self.tpi.read().unwrap().edge_generations()
-    }
-
-    /// Returns the current generations of states.
-    pub fn state_generations(&self) -> Vec<(NodeId, usize)> {
-        self.tpi.read().unwrap().state_generations()
-    }
-
     pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
         self.tpi
             .read()
@@ -295,5 +280,14 @@ impl TextureProcessor {
         *found_node = node;
 
         Ok(())
+    }
+
+    /// Return all changed `NodeId`s.
+    pub fn changed_consume(&self) -> Vec<NodeId> {
+        self.tpi.write().unwrap().changed_consume()
+    }
+
+    pub fn has_node_with_id(&self, node_id: NodeId) -> Result<()> {
+        self.tpi.read().unwrap().has_node_with_id(node_id)
     }
 }
