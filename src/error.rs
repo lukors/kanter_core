@@ -17,6 +17,7 @@ pub enum TexProError {
     NodeProcessing,
     PoisonError,
     TryLockError,
+    NodeDirty,
     Io(io::Error),
 }
 
@@ -36,6 +37,7 @@ impl fmt::Display for TexProError {
             Self::NodeProcessing => f.write_str("Error during node processing"),
             Self::PoisonError => f.write_str("Error with poisoned lock"),
             Self::TryLockError => f.write_str("Error when trying to lock"),
+            Self::NodeDirty => f.write_str("The node is not up to date"),
             Self::Io(ref e) => e.fmt(f),
         }
     }

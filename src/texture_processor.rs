@@ -5,13 +5,10 @@ use crate::{
     node_graph::*,
     slot_data::*,
 };
-use std::{
-    sync::{
+use std::{sync::{
         atomic::{AtomicBool, Ordering},
         Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    },
-    thread,
-};
+    }, thread};
 
 #[derive(Default)]
 pub struct TextureProcessor {
@@ -216,7 +213,7 @@ impl TextureProcessor {
 
         loop {
             if let Ok(tpi) = self.tpi.try_read() {
-                if let Some(size) = tpi.get_slot_data_size(node_id, slot_id) {
+                if let Ok(size) = tpi.get_slot_data_size(node_id, slot_id) {
                     return Ok(size);
                 }
             }
@@ -231,7 +228,6 @@ impl TextureProcessor {
         self.tpi.write().unwrap().prioritise(node_id)?;
         let tpi = self.tpi.try_read()?;
         tpi.get_slot_data_size(node_id, slot_id)
-            .ok_or(TexProError::Generic)
     }
 
     pub fn connect(

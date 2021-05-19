@@ -434,15 +434,19 @@ impl TexProInt {
     }
 
     /// Returns the `Size` of the `SlotData` for the given `NodeId` and `SlotId`.
-    pub fn get_slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Option<Size> {
-        if let Some(node_data) = self
-            .slot_datas
-            .iter()
-            .find(|nd| nd.node_id == node_id && nd.slot_id == slot_id)
-        {
-            Some(node_data.size)
+    pub fn get_slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
+        if self.node_state(node_id)? == NodeState::Clean {
+            if let Some(node_data) = self
+                .slot_datas
+                .iter()
+                .find(|nd| nd.node_id == node_id && nd.slot_id == slot_id)
+            {
+                Ok(node_data.size)
+            } else {
+                Err(TexProError::InvalidBufferCount)
+            }
         } else {
-            None
+            Err(TexProError::NodeDirty)
         }
     }
 
