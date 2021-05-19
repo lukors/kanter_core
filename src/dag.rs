@@ -98,10 +98,7 @@ impl TexProInt {
                     .node_states
                     .iter()
                     .filter(|(_, node_state)| {
-                        matches!(
-                            node_state,
-                            NodeState::Requested | NodeState::Prioritised
-                        )
+                        matches!(node_state, NodeState::Requested | NodeState::Prioritised)
                     })
                     .map(|(node_id, _)| *node_id)
                     .collect::<Vec<NodeId>>();
@@ -290,7 +287,9 @@ impl TexProInt {
 
     /// Gets a mutable reference to the NodeState of the node with the given `NodeId`.
     pub fn node_state_mut(&mut self, node_id: NodeId) -> Result<&mut NodeState> {
-        self.node_states.get_mut(&node_id).ok_or(TexProError::InvalidNodeId)
+        self.node_states
+            .get_mut(&node_id)
+            .ok_or(TexProError::InvalidNodeId)
     }
 
     /// Gets all `NodeId`s that are not clean.
@@ -559,10 +558,10 @@ impl TexProInt {
         // self.node_generation_add(node_id)?;
         Ok(node_id)
     }
-    
+
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
         let node_id = self.node_graph.add_node(node)?;
-        
+
         self.changed.insert(node_id);
         self.node_states.insert(node_id, NodeState::Dirty);
 
@@ -576,7 +575,10 @@ impl TexProInt {
 
         {
             // Also mark anything that had this node as input as changed.
-            let mut node_ids = edges.iter().map(|edge| edge.input_id).collect::<Vec<NodeId>>();
+            let mut node_ids = edges
+                .iter()
+                .map(|edge| edge.input_id)
+                .collect::<Vec<NodeId>>();
             node_ids.sort_unstable();
             node_ids.dedup();
             for node_id in node_ids {
