@@ -46,10 +46,6 @@ impl TextureProcessor {
         Arc::clone(&self.tpi)
     }
 
-    // pub fn process(&self) {
-    //     TexProInt::process(Arc::clone(&self.tpi));
-    // }
-
     pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
         self.wait_for_state_read(node_id, NodeState::Clean)?
             .get_output(node_id)
@@ -200,14 +196,6 @@ impl TextureProcessor {
         self.tpi.read().unwrap().node_ids_with_state(node_state)
     }
 
-    // pub fn wait_until_finished(&self) {
-    //     loop {
-    //         if !self.processing() {
-    //             return;
-    //         }
-    //     }
-    // }
-
     pub fn embed_slot_data_with_id(
         &self,
         slot_data: Arc<SlotData>,
@@ -245,10 +233,6 @@ impl TextureProcessor {
         tpi.get_slot_data_size(node_id, slot_id)
             .ok_or(TexProError::Generic)
     }
-
-    // pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
-    //     self.tpi.read().unwrap().get_node_data_size(node_id)
-    // }
 
     pub fn connect(
         &self,

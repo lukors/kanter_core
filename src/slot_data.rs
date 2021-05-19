@@ -77,41 +77,4 @@ impl SlotData {
             buffer,
         }
     }
-
-    // pub fn from_buffer(buffer: Buffer) -> Self {
-    //     let (width, height) = buffer.dimensions();
-    //     Self {
-    //         size: Size::new(width, height),
-    //         slot_id:
-    // }
-
-    // pub fn from_buffers(buffers: HashMap<Slot, Arc<Buffer>>) -> Self {
-    //     if buffers.is_empty() {
-    //         panic!("Attempted to create a `NodeData` with empty buffers.");
-    //     }
-
-    //     let (width, height) = buffers.values().next().unwrap().dimensions();
-    //     for buffer in buffers.values() {
-    //         if buffer.dimensions() != (width, height) {
-    //             panic!("Attempted to create `NodeData` with differently sized buffers in slots.");
-    //         }
-    //     }
-
-    //     Self {
-    //         size: Size::new(width, height),
-    //         buffers,
-    //     }
-    // }
-
-    // pub fn get_buffers(&self) -> &HashMap<Slot, Arc<Buffer>> {
-    //     &self.buffers
-    // }
-
-    // pub fn get_buffers_mut(&mut self) -> &mut HashMap<Slot, Arc<Buffer>> {
-    //     &mut self.buffers
-    // }
-
-    // pub fn get_size(&self) -> Size {
-    //     self.size
-    // }
 }

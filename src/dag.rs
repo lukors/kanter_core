@@ -331,18 +331,6 @@ impl TexProInt {
             .collect()
     }
 
-    /// Sets a node and all its children as dirty.
-    // fn set_dirty(&mut self, node_id: NodeId) -> Result<Vec<NodeId>> {
-    //     let children = self.get_children_recursive(node_id)?;
-
-    //     for node_id in children.iter().chain(vec![node_id].iter()) {
-    //         self.set_state(*node_id, NodeState::Dirty)?;
-    //     }
-
-    //     self.state_generation.add();
-    //     Ok(children)
-    // }
-
     pub fn get_root_ids(&self) -> Vec<NodeId> {
         self.node_graph
             .nodes()
@@ -457,14 +445,6 @@ impl TexProInt {
             None
         }
     }
-
-    // pub fn get_node_data_size(&self, node_id: NodeId) -> Option<Size> {
-    //     if let Some(node_data) = self.slot_datas.iter().find(|nd| nd.node_id == node_id) {
-    //         Some(node_data.size)
-    //     } else {
-    //         None
-    //     }
-    // }
 
     /// Embeds a `SlotData` in the `TextureProcessor` with an associated `EmbeddedNodeDataId`.
     /// The `EmbeddedNodeDataId` can be referenced using the assigned `EmbeddedNodeDataId` in a
