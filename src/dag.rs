@@ -41,6 +41,7 @@ pub struct TexProInt {
     node_states: BTreeMap<NodeId, NodeState>,
     changed: BTreeSet<NodeId>,
     one_shot: bool,
+    pub auto_update: bool,
 }
 
 impl TexProInt {
@@ -53,6 +54,7 @@ impl TexProInt {
             node_states: BTreeMap::new(),
             changed: BTreeSet::new(),
             one_shot: false,
+            auto_update: false,
         }
     }
 
@@ -97,14 +99,25 @@ impl TexProInt {
                 }
 
                 // Get requested nodes
-                let requested = tex_pro
-                    .node_states
-                    .iter()
-                    .filter(|(_, node_state)| {
-                        matches!(node_state, NodeState::Requested | NodeState::Prioritised)
-                    })
-                    .map(|(node_id, _)| *node_id)
-                    .collect::<Vec<NodeId>>();
+                let requested = if tex_pro.auto_update {
+                    tex_pro
+                        .node_states
+                        .iter()
+                        .filter(|(_, node_state)| {
+                            !matches!(node_state, NodeState::Processing | NodeState::Clean)
+                        })
+                        .map(|(node_id, _)| *node_id)
+                        .collect::<Vec<NodeId>>()
+                } else {
+                    tex_pro
+                        .node_states
+                        .iter()
+                        .filter(|(_, node_state)| {
+                            matches!(node_state, NodeState::Requested | NodeState::Prioritised)
+                        })
+                        .map(|(node_id, _)| *node_id)
+                        .collect::<Vec<NodeId>>()
+                };
 
                 // Get the closest non-clean parents
                 let mut closest_processable = Vec::new();
