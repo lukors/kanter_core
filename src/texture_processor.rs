@@ -57,21 +57,19 @@ impl TextureProcessor {
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
     pub fn try_get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        let result;
-
-        if let Ok(tpi) = self.tpi.try_read() {
+        let result = if let Ok(tpi) = self.tpi.try_read() {
             if let Ok(node_state) = tpi.node_state(node_id) {
                 if node_state == NodeState::Clean {
-                    result = tpi.get_output(node_id);
+                    tpi.get_output(node_id)
                 } else {
-                    result = Err(TexProError::InvalidNodeId);
+                    Err(TexProError::InvalidNodeId)
                 }
             } else {
-                result = Err(TexProError::InvalidNodeId);
+                Err(TexProError::InvalidNodeId)
             }
         } else {
-            result = Err(TexProError::UnableToLock);
-        }
+            Err(TexProError::UnableToLock)
+        };
 
         if result.is_err() {
             // This is blocking, should probably make requests go through an

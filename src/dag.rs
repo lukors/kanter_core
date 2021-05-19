@@ -111,7 +111,6 @@ impl TexProInt {
                 closest_processable.sort_unstable();
                 closest_processable.dedup();
 
-                // Attempt to process all non-clean parents
                 for node_id in closest_processable {
                     *tex_pro.node_state_mut(node_id).unwrap() = NodeState::Processing;
 
@@ -137,7 +136,6 @@ impl TexProInt {
                         .collect::<Vec<Edge>>();
 
                     let input_data = {
-                        // let input_data =
                         edges
                             .iter()
                             .map(|edge| {
@@ -503,7 +501,7 @@ impl TexProInt {
     pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
         let node_datas = self.node_slot_datas(node_id);
         if node_datas.is_empty() {
-            return Err(TexProError::Generic);
+            return Err(TexProError::InvalidBufferCount);
         }
 
         let output_vecs = match self.node_graph.node_with_id(node_id)?.node_type {
