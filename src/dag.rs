@@ -521,9 +521,8 @@ impl TexProInt {
         }
 
         let output_vecs = match self.node_graph.node_with_id(node_id)?.node_type {
-            NodeType::OutputRgba => self.get_output_rgba(&node_datas)?,
             NodeType::OutputGray => self.get_output_gray(&node_datas)?,
-            _ => return Err(TexProError::InvalidNodeType),
+            _ => self.get_output_rgba(&node_datas)?,
         };
 
         channels_to_rgba(&output_vecs)
