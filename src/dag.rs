@@ -75,7 +75,10 @@ impl TexProInt {
                     let slot_datas = message.slot_datas;
 
                     match slot_datas {
-                        Ok(mut slot_datas) => tex_pro.slot_datas.append(&mut slot_datas),
+                        Ok(mut slot_datas) => {
+                            tex_pro.remove_nodes_data(node_id);
+                            tex_pro.slot_datas.append(&mut slot_datas);
+                        }
                         Err(e) => {
                             shutdown.store(true, Ordering::Relaxed);
                             panic!(
@@ -476,13 +479,13 @@ impl TexProInt {
     }
 
     /// Removes all the `slot_data` associated with the given `NodeId`.
-    // pub(crate) fn remove_nodes_data(&mut self, id: NodeId) {
-    //     for i in (0..self.slot_datas.len()).rev() {
-    //         if self.slot_datas[i].node_id == id {
-    //             self.slot_datas.remove(i);
-    //         }
-    //     }
-    // }
+    pub(crate) fn remove_nodes_data(&mut self, id: NodeId) {
+        for i in (0..self.slot_datas.len()).rev() {
+            if self.slot_datas[i].node_id == id {
+                self.slot_datas.remove(i);
+            }
+        }
+    }
 
     /// Gets all `SlotData`s in this `TextureProcessor`.
     pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
