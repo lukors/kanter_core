@@ -152,7 +152,7 @@ impl TextureProcessor {
         b_node: NodeId,
         b_side: Side,
         b_slot: SlotId,
-    ) -> Result<()> {
+    ) -> Result<Edge> {
         self.tpi
             .write()
             .unwrap()

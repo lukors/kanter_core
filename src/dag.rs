@@ -137,24 +137,31 @@ impl TexProInt {
                         .collect::<Vec<Edge>>();
 
                     let input_data = {
-                        let input_data = edges
+                        // let input_data =
+                        edges
                             .iter()
                             .map(|edge| {
-                                tex_pro.slot_datas.iter().find(|slot_data| {
-                                    slot_data.slot_id == edge.output_slot
-                                        && slot_data.node_id == edge.output_id
+                                let output = tex_pro
+                                    .slot_datas
+                                    .iter()
+                                    .find(|slot_data| {
+                                        slot_data.slot_id == edge.output_slot
+                                            && slot_data.node_id == edge.output_id
+                                    })
+                                    .cloned();
+
+                                output.unwrap_or({
+                                    Arc::new(SlotData::new(
+                                        edge.output_id,
+                                        edge.output_slot,
+                                        Size::new(1, 1),
+                                        Arc::new(Box::new(
+                                            ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
+                                        )),
+                                    ))
                                 })
                             })
-                            .collect::<Vec<Option<&Arc<SlotData>>>>();
-
-                        if input_data.contains(&None) {
-                            continue;
-                        } else {
-                            input_data
-                                .into_iter()
-                                .map(|slot_data| Arc::clone(slot_data.unwrap()))
-                                .collect::<Vec<Arc<SlotData>>>()
-                        }
+                            .collect::<Vec<Arc<SlotData>>>()
                     };
 
                     assert_eq!(
@@ -615,16 +622,15 @@ impl TexProInt {
         b_node: NodeId,
         b_side: Side,
         b_slot: SlotId,
-    ) -> Result<()> {
-        let new_edge = self
+    ) -> Result<Edge> {
+        let new_edge = *self
             .node_graph
-            .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)?
-            .to_owned();
+            .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)?;
 
         self.changed.insert(new_edge.input_id);
         self.set_state(new_edge.input_id, NodeState::Dirty)?;
 
-        Ok(())
+        Ok(new_edge)
     }
 
     /// Sets the state of a node and updates the `state_generation`. This function should be used
@@ -634,6 +640,13 @@ impl TexProInt {
         let node_state_old = self.node_state(node_id)?;
 
         if node_state != node_state_old {
+            // If the state becomes dirty, propagate it to all children.
+            if node_state == NodeState::Dirty {
+                for node_id in self.get_children(node_id)? {
+                    self.set_state(node_id, node_state)?;
+                }
+            }
+
             self.changed.insert(node_id);
             *self.node_state_mut(node_id)? = node_state;
         }

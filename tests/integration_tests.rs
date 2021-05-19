@@ -66,6 +66,24 @@ fn input_output() {
 }
 
 #[test]
+#[timeout(20000)]
+fn request_empty_buffer() {
+    let tex_pro = TextureProcessor::new();
+
+    let mix_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+
+    tex_pro
+        .connect(mix_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    #[allow(unused_variables)]
+    let nothing = tex_pro.get_output(output_node).unwrap();
+}
+
+#[test]
 fn input_output_intercept() {
     const SIZE: u32 = 256;
     const SIZE_LARGE: u32 = 200;
