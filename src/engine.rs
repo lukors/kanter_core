@@ -664,8 +664,15 @@ impl Engine {
     ) -> Result<Vec<Edge>> {
         let edges = self.node_graph.disconnect_slot(node_id, side, slot_id)?;
 
-        if !edges.is_empty() {
-            self.changed.insert(node_id);
+
+        let mut disconnected_children = Vec::new();
+        for edge in &edges {
+            disconnected_children.append(&mut self.get_children_recursive(edge.input_id)?);
+        }
+        disconnected_children.sort_unstable();
+        disconnected_children.dedup();
+
+        for node_id in disconnected_children.into_iter().chain(vec![node_id]) {
             self.set_state(node_id, NodeState::Dirty)?;
         }
 
