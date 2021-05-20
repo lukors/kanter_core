@@ -33,7 +33,7 @@ impl Default for NodeState {
 }
 
 #[derive(Default)]
-pub struct TexProInt {
+pub struct Engine {
     pub node_graph: NodeGraph,
     pub slot_datas: Vec<Arc<SlotData>>,
     pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
@@ -44,7 +44,7 @@ pub struct TexProInt {
     pub auto_update: bool,
 }
 
-impl TexProInt {
+impl Engine {
     pub fn new() -> Self {
         Self {
             node_graph: NodeGraph::new(),
@@ -58,7 +58,7 @@ impl TexProInt {
         }
     }
 
-    pub(crate) fn process_loop(tex_pro: Arc<RwLock<TexProInt>>, shutdown: Arc<AtomicBool>) {
+    pub(crate) fn process_loop(tex_pro: Arc<RwLock<Engine>>, shutdown: Arc<AtomicBool>) {
         struct ThreadMessage {
             node_id: NodeId,
             slot_datas: Result<Vec<Arc<SlotData>>>,
@@ -247,7 +247,7 @@ impl TexProInt {
         tpi: &Arc<RwLock<Self>>,
         node_id: NodeId,
         node_state: NodeState,
-    ) -> Result<RwLockWriteGuard<TexProInt>> {
+    ) -> Result<RwLockWriteGuard<Engine>> {
         loop {
             if let Ok(mut tpi) = tpi.write() {
                 if node_state == tpi.node_state(node_id)? {
@@ -265,7 +265,7 @@ impl TexProInt {
         tpi: &Arc<RwLock<Self>>,
         node_id: NodeId,
         node_state: NodeState,
-    ) -> Result<RwLockReadGuard<TexProInt>> {
+    ) -> Result<RwLockReadGuard<Engine>> {
         loop {
             if let Ok(tpi) = tpi.read() {
                 if node_state == tpi.node_state(node_id)? {

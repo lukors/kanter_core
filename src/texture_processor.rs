@@ -1,5 +1,5 @@
 use crate::{
-    dag::*,
+    engine::*,
     error::{Result, TexProError},
     node::{EmbeddedNodeDataId, Node, Side},
     node_graph::*,
@@ -12,7 +12,7 @@ use std::{sync::{
 
 #[derive(Default)]
 pub struct TextureProcessor {
-    tpi: Arc<RwLock<TexProInt>>,
+    tpi: Arc<RwLock<Engine>>,
     shutdown: Arc<AtomicBool>,
 }
 
@@ -25,7 +25,7 @@ impl Drop for TextureProcessor {
 impl TextureProcessor {
     pub fn new() -> Self {
         let shutdown = Arc::new(AtomicBool::new(false));
-        let tpi = Arc::new(RwLock::new(TexProInt::new()));
+        let tpi = Arc::new(RwLock::new(Engine::new()));
 
         let output = Self {
             tpi: Arc::clone(&tpi),
@@ -33,13 +33,13 @@ impl TextureProcessor {
         };
 
         thread::spawn(move || {
-            TexProInt::process_loop(tpi, shutdown);
+            Engine::process_loop(tpi, shutdown);
         });
 
         output
     }
 
-    pub fn tex_pro_int(&self) -> Arc<RwLock<TexProInt>> {
+    pub fn tex_pro_int(&self) -> Arc<RwLock<Engine>> {
         Arc::clone(&self.tpi)
     }
 
@@ -172,16 +172,16 @@ impl TextureProcessor {
         &self,
         node_id: NodeId,
         node_state: NodeState,
-    ) -> Result<RwLockWriteGuard<TexProInt>> {
-        TexProInt::wait_for_state_write(&self.tpi, node_id, node_state)
+    ) -> Result<RwLockWriteGuard<Engine>> {
+        Engine::wait_for_state_write(&self.tpi, node_id, node_state)
     }
 
     pub fn wait_for_state_read(
         &self,
         node_id: NodeId,
         node_state: NodeState,
-    ) -> Result<RwLockReadGuard<TexProInt>> {
-        TexProInt::wait_for_state_read(&self.tpi, node_id, node_state)
+    ) -> Result<RwLockReadGuard<Engine>> {
+        Engine::wait_for_state_read(&self.tpi, node_id, node_state)
     }
 
     pub fn node_state(&self, node_id: NodeId) -> Result<NodeState> {
