@@ -155,7 +155,7 @@ impl NodeGraph {
             .ok_or(TexProError::InvalidNodeId)
     }
 
-    pub fn node_with_id_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {
+    pub(crate) fn node_with_id_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {
         self.nodes.iter_mut().find(|node| node.node_id == node_id)
     }
 

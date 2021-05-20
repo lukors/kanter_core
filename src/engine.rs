@@ -484,6 +484,11 @@ impl Engine {
         }
     }
 
+    pub fn node_with_id_mut(&mut self, node_id: NodeId) -> Result<&mut Node> {
+        self.set_state(node_id, NodeState::Dirty)?;
+        self.node_graph.node_with_id_mut(node_id).ok_or(TexProError::InvalidNodeId)
+    }
+
     /// Gets all `SlotData`s in this `TextureProcessor`.
     pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
         self.slot_datas.clone()
