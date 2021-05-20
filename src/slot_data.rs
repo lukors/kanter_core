@@ -71,9 +71,9 @@ impl Eq for SlotData {}
 impl SlotData {
     pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, buffer: Arc<Buffer>) -> Self {
         Self {
-            node_id,
-            slot_id,
             size,
+            slot_id,
+            node_id,
             buffer,
         }
     }

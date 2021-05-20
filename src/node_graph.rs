@@ -565,8 +565,8 @@ impl Edge {
     ) -> Self {
         Self {
             output_id,
-            output_slot,
             input_id,
+            output_slot,
             input_slot,
         }
     }
