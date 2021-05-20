@@ -396,7 +396,9 @@ fn irregular_sizes() {
         .connect(input_2, output_node, SlotId(0), SlotId(1))
         .unwrap();
 
-    let size = tex_pro.await_slot_data_size(output_node, SlotId(0)).unwrap();
+    let size = tex_pro
+        .await_slot_data_size(output_node, SlotId(0))
+        .unwrap();
 
     ensure_out_dir();
     image::save_buffer(

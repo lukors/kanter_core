@@ -5,10 +5,13 @@ use crate::{
     node_graph::*,
     slot_data::*,
 };
-use std::{sync::{
+use std::{
+    sync::{
         atomic::{AtomicBool, Ordering},
         Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    }, thread};
+    },
+    thread,
+};
 
 #[derive(Default)]
 pub struct TextureProcessor {
@@ -96,7 +99,11 @@ impl TextureProcessor {
     }
 
     pub fn input_slot_datas_push(&self, node_data: Arc<SlotData>) {
-        self.engine.write().unwrap().input_node_datas.push(node_data);
+        self.engine
+            .write()
+            .unwrap()
+            .input_node_datas
+            .push(node_data);
     }
 
     pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {

@@ -486,7 +486,9 @@ impl Engine {
 
     pub fn node_with_id_mut(&mut self, node_id: NodeId) -> Result<&mut Node> {
         self.set_state(node_id, NodeState::Dirty)?;
-        self.node_graph.node_with_id_mut(node_id).ok_or(TexProError::InvalidNodeId)
+        self.node_graph
+            .node_with_id_mut(node_id)
+            .ok_or(TexProError::InvalidNodeId)
     }
 
     /// Gets all `SlotData`s in this `TextureProcessor`.
@@ -663,7 +665,6 @@ impl Engine {
         slot_id: SlotId,
     ) -> Result<Vec<Edge>> {
         let edges = self.node_graph.disconnect_slot(node_id, side, slot_id)?;
-
 
         let mut disconnected_children = Vec::new();
         for edge in &edges {
