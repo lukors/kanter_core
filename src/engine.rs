@@ -244,16 +244,16 @@ impl Engine {
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
     /// `RwLockWriteGuard` so changes can be made while the `NodeState` the state remains the same.
     pub fn wait_for_state_write(
-        tpi: &Arc<RwLock<Self>>,
+        engine: &Arc<RwLock<Self>>,
         node_id: NodeId,
         node_state: NodeState,
     ) -> Result<RwLockWriteGuard<Engine>> {
         loop {
-            if let Ok(mut tpi) = tpi.write() {
-                if node_state == tpi.node_state(node_id)? {
-                    return Ok(tpi);
+            if let Ok(mut engine) = engine.write() {
+                if node_state == engine.node_state(node_id)? {
+                    return Ok(engine);
                 } else {
-                    tpi.prioritise(node_id)?;
+                    engine.prioritise(node_id)?;
                 }
             }
         }
@@ -262,18 +262,18 @@ impl Engine {
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
     /// `RwLockReadGuard` so reads can be made while the `NodeState` remains the same.
     pub fn wait_for_state_read(
-        tpi: &Arc<RwLock<Self>>,
+        engine: &Arc<RwLock<Self>>,
         node_id: NodeId,
         node_state: NodeState,
     ) -> Result<RwLockReadGuard<Engine>> {
         loop {
-            if let Ok(tpi) = tpi.read() {
-                if node_state == tpi.node_state(node_id)? {
-                    return Ok(tpi);
+            if let Ok(engine) = engine.read() {
+                if node_state == engine.node_state(node_id)? {
+                    return Ok(engine);
                 }
             }
 
-            tpi.write().unwrap().prioritise(node_id)?;
+            engine.write().unwrap().prioritise(node_id)?;
         }
     }
 

@@ -12,7 +12,7 @@ use std::{sync::{
 
 #[derive(Default)]
 pub struct TextureProcessor {
-    tpi: Arc<RwLock<Engine>>,
+    engine: Arc<RwLock<Engine>>,
     shutdown: Arc<AtomicBool>,
 }
 
@@ -25,22 +25,22 @@ impl Drop for TextureProcessor {
 impl TextureProcessor {
     pub fn new() -> Self {
         let shutdown = Arc::new(AtomicBool::new(false));
-        let tpi = Arc::new(RwLock::new(Engine::new()));
+        let engine = Arc::new(RwLock::new(Engine::new()));
 
         let output = Self {
-            tpi: Arc::clone(&tpi),
+            engine: Arc::clone(&engine),
             shutdown: Arc::clone(&shutdown),
         };
 
         thread::spawn(move || {
-            Engine::process_loop(tpi, shutdown);
+            Engine::process_loop(engine, shutdown);
         });
 
         output
     }
 
-    pub fn tex_pro_int(&self) -> Arc<RwLock<Engine>> {
-        Arc::clone(&self.tpi)
+    pub fn engine(&self) -> Arc<RwLock<Engine>> {
+        Arc::clone(&self.engine)
     }
 
     pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
@@ -50,10 +50,10 @@ impl TextureProcessor {
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
     pub fn try_get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        let result = if let Ok(tpi) = self.tpi.try_read() {
-            if let Ok(node_state) = tpi.node_state(node_id) {
+        let result = if let Ok(engine) = self.engine.try_read() {
+            if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
-                    tpi.get_output(node_id)
+                    engine.get_output(node_id)
                 } else {
                     Err(TexProError::InvalidNodeId)
                 }
@@ -67,18 +67,18 @@ impl TextureProcessor {
         if result.is_err() {
             // This is blocking, should probably make requests go through an
             // `RwLock<BTreeSet<NodeId>>`.
-            self.tpi.write().unwrap().request(node_id)?
+            self.engine.write().unwrap().request(node_id)?
         }
 
         result
     }
 
     pub fn process_then_kill(&self) {
-        self.tpi.write().unwrap().process_then_kill();
+        self.engine.write().unwrap().process_then_kill();
     }
 
     pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
-        self.tpi
+        self.engine
             .read()
             .unwrap()
             .node_graph
@@ -86,21 +86,21 @@ impl TextureProcessor {
     }
 
     pub fn external_output_ids(&self) -> Vec<NodeId> {
-        self.tpi.read().unwrap().node_graph.output_ids()
+        self.engine.read().unwrap().node_graph.output_ids()
     }
 
     pub fn set_node_graph(&self, node_graph: NodeGraph) -> Result<()> {
-        self.tpi.write()?.set_node_graph(node_graph);
+        self.engine.write()?.set_node_graph(node_graph);
 
         Ok(())
     }
 
     pub fn input_slot_datas_push(&self, node_data: Arc<SlotData>) {
-        self.tpi.write().unwrap().input_node_datas.push(node_data);
+        self.engine.write().unwrap().input_node_datas.push(node_data);
     }
 
     pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
-        self.tpi.read().unwrap().slot_datas()
+        self.engine.read().unwrap().slot_datas()
     }
 
     pub fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
@@ -110,29 +110,29 @@ impl TextureProcessor {
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {
-        self.tpi.write().unwrap().add_node(node)
+        self.engine.write().unwrap().add_node(node)
     }
 
     pub fn add_node_with_id(&self, node: Node, node_id: NodeId) -> Result<NodeId> {
-        self.tpi.write().unwrap().add_node_with_id(node, node_id)
+        self.engine.write().unwrap().add_node_with_id(node, node_id)
     }
 
     pub fn remove_node(&self, node_id: NodeId) -> Result<Vec<Edge>> {
-        self.tpi.write().unwrap().remove_node(node_id)
+        self.engine.write().unwrap().remove_node(node_id)
     }
 
     /// Returns a vector of `NodeId`s that are not clean. That is, not up to date compared to the
     /// state of the graph.
     pub fn non_clean(&self) -> Vec<NodeId> {
-        self.tpi.read().unwrap().non_clean()
+        self.engine.read().unwrap().non_clean()
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {
-        self.tpi.read().unwrap().node_ids()
+        self.engine.read().unwrap().node_ids()
     }
 
     pub fn edges(&self) -> Vec<Edge> {
-        self.tpi.read().unwrap().edges()
+        self.engine.read().unwrap().edges()
     }
 
     pub fn connect_arbitrary(
@@ -144,7 +144,7 @@ impl TextureProcessor {
         b_side: Side,
         b_slot: SlotId,
     ) -> Result<Edge> {
-        self.tpi
+        self.engine
             .write()
             .unwrap()
             .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)
@@ -156,7 +156,7 @@ impl TextureProcessor {
         side: Side,
         slot_id: SlotId,
     ) -> Result<Vec<Edge>> {
-        self.tpi
+        self.engine
             .write()
             .unwrap()
             .disconnect_slot(node_id, side, slot_id)
@@ -173,7 +173,7 @@ impl TextureProcessor {
         node_id: NodeId,
         node_state: NodeState,
     ) -> Result<RwLockWriteGuard<Engine>> {
-        Engine::wait_for_state_write(&self.tpi, node_id, node_state)
+        Engine::wait_for_state_write(&self.engine, node_id, node_state)
     }
 
     pub fn wait_for_state_read(
@@ -181,16 +181,16 @@ impl TextureProcessor {
         node_id: NodeId,
         node_state: NodeState,
     ) -> Result<RwLockReadGuard<Engine>> {
-        Engine::wait_for_state_read(&self.tpi, node_id, node_state)
+        Engine::wait_for_state_read(&self.engine, node_id, node_state)
     }
 
     pub fn node_state(&self, node_id: NodeId) -> Result<NodeState> {
-        self.tpi.read()?.node_state(node_id)
+        self.engine.read()?.node_state(node_id)
     }
 
     /// Returns all `NodeId`s with the given `NodeState`.
     pub fn node_ids_with_state(&self, node_state: NodeState) -> Vec<NodeId> {
-        self.tpi.read().unwrap().node_ids_with_state(node_state)
+        self.engine.read().unwrap().node_ids_with_state(node_state)
     }
 
     pub fn embed_slot_data_with_id(
@@ -198,7 +198,7 @@ impl TextureProcessor {
         slot_data: Arc<SlotData>,
         id: EmbeddedNodeDataId,
     ) -> Result<EmbeddedNodeDataId> {
-        self.tpi
+        self.engine
             .write()
             .unwrap()
             .embed_node_data_with_id(slot_data, id)
@@ -209,11 +209,11 @@ impl TextureProcessor {
         // This mgiht be able to work without any actual existing `SlotData`. It might be possible
         // to calculate what the output size would be if the `SlotData` existed, without looking
         // at an actual `SlotData`.
-        self.tpi.write().unwrap().prioritise(node_id)?;
+        self.engine.write().unwrap().prioritise(node_id)?;
 
         loop {
-            if let Ok(tpi) = self.tpi.try_read() {
-                if let Ok(size) = tpi.get_slot_data_size(node_id, slot_id) {
+            if let Ok(engine) = self.engine.try_read() {
+                if let Ok(size) = engine.get_slot_data_size(node_id, slot_id) {
                     return Ok(size);
                 }
             }
@@ -225,9 +225,9 @@ impl TextureProcessor {
         // This mgiht be able to work without any actual existing `SlotData`. It might be possible
         // to calculate what the output size would be if the `SlotData` existed, without looking
         // at an actual `SlotData`.
-        self.tpi.write().unwrap().prioritise(node_id)?;
-        let tpi = self.tpi.try_read()?;
-        tpi.get_slot_data_size(node_id, slot_id)
+        self.engine.write().unwrap().prioritise(node_id)?;
+        let engine = self.engine.try_read()?;
+        engine.get_slot_data_size(node_id, slot_id)
     }
 
     pub fn connect(
@@ -237,19 +237,19 @@ impl TextureProcessor {
         output_slot: SlotId,
         input_slot: SlotId,
     ) -> Result<()> {
-        self.tpi
+        self.engine
             .write()
             .unwrap()
             .connect(output_node, input_node, output_slot, input_slot)
     }
 
     pub fn node_with_id(&self, node_id: NodeId) -> Result<Node> {
-        self.tpi.read().unwrap().node_graph.node_with_id(node_id)
+        self.engine.read().unwrap().node_graph.node_with_id(node_id)
     }
 
     pub fn set_node_with_id(&self, node_id: NodeId, node: Node) -> Result<()> {
-        let mut tpi = self.tpi.write().unwrap();
-        let found_node = tpi
+        let mut engine = self.engine.write().unwrap();
+        let found_node = engine
             .node_graph
             .nodes
             .iter_mut()
@@ -262,10 +262,10 @@ impl TextureProcessor {
 
     /// Return all changed `NodeId`s.
     pub fn changed_consume(&self) -> Vec<NodeId> {
-        self.tpi.write().unwrap().changed_consume()
+        self.engine.write().unwrap().changed_consume()
     }
 
     pub fn has_node_with_id(&self, node_id: NodeId) -> Result<()> {
-        self.tpi.read().unwrap().has_node_with_id(node_id)
+        self.engine.read().unwrap().has_node_with_id(node_id)
     }
 }
