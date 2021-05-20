@@ -262,6 +262,7 @@ fn process_mix(
         MixType::Subtract => process_subtract(&node_datas, size, edges),
         MixType::Multiply => process_multiply(&node_datas, size),
         MixType::Divide => process_divide(&node_datas, size, edges),
+        MixType::Pow => process_pow(&node_datas, size, edges),
     };
 
     vec![Arc::new(SlotData::new(
@@ -358,6 +359,23 @@ fn process_divide(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> A
                     .iter()
                     .map(|nd| nd.buffer.get_pixel(x, y).data[0])
                     .sum::<ChannelPixel>()])
+        },
+    )))
+}
+
+fn process_pow(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
+    let mut node_datas = node_datas.to_vec();
+
+    let node_data_first = split_first_node_data(&mut node_datas, size, edges);
+
+    Arc::new(Box::new(ImageBuffer::from_fn(
+        size.width,
+        size.height,
+        |x, y| {
+            Luma([node_data_first.buffer.get_pixel(x, y).data[0].powf(node_datas
+                    .iter()
+                    .map(|nd| nd.buffer.get_pixel(x, y).data[0])
+                    .sum::<ChannelPixel>())])
         },
     )))
 }

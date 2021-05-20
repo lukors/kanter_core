@@ -108,6 +108,7 @@ pub enum MixType {
     Subtract,
     Multiply,
     Divide,
+    Pow,
 }
 
 impl Default for MixType {
@@ -126,6 +127,7 @@ impl Display for MixType {
                 Self::Subtract => "Subtract",
                 Self::Multiply => "Multiply",
                 Self::Divide => "Divide",
+                Self::Pow => "Power",
             }
         )
     }
