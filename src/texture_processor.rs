@@ -205,7 +205,7 @@ impl TextureProcessor {
     }
 
     /// Returns the size of a given `SlotData`.
-    pub fn get_slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
+    pub fn await_slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
         // This mgiht be able to work without any actual existing `SlotData`. It might be possible
         // to calculate what the output size would be if the `SlotData` existed, without looking
         // at an actual `SlotData`.
@@ -225,7 +225,7 @@ impl TextureProcessor {
         // This mgiht be able to work without any actual existing `SlotData`. It might be possible
         // to calculate what the output size would be if the `SlotData` existed, without looking
         // at an actual `SlotData`.
-        self.engine.write().unwrap().prioritise(node_id)?;
+        self.engine.write().unwrap().request(node_id)?;
         let engine = self.engine.try_read()?;
         engine.get_slot_data_size(node_id, slot_id)
     }
