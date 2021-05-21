@@ -55,7 +55,12 @@ fn input_output() {
     ensure_out_dir();
     image::save_buffer(
         &Path::new(&PATH_OUT),
-        &image::RgbaImage::from_vec(SIZE, SIZE, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            SIZE,
+            SIZE,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         SIZE,
         SIZE,
         image::ColorType::RGBA(8),
@@ -80,7 +85,7 @@ fn request_empty_buffer() {
         .unwrap();
 
     #[allow(unused_variables)]
-    let nothing = tex_pro.get_output(output_node).unwrap();
+    let nothing = tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap();
 }
 
 #[test]
@@ -142,7 +147,7 @@ fn input_output_intercept() {
     let mut intercepted = false;
     loop {
         if !intercepted {
-            if let Ok(buffer) = tex_pro.try_get_output(resize_node_1) {
+            if let Ok(buffer) = tex_pro.try_get_output_rgba(resize_node_1, SlotId(0)) {
                 ensure_out_dir();
                 image::save_buffer(
                     &Path::new(&PATH_OUT_INTERCEPT),
@@ -156,7 +161,7 @@ fn input_output_intercept() {
             }
         }
 
-        if let Ok(buffer) = tex_pro.try_get_output(output_node) {
+        if let Ok(buffer) = tex_pro.try_get_output_rgba(output_node, SlotId(0)) {
             ensure_out_dir();
             image::save_buffer(
                 &Path::new(&PATH_OUT),
@@ -197,7 +202,7 @@ fn mix_node_single_input() {
         .connect(mix_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
 
-    let output = tex_pro.get_output(output_node).unwrap();
+    let output = tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap();
 
     ensure_out_dir();
     image::save_buffer(
@@ -237,7 +242,7 @@ fn mix_node_single_input_2() {
         .connect(mix_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
 
-    let output = tex_pro.get_output(output_node).unwrap();
+    let output = tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap();
 
     ensure_out_dir();
     image::save_buffer(
@@ -303,8 +308,14 @@ fn embedded_node_data() {
     ensure_out_dir();
     image::save_buffer(
         &Path::new(&path_out),
-        &image::RgbaImage::from_vec(256, 256, tex_pro_2.get_output(tp2_output_node).unwrap())
-            .unwrap(),
+        &image::RgbaImage::from_vec(
+            256,
+            256,
+            tex_pro_2
+                .get_output_rgba(tp2_output_node, SlotId(0))
+                .unwrap(),
+        )
+        .unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -363,7 +374,12 @@ fn mix_images() {
     ensure_out_dir();
     image::save_buffer(
         &Path::new(&path_out),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            256,
+            256,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -406,7 +422,7 @@ fn irregular_sizes() {
         &image::RgbaImage::from_vec(
             size.width,
             size.height,
-            tex_pro.get_output(output_node).unwrap(),
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
         )
         .unwrap(),
         size.width,
@@ -460,7 +476,12 @@ fn resize_rgba() {
     ensure_out_dir();
     image::save_buffer(
         &Path::new(OUT_PATH),
-        &image::RgbaImage::from_vec(SIZE, SIZE, tex_pro.get_output(n_out).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            SIZE,
+            SIZE,
+            tex_pro.get_output_rgba(n_out, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         SIZE,
         SIZE,
         image::ColorType::RGBA(8),
@@ -470,22 +491,22 @@ fn resize_rgba() {
     assert!(images_equal(OUT_PATH, IN_PATH));
 }
 
-#[test]
-#[timeout(20000)]
-fn input_output_2() {
-    let tex_pro_compare = input_output_2_internal();
+// #[test]
+// #[timeout(20000)]
+// fn input_output_2() {
+//     let tex_pro_compare = input_output_2_internal();
 
-    for _ in 0..30 {
-        let tex_pro = input_output_2_internal();
+//     for _ in 0..30 {
+//         let tex_pro = input_output_2_internal();
 
-        for node_data_cmp in &tex_pro_compare.slot_datas() {
-            assert!(tex_pro
-                .slot_datas()
-                .iter()
-                .any(|node_data| *node_data == *node_data_cmp));
-        }
-    }
-}
+//         for node_data_cmp in &tex_pro_compare.slot_datas() {
+//             assert!(tex_pro
+//                 .slot_datas()
+//                 .iter()
+//                 .any(|node_data| *node_data == *node_data_cmp));
+//         }
+//     }
+// }
 
 fn input_output_2_internal() -> TextureProcessor {
     let tex_pro = TextureProcessor::new();
@@ -579,7 +600,12 @@ fn value_node() {
     ensure_out_dir();
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(1, 1, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            1,
+            1,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         1,
         1,
         image::ColorType::RGBA(8),
@@ -613,7 +639,12 @@ fn shuffle_channels() {
     let size = 256;
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size,
+            size,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -769,7 +800,12 @@ fn add_node() {
     let size = 256;
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size,
+            size,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -810,7 +846,12 @@ fn subtract_node() {
     let size = 256;
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size,
+            size,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -854,7 +895,12 @@ fn subtract_node_several() {
     let size = 256;
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size,
+            size,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -925,7 +971,12 @@ fn invert_graph_node() {
     let size = 256;
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size,
+            size,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -1008,7 +1059,12 @@ fn invert_graph_node_import() {
     let size = 256;
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size,
+            size,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -1088,7 +1144,12 @@ fn graph_node_rgba() {
     // Output
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            256,
+            256,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -1149,7 +1210,12 @@ fn graph_node_gray() {
     // Output
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            256,
+            256,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -1194,7 +1260,12 @@ fn height_to_normal_node() {
     // Output
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(256, 256, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            256,
+            256,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         256,
         256,
         image::ColorType::RGBA(8),
@@ -1235,7 +1306,12 @@ fn multiply_node() {
     let size = 256;
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size,
+            size,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
@@ -1276,7 +1352,12 @@ fn divide_node() {
     let size = 256;
     image::save_buffer(
         &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(size, size, tex_pro.get_output(output_node).unwrap()).unwrap(),
+        &image::RgbaImage::from_vec(
+            size,
+            size,
+            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+        )
+        .unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),

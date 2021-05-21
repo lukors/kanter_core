@@ -1,6 +1,7 @@
 use crate::error::{Result, TexProError};
 use crate::{node::*, slot_data::*};
-use image::{imageops, DynamicImage, GenericImageView, ImageBuffer};
+use core::panic;
+use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Luma, RgbaImage};
 use std::{
     cmp::{max, min},
     path::Path,
@@ -48,33 +49,7 @@ pub fn has_dup<T: PartialEq>(slice: &[T]) -> bool {
     false
 }
 
-pub fn channels_to_rgba(channels: &[Arc<Buffer>]) -> Result<Vec<u8>> {
-    if channels.len() != 4 {
-        return Err(TexProError::InvalidBufferCount);
-    }
-
-    fn clamp_float(input: f32) -> f32 {
-        if input < 0. {
-            0.
-        } else if input > 1. {
-            1.
-        } else {
-            input
-        }
-    }
-
-    Ok(channels[0]
-        .pixels()
-        .zip(channels[1].pixels())
-        .zip(channels[2].pixels())
-        .zip(channels[3].pixels())
-        .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
-        .flatten()
-        .map(|x| (clamp_float(x[0]) * 255.).min(255.) as u8)
-        .collect())
-}
-
-pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
+pub fn deconstruct_image(image: &DynamicImage) -> Vec<BoxBuffer> {
     let raw_pixels = image.raw_pixels();
     let (width, height) = (image.width(), image.height());
     let pixel_count = (width * height) as usize;
@@ -117,35 +92,35 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<Buffer> {
 }
 
 pub fn resize_buffers(
-    node_datas: &[Arc<SlotData>],
+    slot_datas: &[Arc<SlotData>],
     policy: ResizePolicy,
     filter: ResizeFilter,
 ) -> Result<Vec<Arc<SlotData>>> {
-    if node_datas.is_empty() {
-        return Ok(node_datas.into());
+    if slot_datas.is_empty() {
+        return Ok(slot_datas.into());
     }
 
     let size = match policy {
-        ResizePolicy::MostPixels => node_datas
+        ResizePolicy::MostPixels => slot_datas
             .iter()
             .max_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
             .map(|node_data| node_data.size)
             .unwrap(),
-        ResizePolicy::LeastPixels => node_datas
+        ResizePolicy::LeastPixels => slot_datas
             .iter()
             .min_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
             .map(|node_data| node_data.size)
             .unwrap(),
-        ResizePolicy::LargestAxes => node_datas.iter().fold(Size::new(0, 0), |a, b| {
+        ResizePolicy::LargestAxes => slot_datas.iter().fold(Size::new(0, 0), |a, b| {
             Size::new(max(a.width, b.size.width), max(a.height, b.size.height))
         }),
-        ResizePolicy::SmallestAxes => node_datas
+        ResizePolicy::SmallestAxes => slot_datas
             .iter()
             .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
                 Size::new(min(a.width, b.size.width), min(a.height, b.size.height))
             }),
         ResizePolicy::SpecificSlot(slot_id) => {
-            node_datas
+            slot_datas
                 .iter()
                 .find(|node_data| node_data.slot_id == slot_id)
                 .expect("Couldn't find a buffer with the given `NodeId` while resizing")
@@ -154,26 +129,57 @@ pub fn resize_buffers(
         ResizePolicy::SpecificSize(size) => size,
     };
 
-    let output: Vec<Arc<SlotData>> = node_datas
+    let output: Vec<Arc<SlotData>> = slot_datas
         .iter()
-        .map(|ref node_data| {
-            if node_data.size != size {
-                // Needs to be resized
-                let resized_buffer: Arc<Buffer> = Arc::new(Box::new(imageops::resize(
-                    &**node_data.buffer,
-                    size.width,
-                    size.height,
-                    filter.into(),
-                )));
+        .map(|ref slot_data| {
+            if slot_data.size != size {
+                let resized_image = match &*slot_data.image {
+                    SlotImage::Gray(buf) => {
+                        let image = imageops::resize(
+                            &**buf,
+                            size.width,
+                            size.height,
+                            filter.into(),
+                        );
+                        SlotImage::Gray(Arc::new(Box::new(image)))
+                    }
+                    SlotImage::Rgba(bufs) => SlotImage::Rgba([
+                        Arc::new(Box::new(imageops::resize(
+                            &**bufs[0],
+                            size.width,
+                            size.height,
+                            filter.into(),
+                        ))),
+                        Arc::new(Box::new(imageops::resize(
+                            &**bufs[1],
+                            size.width,
+                            size.height,
+                            filter.into(),
+                        ))),
+                        Arc::new(Box::new(imageops::resize(
+                            &**bufs[2],
+                            size.width,
+                            size.height,
+                            filter.into(),
+                        ))),
+                        Arc::new(Box::new(imageops::resize(
+                            &**bufs[3],
+                            size.width,
+                            size.height,
+                            filter.into(),
+                        ))),
+                    ]),
+                };
+
                 Arc::new(SlotData::new(
-                    node_data.node_id,
-                    node_data.slot_id,
+                    slot_data.node_id,
+                    slot_data.slot_id,
                     size,
-                    Arc::clone(&resized_buffer),
+                    Arc::new(resized_image),
                 ))
             } else {
                 // Does not need to be resized
-                Arc::clone(node_data)
+                Arc::clone(slot_data)
             }
         })
         .collect();
@@ -181,9 +187,52 @@ pub fn resize_buffers(
     Ok(output)
 }
 
-pub fn read_image<P: AsRef<Path>>(path: P) -> Result<Vec<Buffer>> {
+pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
     let image = image::open(path)?;
-    let buffers = deconstruct_image(&image);
+    let mut buffers = deconstruct_image(&image);
+    let width = buffers[0].width();
+    let height = buffers[0].height();
 
-    Ok(buffers)
+    match buffers.len() {
+        0 => Err(TexProError::InvalidBufferCount),
+        1 => Ok(SlotImage::Gray(Arc::new(buffers.pop().unwrap()))),
+        _ => Ok(SlotImage::Rgba([
+            Arc::new(
+                buffers
+                    .pop()
+                    .or_else(|| Some(Box::new(
+                        ImageBuffer::from_raw(width, height, vec![0.0; (width * height) as usize])
+                            .unwrap(),
+                    )))
+                    .unwrap(),
+            ),
+            Arc::new(
+                buffers
+                    .pop()
+                    .or_else(|| Some(Box::new(
+                        ImageBuffer::from_raw(width, height, vec![0.0; (width * height) as usize])
+                            .unwrap(),
+                    )))
+                    .unwrap(),
+            ),
+            Arc::new(
+                buffers
+                    .pop()
+                    .or_else(|| Some(Box::new(
+                        ImageBuffer::from_raw(width, height, vec![0.0; (width * height) as usize])
+                            .unwrap(),
+                    )))
+                    .unwrap(),
+            ),
+            Arc::new(
+                buffers
+                    .pop()
+                    .or_else(|| Some(Box::new(
+                        ImageBuffer::from_raw(width, height, vec![1.0; (width * height) as usize])
+                            .unwrap(),
+                    )))
+                    .unwrap(),
+            ),
+        ])),
+    }
 }

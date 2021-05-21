@@ -46,7 +46,7 @@ pub fn process_node(
         NodeType::Write(ref path) => write(&node_datas, path)?,
         NodeType::Value(val) => value(&node, val),
         NodeType::Mix(mix_type) => process_mix(&node_datas, &node, edges, mix_type),
-        NodeType::HeightToNormal => process_height_to_normal(&node_datas, &node),
+        NodeType::HeightToNormal => unimplemented!(), // process_height_to_normal(&node_datas, &node),
     };
 
     assert!(output.len() <= node.capacity(Side::Output));
@@ -90,7 +90,7 @@ fn image_buffer(
             node.node_id,
             SlotId(0),
             enode_data.size,
-            Arc::clone(&enode_data.buffer),
+            Arc::clone(&enode_data.image),
         ))])
     } else {
         Err(TexProError::NodeProcessing)
@@ -113,7 +113,7 @@ fn output_rgba(node_datas: &[Arc<SlotData>], edges: &[Edge]) -> Result<Vec<Arc<S
             edge.input_id,
             edge.input_slot,
             node_data.size,
-            Arc::clone(&node_data.buffer),
+            Arc::clone(&node_data.image),
         ));
 
         new_node_datas.push(new_node_data);
@@ -171,7 +171,7 @@ fn graph(
             target_node,
             target_slot,
             node_data.size,
-            Arc::clone(&node_data.buffer),
+            Arc::clone(&node_data.image),
         )));
     }
 
@@ -182,7 +182,7 @@ fn graph(
                 node.node_id,
                 slot_data.slot_id,
                 slot_data.size,
-                Arc::clone(&slot_data.buffer),
+                Arc::clone(&slot_data.image),
             );
             output.push(Arc::new(output_node_data));
         }
@@ -192,40 +192,28 @@ fn graph(
 }
 
 fn read(node: &Node, path: &Path) -> Result<Vec<Arc<SlotData>>> {
-    let buffers = read_image(path)?;
-    let size = Size {
-        width: buffers[0].width(),
-        height: buffers[0].height(),
-    };
-
-    let mut output: Vec<Arc<SlotData>> = Vec::with_capacity(4);
-    for (channel, buffer) in buffers.into_iter().enumerate() {
-        output.push(Arc::new(SlotData::new(
-            node.node_id,
-            SlotId(channel as u32),
-            size,
-            Arc::new(buffer),
-        )));
-    }
-
-    Ok(output)
+    let slot_image = read_slot_image(path)?;
+    Ok(vec![Arc::new(SlotData::new(
+        node.node_id,
+        SlotId(0),
+        slot_image.size(),
+        Arc::new(slot_image),
+    ))])
 }
 
-fn write(inputs: &[Arc<SlotData>], path: &Path) -> Result<Vec<Arc<SlotData>>> {
-    let channel_vec: Vec<Arc<Buffer>> = inputs
-        .iter()
-        .map(|node_data| Arc::clone(&node_data.buffer))
-        .collect();
-    let (width, height) = (inputs[0].size.width, inputs[0].size.height);
+fn write(slot_datas: &[Arc<SlotData>], path: &Path) -> Result<Vec<Arc<SlotData>>> {
+    if let Some(slot_data) = slot_datas.get(0) {
+        let (width, height) = (slot_data.size.width, slot_data.size.height);
 
-    image::save_buffer(
-        &path,
-        &image::RgbaImage::from_vec(width, height, channels_to_rgba(&channel_vec)?).unwrap(),
-        width,
-        height,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
+        image::save_buffer(
+            &path,
+            &image::RgbaImage::from_vec(width, height, slot_data.image.to_rgba()).unwrap(),
+            width,
+            height,
+            image::ColorType::RGBA(8),
+        )
+        .unwrap();
+    }
 
     Ok(Vec::new())
 }
@@ -237,186 +225,166 @@ fn value(node: &Node, value: f32) -> Vec<Arc<SlotData>> {
         node.node_id,
         SlotId(0),
         Size::new(width, height),
-        Arc::new(Box::new(
+        Arc::new(SlotImage::Gray(Arc::new(Box::new(
             ImageBuffer::from_raw(width, height, vec![value]).unwrap(),
-        )),
+        )))),
     ))]
 }
 
 // TODO: Look into optimizing this by sampling straight into the un-resized image instead of
 // resizing the image before blending.
 fn process_mix(
-    node_datas: &[Arc<SlotData>],
+    slot_datas: &[Arc<SlotData>],
     node: &Node,
     edges: &[Edge],
     mix_type: MixType,
 ) -> Vec<Arc<SlotData>> {
-    if node_datas.is_empty() {
+    if slot_datas.is_empty() {
         return Vec::new();
     }
 
-    let size = node_datas[0].size;
+    let size = slot_datas[0].size;
+    let mut slot_datas = slot_datas.to_vec();
+    slot_datas.sort_by(|a, b| a.slot_id.cmp(&b.slot_id));
 
-    let buffer = match mix_type {
-        MixType::Add => process_add(&node_datas, size),
-        MixType::Subtract => process_subtract(&node_datas, size, edges),
-        MixType::Multiply => process_multiply(&node_datas, size),
-        MixType::Divide => process_divide(&node_datas, size, edges),
-        MixType::Pow => process_pow(&node_datas, size, edges),
+    let slot_image: SlotImage = match (&*slot_datas[0].image, &*slot_datas[0].image) {
+        (SlotImage::Gray(left), SlotImage::Gray(right)) => {
+            SlotImage::Gray(Arc::new(Box::new(match mix_type {
+                MixType::Add => process_add_gray(left, right, size),
+                MixType::Subtract => process_subtract_gray(left, right, size),
+                _ => unimplemented!(),
+                // MixType::Multiply => process_multiply(&slot_datas, size),
+                // MixType::Divide => process_divide(&slot_datas, size, edges),
+                // MixType::Pow => process_pow(&slot_datas, size, edges),
+            })))
+        }
+        (SlotImage::Rgba(left), SlotImage::Rgba(right)) => {
+            unimplemented!();
+        }
+        _ => return Vec::new(),
     };
 
     vec![Arc::new(SlotData::new(
         node.node_id,
         SlotId(0),
         size,
-        buffer,
+        Arc::new(slot_image),
     ))]
 }
 
-fn process_add(node_datas: &[Arc<SlotData>], size: Size) -> Arc<Buffer> {
-    Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            Luma([node_datas
-                .iter()
-                .map(|nd| nd.buffer.get_pixel(x, y).data[0])
-                .sum()])
-        },
-    )))
-}
-
-fn process_subtract(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
-    let mut node_datas = node_datas.to_vec();
-
-    let node_data_first = split_first_node_data(&mut node_datas, size, edges);
-
-    Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            let value = node_data_first.buffer.get_pixel(x, y).data[0]
-                - node_datas
-                    .iter()
-                    .map(|nd| nd.buffer.get_pixel(x, y).data[0])
-                    .sum::<ChannelPixel>();
-            Luma([value])
-        },
-    )))
-}
-
-fn split_first_node_data(
-    node_datas: &mut Vec<Arc<SlotData>>,
-    size: Size,
-    edges: &[Edge],
-) -> Arc<SlotData> {
-    let first_index = first_node_data_index(node_datas, edges);
-
-    // Return the first `NodeData` if there is one. Otherwise return a new `NodeData` filled with black.
-    if let Some(index) = first_index {
-        node_datas.remove(index)
-    } else {
-        Arc::new(SlotData::new(
-            NodeId(0),
-            SlotId(0),
-            size,
-            Arc::new(Box::new(
-                ImageBuffer::from_raw(
-                    size.width,
-                    size.height,
-                    vec![0.; (size.width * size.height) as usize],
-                )
-                .unwrap(),
-            )),
-        ))
-    }
-}
-
-fn process_multiply(node_datas: &[Arc<SlotData>], size: Size) -> Arc<Buffer> {
-    Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            Luma([node_datas
-                .iter()
-                .map(|nd| nd.buffer.get_pixel(x, y).data[0])
-                .product()])
-        },
-    )))
-}
-
-fn process_divide(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
-    let mut node_datas = node_datas.to_vec();
-
-    let node_data_first = split_first_node_data(&mut node_datas, size, edges);
-
-    Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            Luma([node_data_first.buffer.get_pixel(x, y).data[0]
-                / node_datas
-                    .iter()
-                    .map(|nd| nd.buffer.get_pixel(x, y).data[0])
-                    .sum::<ChannelPixel>()])
-        },
-    )))
-}
-
-fn process_pow(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> Arc<Buffer> {
-    let mut node_datas = node_datas.to_vec();
-
-    let node_data_first = split_first_node_data(&mut node_datas, size, edges);
-
-    Arc::new(Box::new(ImageBuffer::from_fn(
-        size.width,
-        size.height,
-        |x, y| {
-            Luma([node_data_first.buffer.get_pixel(x, y).data[0].powf(node_datas
-                    .iter()
-                    .map(|nd| nd.buffer.get_pixel(x, y).data[0])
-                    .sum::<ChannelPixel>())])
-        },
-    )))
-}
-
-/// Returns the position of the `NodeData` connected to the first input slot along with the
-/// index it was found at.
-fn first_node_data_index(node_datas: &[Arc<SlotData>], edges: &[Edge]) -> Option<usize> {
-    assert!(
-        edges
-            .iter()
-            .all(|edge| edge.input_id() == edges[0].input_id()),
-        "All edges must be connected to the same node"
-    );
-    {
-        let mut input_slots = edges
-            .iter()
-            .map(|edge| edge.input_slot().0)
-            .collect::<Vec<u32>>();
-        input_slots.sort_unstable();
-        assert!(
-            !has_dulicates(&input_slots),
-            "A slot cannot have more than one input"
-        );
-    }
-    let edge = edges.iter().find(|edge| edge.input_slot == SlotId(0))?;
-
-    node_datas.iter().position(|node_data| {
-        node_data.node_id == edge.output_id && node_data.slot_id == edge.output_slot
+fn process_add_gray(left: &Arc<BoxBuffer>, right: &Arc<BoxBuffer>, size: Size) -> Buffer {
+    ImageBuffer::from_fn(size.width, size.height, |x, y| {
+        Luma([left.get_pixel(x, y).data[0] + right.get_pixel(x, y).data[0]])
     })
 }
 
-/// Checks if the input slice has any duplicates.
-/// Note: The slice has to be sorted.
-fn has_dulicates<T: PartialEq>(slice: &[T]) -> bool {
-    for i in 1..slice.len() {
-        if slice[i] == slice[i - 1] {
-            return true;
-        }
-    }
-    false
+fn process_subtract_gray(left: &Arc<BoxBuffer>, right: &Arc<BoxBuffer>, size: Size) -> Buffer {
+    ImageBuffer::from_fn(size.width, size.height, |x, y| {
+        Luma([left.get_pixel(x, y).data[0] - right.get_pixel(x, y).data[0]])
+    })
 }
+
+// fn split_first_node_data(
+//     node_datas: &mut Vec<Arc<SlotData>>,
+//     size: Size,
+//     edges: &[Edge],
+// ) -> Arc<SlotData> {
+//     let first_index = first_node_data_index(node_datas, edges);
+
+//     // Return the first `NodeData` if there is one. Otherwise return a new `NodeData` filled with black.
+//     if let Some(index) = first_index {
+//         node_datas.remove(index)
+//     } else {
+//         Arc::new(SlotData::new(
+//             NodeId(0),
+//             SlotId(0),
+//             size,
+//             Arc::new(Box::new(
+//                 ImageBuffer::from_raw(
+//                     size.width,
+//                     size.height,
+//                     vec![0.; (size.width * size.height) as usize],
+//                 )
+//                 .unwrap(),
+//             )),
+//         ))
+//     }
+// }
+
+// fn process_multiply(node_datas: &[Arc<SlotData>], size: Size) -> Arc<BoxBuffer> {
+//     Arc::new(Box::new(ImageBuffer::from_fn(
+//         size.width,
+//         size.height,
+//         |x, y| {
+//             Luma([node_datas
+//                 .iter()
+//                 .map(|nd| nd.image.get_pixel(x, y).data[0])
+//                 .product()])
+//         },
+//     )))
+// }
+
+// fn process_divide(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> Arc<BoxBuffer> {
+//     let mut node_datas = node_datas.to_vec();
+
+//     let node_data_first = split_first_node_data(&mut node_datas, size, edges);
+
+//     Arc::new(Box::new(ImageBuffer::from_fn(
+//         size.width,
+//         size.height,
+//         |x, y| {
+//             Luma([node_data_first.image.get_pixel(x, y).data[0]
+//                 / node_datas
+//                     .iter()
+//                     .map(|nd| nd.image.get_pixel(x, y).data[0])
+//                     .sum::<ChannelPixel>()])
+//         },
+//     )))
+// }
+
+// fn process_pow(node_datas: &[Arc<SlotData>], size: Size, edges: &[Edge]) -> Arc<BoxBuffer> {
+//     let mut node_datas = node_datas.to_vec();
+
+//     let node_data_first = split_first_node_data(&mut node_datas, size, edges);
+
+//     Arc::new(Box::new(ImageBuffer::from_fn(
+//         size.width,
+//         size.height,
+//         |x, y| {
+//             Luma([node_data_first.image.get_pixel(x, y).data[0].powf(node_datas
+//                     .iter()
+//                     .map(|nd| nd.image.get_pixel(x, y).data[0])
+//                     .sum::<ChannelPixel>())])
+//         },
+//     )))
+// }
+
+/// Returns the position of the `NodeData` connected to the first input slot along with the
+/// index it was found at.
+// fn first_node_data_index(node_datas: &[Arc<SlotData>], edges: &[Edge]) -> Option<usize> {
+//     assert!(
+//         edges
+//             .iter()
+//             .all(|edge| edge.input_id() == edges[0].input_id()),
+//         "All edges must be connected to the same node"
+//     );
+//     {
+//         let mut input_slots = edges
+//             .iter()
+//             .map(|edge| edge.input_slot().0)
+//             .collect::<Vec<u32>>();
+//         input_slots.sort_unstable();
+//         assert!(
+//             !has_dulicates(&input_slots),
+//             "A slot cannot have more than one input"
+//         );
+//     }
+//     let edge = edges.iter().find(|edge| edge.input_slot == SlotId(0))?;
+
+//     node_datas.iter().position(|node_data| {
+//         node_data.node_id == edge.output_id && node_data.slot_id == edge.output_slot
+//     })
+// }
 
 /// Orders node datas so they are in the same order as the input slots for order-dependent processing.
 // fn order_node_datas(node_datas: &[Arc<NodeData>], edges: &[Edge]) -> Vec<Arc<NodeData>> {
@@ -436,41 +404,41 @@ fn has_dulicates<T: PartialEq>(slice: &[T]) -> bool {
 //         .collect::<Vec<Arc<NodeData>>>()
 // }
 
-fn process_height_to_normal(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
-    let channel_count = 3;
-    let heightmap = &node_datas[0].buffer;
-    let (width, height) = (heightmap.width(), heightmap.height());
-    let pixel_distance_x = 1. / width as f32;
-    let pixel_distance_y = 1. / height as f32;
+// fn process_height_to_normal(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
+//     let channel_count = 3;
+//     let heightmap = &node_datas[0].image;
+//     let (width, height) = (heightmap.width(), heightmap.height());
+//     let pixel_distance_x = 1. / width as f32;
+//     let pixel_distance_y = 1. / height as f32;
 
-    let mut output_buffers: Vec<Buffer> =
-        vec![Box::new(ImageBuffer::new(width, height)); channel_count];
+//     let mut output_buffers: Vec<BoxBuffer> =
+//         vec![Box::new(ImageBuffer::new(width, height)); channel_count];
 
-    for (x, y, px) in heightmap.enumerate_pixels() {
-        let sample_up = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
-        let sample_left = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
+//     for (x, y, px) in heightmap.enumerate_pixels() {
+//         let sample_up = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
+//         let sample_left = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
 
-        let tangent = Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
-        let bitangent = Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
-        let normal = tangent.cross(&bitangent).normalize();
+//         let tangent = Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
+//         let bitangent = Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
+//         let normal = tangent.cross(&bitangent).normalize();
 
-        for (i, buffer) in output_buffers.iter_mut().enumerate() {
-            buffer.put_pixel(x, y, Luma([normal[i] * 0.5 + 0.5]));
-        }
-    }
+//         for (i, buffer) in output_buffers.iter_mut().enumerate() {
+//             buffer.put_pixel(x, y, Luma([normal[i] * 0.5 + 0.5]));
+//         }
+//     }
 
-    let mut output_node_datas = Vec::with_capacity(channel_count);
-    for (i, buffer) in output_buffers.into_iter().enumerate() {
-        output_node_datas.push(Arc::new(SlotData::new(
-            node.node_id,
-            SlotId(i as u32),
-            Size::new(heightmap.width(), heightmap.height()),
-            Arc::new(buffer),
-        )));
-    }
+//     let mut output_node_datas = Vec::with_capacity(channel_count);
+//     for (i, buffer) in output_buffers.into_iter().enumerate() {
+//         output_node_datas.push(Arc::new(SlotData::new(
+//             node.node_id,
+//             SlotId(i as u32),
+//             Size::new(heightmap.width(), heightmap.height()),
+//             Arc::new(buffer),
+//         )));
+//     }
 
-    output_node_datas
-}
+//     output_node_datas
+// }
 
 trait Sampling {
     fn wrapping_sample_add(self, right_side: Self, max: Self) -> Self;

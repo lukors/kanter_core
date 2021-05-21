@@ -169,9 +169,9 @@ impl Engine {
                                         edge.output_id,
                                         edge.output_slot,
                                         Size::new(1, 1),
-                                        Arc::new(Box::new(
+                                        Arc::new(SlotImage::Gray(Arc::new(Box::new(
                                             ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
-                                        )),
+                                        )))),
                                     ))
                                 })
                             })
@@ -497,70 +497,19 @@ impl Engine {
     }
 
     /// Gets any `SlotData`s associated with a given `NodeId`.
-    pub fn node_slot_datas(&self, id: NodeId) -> Vec<Arc<SlotData>> {
+    pub fn node_slot_datas(&self, node_id: NodeId) -> Vec<Arc<SlotData>> {
         self.slot_datas
             .iter()
-            .filter(|nd| nd.node_id == id)
+            .filter(|nd| nd.node_id == node_id)
             .map(|nd| Arc::clone(&nd))
             .collect()
     }
 
-    pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        let node_datas = self.node_slot_datas(node_id);
-        if node_datas.is_empty() {
-            return Err(TexProError::InvalidBufferCount);
-        }
-
-        let output_vecs = match self.node_graph.node_with_id(node_id)?.node_type {
-            NodeType::OutputGray => self.get_output_gray(&node_datas)?,
-            _ => self.get_output_rgba(&node_datas)?,
-        };
-
-        channels_to_rgba(&output_vecs)
-    }
-
-    fn get_output_rgba(&self, node_datas: &[Arc<SlotData>]) -> Result<Vec<Arc<Buffer>>> {
-        let empty_buffer: Arc<Buffer> = Arc::new(Box::new(ImageBuffer::new(0, 0)));
-        let mut sorted_value_vecs: Vec<Arc<Buffer>> = vec![Arc::clone(&empty_buffer); 4];
-
-        for node_data in node_datas.iter() {
-            sorted_value_vecs[node_data.slot_id.0 as usize] = Arc::clone(&node_data.buffer);
-        }
-
-        let (width, height) = (node_datas[0].size.width, node_datas[0].size.height);
-        let size = (width * height) as usize;
-
-        for (i, value_vec) in sorted_value_vecs.iter_mut().enumerate() {
-            if !value_vec.is_empty() {
-                continue;
-            }
-
-            // Should be black if R, G or B channel, and white if A.
-            let buf_vec = if i == 3 {
-                vec![1.; size]
-            } else {
-                vec![0.; size]
-            };
-
-            *value_vec = Arc::new(Box::new(
-                ImageBuffer::from_raw(width, height, buf_vec).ok_or(TexProError::Generic)?,
-            ))
-        }
-
-        Ok(sorted_value_vecs)
-    }
-
-    fn get_output_gray(&self, node_datas: &[Arc<SlotData>]) -> Result<Vec<Arc<Buffer>>> {
-        assert_eq!(node_datas.len(), 1);
-        let (width, height) = (node_datas[0].size.width, node_datas[0].size.height);
-        let size = (width * height) as usize;
-
-        let mut sorted_value_vecs: Vec<Arc<Buffer>> = vec![Arc::clone(&node_datas[0].buffer); 3];
-        sorted_value_vecs.push(Arc::new(Box::new(
-            ImageBuffer::from_raw(width, height, vec![1.; size]).ok_or(TexProError::Generic)?,
-        )));
-
-        Ok(sorted_value_vecs)
+    pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Option<Arc<SlotData>> {
+        self.node_slot_datas(node_id)
+            .iter()
+            .find(|slot_data| slot_data.slot_id == slot_id)
+            .cloned()
     }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {

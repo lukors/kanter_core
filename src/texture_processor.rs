@@ -46,17 +46,25 @@ impl TextureProcessor {
         Arc::clone(&self.engine)
     }
 
-    pub fn get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
-        self.wait_for_state_read(node_id, NodeState::Clean)?
-            .get_output(node_id)
+    pub fn get_output_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+        Ok(self
+            .wait_for_state_read(node_id, NodeState::Clean)?
+            .slot_data(node_id, slot_id)
+            .ok_or(TexProError::InvalidSlotId)?
+            .image
+            .to_rgba())
     }
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
-    pub fn try_get_output(&self, node_id: NodeId) -> Result<Vec<u8>> {
+    pub fn try_get_output_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         let result = if let Ok(engine) = self.engine.try_read() {
             if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
-                    engine.get_output(node_id)
+                    Ok(engine
+                        .slot_data(node_id, slot_id)
+                        .ok_or(TexProError::InvalidSlotId)?
+                        .image
+                        .to_rgba())
                 } else {
                     Err(TexProError::InvalidNodeId)
                 }
