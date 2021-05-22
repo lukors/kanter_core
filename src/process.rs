@@ -30,7 +30,7 @@ pub fn process_node(
         node.node_type
     );
 
-    // Slot datas sorted by input node id.
+    // Slot datas resized and sorted by input node id.
     let slot_datas = {
         let mut edges = edges.to_vec();
         edges.sort_unstable_by(|a, b| a.input_slot.cmp(&b.input_slot));

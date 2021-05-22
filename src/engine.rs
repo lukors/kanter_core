@@ -15,8 +15,6 @@ use std::{
     thread,
 };
 
-use crate::shared::*;
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeState {
     Clean,

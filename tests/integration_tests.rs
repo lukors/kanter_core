@@ -390,12 +390,8 @@ fn irregular_sizes() {
         .unwrap();
     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
-    tex_pro
-        .connect(input_1, mix, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .connect(input_2, mix, SlotId(0), SlotId(1))
-        .unwrap();
+    tex_pro.connect(input_1, mix, SlotId(0), SlotId(0)).unwrap();
+    tex_pro.connect(input_2, mix, SlotId(0), SlotId(1)).unwrap();
     tex_pro
         .connect(mix, output_node, SlotId(0), SlotId(0))
         .unwrap();
@@ -670,39 +666,50 @@ fn resize_policy_most_pixels() {
 #[test]
 #[timeout(20000)]
 fn resize_policy_least_pixels() {
+    resize_policy_test(
+        ResizePolicy::LeastPixels,
+        HEART_128,
+        HEART_256,
+        (128, 128),
+        "resize_policy_least_pixels.png",
+    );
+}
+
+fn resize_policy_test(
+    resize_policy: ResizePolicy,
+    img_path_1: &str,
+    img_path_2: &str,
+    expected_size: (u32, u32),
+    name: &str,
+) {
     let tex_pro = TextureProcessor::new();
 
     let node_128 = tex_pro
-        .add_node(Node::new(NodeType::Image(HEART_128.into())))
+        .add_node(Node::new(NodeType::Image(img_path_1.into())))
         .unwrap();
     let node_256 = tex_pro
-        .add_node(Node::new(NodeType::Image(HEART_256.into())))
+        .add_node(Node::new(NodeType::Image(img_path_2.into())))
         .unwrap();
 
-    let mut passthrough_node = Node::new(NodeType::OutputRgba);
-    passthrough_node.resize_policy = ResizePolicy::LeastPixels;
-    let passthrough_node = tex_pro.add_node(passthrough_node).unwrap();
-    let output_128 = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
-    let output_256 = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let mix_node = {
+        let mut mix_node = Node::new(NodeType::Mix(MixType::default()));
+        mix_node.resize_policy = resize_policy;
+        tex_pro.add_node(mix_node).unwrap()
+    };
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     tex_pro
-        .connect(node_128, passthrough_node, SlotId(0), SlotId(0))
+        .connect(node_128, mix_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
-        .connect(node_256, passthrough_node, SlotId(1), SlotId(1))
+        .connect(node_256, mix_node, SlotId(0), SlotId(1))
         .unwrap();
 
     tex_pro
-        .connect(passthrough_node, output_128, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .connect(passthrough_node, output_256, SlotId(1), SlotId(0))
+        .connect(mix_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
 
-    assert!(
-        tex_pro.await_slot_data_size(output_256, SlotId(0)).unwrap()
-            == tex_pro.await_slot_data_size(node_128, SlotId(0)).unwrap()
-    );
+    save_and_compare_size(tex_pro, output_node, expected_size, name);
 }
 
 #[test]
@@ -745,20 +752,23 @@ fn resize_policy_largest_axes() {
 }
 
 fn save_and_compare(tex_pro: TextureProcessor, node_id: NodeId, name: &str) {
+    save_and_compare_size(tex_pro, node_id, (256, 256), name);
+}
+
+fn save_and_compare_size(tex_pro: TextureProcessor, node_id: NodeId, size: (u32, u32), name: &str) {
     let (path_out, path_cmp) = build_paths(name);
 
     ensure_out_dir();
-    let size = 256;
     image::save_buffer(
         &path_out,
         &image::RgbaImage::from_vec(
-            size,
-            size,
+            size.0,
+            size.1,
             tex_pro.get_output_rgba(node_id, SlotId(0)).unwrap(),
         )
         .unwrap(),
-        size,
-        size,
+        size.0,
+        size.1,
         image::ColorType::RGBA(8),
     )
     .unwrap();
@@ -1067,9 +1077,7 @@ fn mix_node_test_gray(mix_type: MixType, name: &str) {
     let image_node = tex_pro
         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
-    let split_node = tex_pro
-        .add_node(Node::new(NodeType::SplitRgba))
-        .unwrap();
+    let split_node = tex_pro.add_node(Node::new(NodeType::SplitRgba)).unwrap();
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Mix(mix_type)))
         .unwrap();
@@ -1088,7 +1096,7 @@ fn mix_node_test_gray(mix_type: MixType, name: &str) {
     tex_pro
         .connect(input_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    
+
     save_and_compare(tex_pro, output_node, name);
 }
 
@@ -1116,7 +1124,7 @@ fn mix_node_test_rgba(mix_type: MixType, name: &str) {
     tex_pro
         .connect(multiply_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    
+
     save_and_compare(tex_pro, output_node, name);
 }
 

@@ -1,6 +1,5 @@
 use crate::error::{Result, TexProError};
 use crate::{node::*, slot_data::*};
-use core::panic;
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Luma, RgbaImage};
 use std::{
     cmp::{max, min},
@@ -38,15 +37,6 @@ impl SrgbColorSpace for f32 {
             ((self + 0.055) / 1.055).powf(2.4) // gamma curve in other area
         }
     }
-}
-
-pub fn has_dup<T: PartialEq>(slice: &[T]) -> bool {
-    for i in 1..slice.len() {
-        if slice[i..].contains(&slice[i - 1]) {
-            return true;
-        }
-    }
-    false
 }
 
 pub fn deconstruct_image(image: &DynamicImage) -> Vec<BoxBuffer> {
@@ -133,39 +123,38 @@ pub fn resize_buffers(
         .iter()
         .map(|ref slot_data| {
             if slot_data.size != size {
-                let resized_image = match &*slot_data.image {
-                    SlotImage::Gray(buf) => {
-                        let image =
-                            imageops::resize(&***buf, size.width, size.height, filter.into());
-                        SlotImage::Gray(Arc::new(Box::new(image)))
-                    }
-                    SlotImage::Rgba(bufs) => SlotImage::Rgba([
-                        Arc::new(Box::new(imageops::resize(
-                            &**bufs[0],
-                            size.width,
-                            size.height,
-                            filter.into(),
+                let resized_image =
+                    match &*slot_data.image {
+                        SlotImage::Gray(buf) => SlotImage::Gray(Arc::new(Box::new(
+                            imageops::resize(&***buf, size.width, size.height, filter.into()),
                         ))),
-                        Arc::new(Box::new(imageops::resize(
-                            &**bufs[1],
-                            size.width,
-                            size.height,
-                            filter.into(),
-                        ))),
-                        Arc::new(Box::new(imageops::resize(
-                            &**bufs[2],
-                            size.width,
-                            size.height,
-                            filter.into(),
-                        ))),
-                        Arc::new(Box::new(imageops::resize(
-                            &**bufs[3],
-                            size.width,
-                            size.height,
-                            filter.into(),
-                        ))),
-                    ]),
-                };
+                        SlotImage::Rgba(bufs) => SlotImage::Rgba([
+                            Arc::new(Box::new(imageops::resize(
+                                &**bufs[0],
+                                size.width,
+                                size.height,
+                                filter.into(),
+                            ))),
+                            Arc::new(Box::new(imageops::resize(
+                                &**bufs[1],
+                                size.width,
+                                size.height,
+                                filter.into(),
+                            ))),
+                            Arc::new(Box::new(imageops::resize(
+                                &**bufs[2],
+                                size.width,
+                                size.height,
+                                filter.into(),
+                            ))),
+                            Arc::new(Box::new(imageops::resize(
+                                &**bufs[3],
+                                size.width,
+                                size.height,
+                                filter.into(),
+                            ))),
+                        ]),
+                    };
 
                 Arc::new(SlotData::new(
                     slot_data.node_id,
