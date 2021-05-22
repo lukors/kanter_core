@@ -7,7 +7,8 @@ use kanter_core::{
 use ntest::timeout;
 use std::{fs::create_dir, path::Path, sync::Arc};
 
-const OUT_DIR: &str = "out";
+const DIR_OUT: &str = "out";
+const DIR_CMP: &str = &"data/test_compare";
 const IMAGE_1: &str = "data/image_1.png";
 const IMAGE_2: &str = "data/image_2.png";
 const HEART_128: &str = "data/heart_128.png";
@@ -18,7 +19,7 @@ const HEART_110: &str = "data/heart_110.png";
 const CLOUDS: &str = "data/clouds.png";
 
 fn ensure_out_dir() {
-    match create_dir(Path::new(OUT_DIR)) {
+    match create_dir(Path::new(DIR_OUT)) {
         _ => (),
     };
 }
@@ -46,11 +47,9 @@ fn input_output() {
         .unwrap();
     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
-    for i in 0..4 {
-        tex_pro
-            .connect(input_node, output_node, SlotId(i), SlotId(i))
-            .unwrap();
-    }
+    tex_pro
+        .connect(input_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
 
     ensure_out_dir();
     image::save_buffer(
@@ -129,20 +128,18 @@ fn input_output_intercept() {
         .unwrap();
     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
-    for i in 0..4 {
-        tex_pro
-            .connect(input_node, resize_node_1, SlotId(i), SlotId(i))
-            .unwrap();
-        tex_pro
-            .connect(resize_node_1, resize_node_2, SlotId(i), SlotId(i))
-            .unwrap();
-        tex_pro
-            .connect(resize_node_2, resize_node_3, SlotId(i), SlotId(i))
-            .unwrap();
-        tex_pro
-            .connect(resize_node_3, output_node, SlotId(i), SlotId(i))
-            .unwrap();
-    }
+    tex_pro
+        .connect(input_node, resize_node_1, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(resize_node_1, resize_node_2, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(resize_node_2, resize_node_3, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(resize_node_3, output_node, SlotId(0), SlotId(0))
+        .unwrap();
 
     let mut intercepted = false;
     loop {
@@ -553,7 +550,9 @@ fn connect_invalid_slot() {
 
     let value_node = tex_pro.add_node(Node::new(NodeType::Value(0.))).unwrap();
 
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .unwrap();
 
     assert!(tex_pro
         .connect(value_node, output_node, SlotId(0), SlotId(0))
@@ -563,15 +562,6 @@ fn connect_invalid_slot() {
         .is_ok());
     assert!(tex_pro
         .connect(value_node, output_node, SlotId(0), SlotId(2))
-        .is_ok());
-    assert!(tex_pro
-        .connect(value_node, output_node, SlotId(0), SlotId(3))
-        .is_ok());
-    assert!(tex_pro
-        .connect(value_node, output_node, SlotId(0), SlotId(4))
-        .is_err());
-    assert!(tex_pro
-        .connect(value_node, output_node, SlotId(1), SlotId(0))
         .is_err());
 }
 
@@ -759,47 +749,51 @@ fn resize_policy_largest_axes() {
     );
 }
 
+fn build_paths(name: &str) -> (String, String) {
+    (
+        format!("{}/{}", DIR_OUT, name),
+        format!("{}/{}", DIR_CMP, name),
+    )
+}
+
 #[test]
 #[timeout(20000)]
 fn add_node() {
-    const PATH_OUT: &str = &"out/add_node.png";
-    const PATH_CMP: &str = &"data/test_compare/add_node.png";
+    let (path_out, path_cmp) = build_paths("add_node.png");
 
     let tex_pro = TextureProcessor::new();
 
     let image_node = tex_pro
         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
-    let white_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
+    
+    let split_node = tex_pro
+        .add_node(Node::new(NodeType::SplitRgba))
+        .unwrap();
     let add_node = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::Add)))
         .unwrap();
     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     tex_pro
-        .connect(image_node, add_node, SlotId(0), SlotId(0))
+        .connect(image_node, split_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .connect(split_node, add_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
-        .connect(image_node, add_node, SlotId(1), SlotId(1))
+        .connect(split_node, add_node, SlotId(1), SlotId(1))
         .unwrap();
 
     tex_pro
         .connect(add_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
-    tex_pro
-        .connect(add_node, output_node, SlotId(0), SlotId(1))
-        .unwrap();
-    tex_pro
-        .connect(add_node, output_node, SlotId(0), SlotId(2))
-        .unwrap();
-    tex_pro
-        .connect(white_node, output_node, SlotId(0), SlotId(3))
-        .unwrap();
 
     ensure_out_dir();
     let size = 256;
     image::save_buffer(
-        &Path::new(PATH_OUT),
+        &path_out,
         &image::RgbaImage::from_vec(
             size,
             size,
@@ -812,7 +806,7 @@ fn add_node() {
     )
     .unwrap();
 
-    assert!(images_equal(PATH_OUT, PATH_CMP));
+    assert!(images_equal(path_out, path_cmp));
 }
 
 #[test]
@@ -1324,13 +1318,15 @@ fn multiply_node() {
 #[test]
 #[timeout(20000)]
 fn divide_node() {
-    const PATH_OUT: &str = &"out/divide_node.png";
-    const PATH_CMP: &str = &"data/test_compare/divide_node.png";
+    let (path_out, path_cmp) = build_paths("divide_node.png");
 
     let tex_pro = TextureProcessor::new();
 
     let image_node = tex_pro
         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+        .unwrap();
+    let split_node = tex_pro
+        .add_node(Node::new(NodeType::SplitRgba))
         .unwrap();
     let divide_node = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::Divide)))
@@ -1338,10 +1334,14 @@ fn divide_node() {
     let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
 
     tex_pro
-        .connect(image_node, divide_node, SlotId(0), SlotId(0))
+        .connect(image_node, split_node, SlotId(0), SlotId(0))
+        .unwrap();
+        
+    tex_pro
+        .connect(split_node, divide_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
-        .connect(image_node, divide_node, SlotId(3), SlotId(1))
+        .connect(split_node, divide_node, SlotId(3), SlotId(1))
         .unwrap();
 
     tex_pro
@@ -1350,19 +1350,16 @@ fn divide_node() {
 
     ensure_out_dir();
     let size = 256;
+    let vec = tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap();
+    let buf = image::RgbaImage::from_vec(size, size, vec);
     image::save_buffer(
-        &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(
-            size,
-            size,
-            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
-        )
-        .unwrap(),
+        &path_out,
+        &buf.unwrap(),
         size,
         size,
         image::ColorType::RGBA(8),
     )
     .unwrap();
 
-    assert!(images_equal(PATH_OUT, PATH_CMP));
+    assert!(images_equal(path_out, path_cmp));
 }

@@ -47,12 +47,17 @@ impl TextureProcessor {
     }
 
     pub fn get_output_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        Ok(self
-            .wait_for_state_read(node_id, NodeState::Clean)?
-            .slot_data(node_id, slot_id)
-            .ok_or(TexProError::InvalidSlotId)?
-            .image
-            .to_rgba())
+        let engine = self.wait_for_state_read(node_id, NodeState::Clean)?;
+        let slot_data = engine.slot_data(node_id, slot_id);
+        let output = slot_data.ok_or(TexProError::InvalidSlotId)?.image.to_rgba();
+        Ok(output)
+
+        // Ok(self
+        //     .wait_for_state_read(node_id, NodeState::Clean)?
+        //     .slot_data(node_id, slot_id)
+        //     .ok_or(TexProError::InvalidSlotId)?
+        //     .image
+        //     .to_rgba())
     }
 
     /// Tries to get the output of a node. If it can't it submits a request for it.

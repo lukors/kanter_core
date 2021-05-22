@@ -97,20 +97,14 @@ impl SlotData {
 
 impl SlotImage {
     pub fn to_rgba(&self) -> Vec<u8> {
-        fn clamp_float(input: f32) -> f32 {
-            if input < 0. {
-                0.
-            } else if input > 1. {
-                1.
-            } else {
-                input
-            }
-        }
-
         match self {
             Self::Gray(buf) => buf
                 .pixels()
-                .map(|x| (clamp_float(x[0]) * 255.).min(255.) as u8)
+                .map(|x| {
+                    let value = ((x[0].clamp(0.0, 1.0) * 255.).min(255.)) as u8;
+                    vec![value, value, value, 255]
+                })
+                .flatten()
                 .collect(),
             Self::Rgba(bufs) => bufs[0]
                 .pixels()
@@ -119,7 +113,7 @@ impl SlotImage {
                 .zip(bufs[3].pixels())
                 .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
                 .flatten()
-                .map(|x| (clamp_float(x[0]) * 255.).min(255.) as u8)
+                .map(|x| ((x[0].clamp(0.0, 1.0) * 255.).min(255.)) as u8)
                 .collect(),
         }
     }

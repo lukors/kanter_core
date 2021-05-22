@@ -135,12 +135,8 @@ pub fn resize_buffers(
             if slot_data.size != size {
                 let resized_image = match &*slot_data.image {
                     SlotImage::Gray(buf) => {
-                        let image = imageops::resize(
-                            &**buf,
-                            size.width,
-                            size.height,
-                            filter.into(),
-                        );
+                        let image =
+                            imageops::resize(&***buf, size.width, size.height, filter.into());
                         SlotImage::Gray(Arc::new(Box::new(image)))
                     }
                     SlotImage::Rgba(bufs) => SlotImage::Rgba([
@@ -188,6 +184,29 @@ pub fn resize_buffers(
 }
 
 pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
+    fn pop_vec_to_arc_buffer(
+        width: u32,
+        height: u32,
+        buffers: &mut Vec<BoxBuffer>,
+        default: f32,
+    ) -> Arc<BoxBuffer> {
+        Arc::new(
+            buffers
+                .pop()
+                .or_else(|| {
+                    Some(Box::new(
+                        ImageBuffer::from_raw(
+                            width,
+                            height,
+                            vec![default; (width * height) as usize],
+                        )
+                        .unwrap(),
+                    ))
+                })
+                .unwrap(),
+        )
+    }
+
     let image = image::open(path)?;
     let mut buffers = deconstruct_image(&image);
     let width = buffers[0].width();
@@ -196,43 +215,14 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
     match buffers.len() {
         0 => Err(TexProError::InvalidBufferCount),
         1 => Ok(SlotImage::Gray(Arc::new(buffers.pop().unwrap()))),
-        _ => Ok(SlotImage::Rgba([
-            Arc::new(
-                buffers
-                    .pop()
-                    .or_else(|| Some(Box::new(
-                        ImageBuffer::from_raw(width, height, vec![0.0; (width * height) as usize])
-                            .unwrap(),
-                    )))
-                    .unwrap(),
-            ),
-            Arc::new(
-                buffers
-                    .pop()
-                    .or_else(|| Some(Box::new(
-                        ImageBuffer::from_raw(width, height, vec![0.0; (width * height) as usize])
-                            .unwrap(),
-                    )))
-                    .unwrap(),
-            ),
-            Arc::new(
-                buffers
-                    .pop()
-                    .or_else(|| Some(Box::new(
-                        ImageBuffer::from_raw(width, height, vec![0.0; (width * height) as usize])
-                            .unwrap(),
-                    )))
-                    .unwrap(),
-            ),
-            Arc::new(
-                buffers
-                    .pop()
-                    .or_else(|| Some(Box::new(
-                        ImageBuffer::from_raw(width, height, vec![1.0; (width * height) as usize])
-                            .unwrap(),
-                    )))
-                    .unwrap(),
-            ),
-        ])),
+        _ => {
+            let (a, b, g, r) = (
+                pop_vec_to_arc_buffer(width, height, &mut buffers, 0.0),
+                pop_vec_to_arc_buffer(width, height, &mut buffers, 0.0),
+                pop_vec_to_arc_buffer(width, height, &mut buffers, 0.0),
+                pop_vec_to_arc_buffer(width, height, &mut buffers, 1.0),
+            );
+            Ok(SlotImage::Rgba([r, g, b, a]))
+        }
     }
 }

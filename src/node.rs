@@ -100,6 +100,7 @@ pub enum NodeType {
     Value(f32),
     Mix(MixType),
     HeightToNormal,
+    SplitRgba,
 }
 
 #[derive(Deserialize, Serialize, Copy, Clone, PartialEq)]
@@ -153,6 +154,7 @@ impl fmt::Debug for NodeType {
             NodeType::Value(_) => write!(f, "Value"),
             NodeType::Mix(_) => write!(f, "Mix"),
             NodeType::HeightToNormal => write!(f, "HeightToNormal"),
+            NodeType::SplitRgba => write!(f, "SplitRgba"),
         }
     }
 }
@@ -196,27 +198,29 @@ impl Node {
                 NodeType::InputGray => 1,
                 NodeType::InputRgba => 0,
                 NodeType::OutputGray => 1,
-                NodeType::OutputRgba => 4,
+                NodeType::OutputRgba => 1,
                 NodeType::Graph(ref graph) => graph.input_count(),
                 NodeType::Image(_) => 0,
                 NodeType::NodeData(_) => 0,
-                NodeType::Write(_) => 4,
+                NodeType::Write(_) => 1,
                 NodeType::Value(_) => 0,
                 NodeType::Mix(_) => 2,
                 NodeType::HeightToNormal => 1,
+                NodeType::SplitRgba => 1,
             },
             Side::Output => match self.node_type {
                 NodeType::InputGray => 1,
-                NodeType::InputRgba => 4,
+                NodeType::InputRgba => 1,
                 NodeType::OutputGray => 1,
-                NodeType::OutputRgba => 4,
+                NodeType::OutputRgba => 1,
                 NodeType::Graph(ref graph) => graph.output_count(),
-                NodeType::Image(_) => 4,
+                NodeType::Image(_) => 1,
                 NodeType::NodeData(_) => 1,
                 NodeType::Write(_) => 0,
                 NodeType::Value(_) => 1,
                 NodeType::Mix(_) => 1,
-                NodeType::HeightToNormal => 3,
+                NodeType::HeightToNormal => 1,
+                NodeType::SplitRgba => 4,
             },
         }
     }
