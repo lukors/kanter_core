@@ -43,7 +43,9 @@ pub fn process_node(
             .map(|edge| {
                 slot_datas
                     .iter()
-                    .find(|slot_data| edge.output_slot == slot_data.slot_id && edge.output_id == slot_data.node_id)
+                    .find(|slot_data| {
+                        edge.output_slot == slot_data.slot_id && edge.output_id == slot_data.node_id
+                    })
                     .unwrap()
                     .clone()
             })
@@ -64,6 +66,7 @@ pub fn process_node(
         NodeType::Mix(mix_type) => process_mix(&slot_datas, &node, mix_type),
         NodeType::HeightToNormal => unimplemented!(), // process_height_to_normal(&node_datas, &node),
         NodeType::SplitRgba => split_rgba(&slot_datas, &node),
+        NodeType::MergeRgba => merge_rgba(&slot_datas, &node),
     };
 
     assert!(output.len() <= node.capacity(Side::Output));
@@ -203,11 +206,7 @@ fn value(node: &Node, value: f32) -> Vec<Arc<SlotData>> {
 
 // TODO: Look into optimizing this by sampling straight into the un-resized image instead of
 // resizing the image before blending.
-fn process_mix(
-    slot_datas: &[Arc<SlotData>],
-    node: &Node,
-    mix_type: MixType,
-) -> Vec<Arc<SlotData>> {
+fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> Vec<Arc<SlotData>> {
     if slot_datas.is_empty() {
         return Vec::new();
     }
@@ -224,15 +223,13 @@ fn process_mix(
                 MixType::Pow => process_pow_gray(left, right, size),
             })))
         }
-        (SlotImage::Rgba(left), SlotImage::Rgba(right)) => {
-            SlotImage::Rgba(match mix_type {
-                MixType::Add => process_add_rgba(left, right, size),
-                MixType::Subtract => process_subtract_rgba(left, right, size),
-                MixType::Multiply => process_multiply_rgba(left, right, size),
-                MixType::Divide => process_divide_rgba(left, right, size),
-                MixType::Pow => process_pow_rgba(left, right, size),
-            })
-        }
+        (SlotImage::Rgba(left), SlotImage::Rgba(right)) => SlotImage::Rgba(match mix_type {
+            MixType::Add => process_add_rgba(left, right, size),
+            MixType::Subtract => process_subtract_rgba(left, right, size),
+            MixType::Multiply => process_multiply_rgba(left, right, size),
+            MixType::Divide => process_divide_rgba(left, right, size),
+            MixType::Pow => process_pow_rgba(left, right, size),
+        }),
         _ => return Vec::new(),
     };
 
@@ -413,35 +410,76 @@ fn process_height_to_normal(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Ar
 
 fn split_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
     if let SlotImage::Rgba(buf) = &*slot_datas[0].image {
+        let size = slot_datas[0].size;
         vec![
             Arc::new(SlotData::new(
                 node.node_id,
                 SlotId(0),
-                slot_datas[0].size,
+                size,
                 Arc::new(SlotImage::Gray(Arc::clone(&buf[0]))),
             )),
             Arc::new(SlotData::new(
                 node.node_id,
                 SlotId(1),
-                slot_datas[0].size,
+                size,
                 Arc::new(SlotImage::Gray(Arc::clone(&buf[1]))),
             )),
             Arc::new(SlotData::new(
                 node.node_id,
                 SlotId(2),
-                slot_datas[0].size,
+                size,
                 Arc::new(SlotImage::Gray(Arc::clone(&buf[2]))),
             )),
             Arc::new(SlotData::new(
                 node.node_id,
                 SlotId(3),
-                slot_datas[0].size,
+                size,
                 Arc::new(SlotImage::Gray(Arc::clone(&buf[3]))),
             )),
         ]
     } else {
         Vec::new()
     }
+}
+
+fn merge_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
+    fn rgba_slot_data_to_buffer(
+        slot_data: Option<&Arc<SlotData>>,
+        buffer_default: &Arc<Box<Buffer>>,
+    ) -> Arc<Box<Buffer>> {
+        if let Some(slot_data) = slot_data {
+            if let SlotImage::Gray(buf) = &*slot_data.image {
+                Arc::clone(&buf)
+            } else {
+                Arc::clone(&buffer_default)
+            }
+        } else {
+            Arc::clone(&buffer_default)
+        }
+    }
+
+    let size = slot_datas[0].size;
+
+    let buffer_default = Arc::new(Box::new(
+        Buffer::from_raw(
+            size.width,
+            size.height,
+            vec![1.0; (size.width * size.height) as usize],
+        )
+        .unwrap(),
+    ));
+
+    vec![Arc::new(SlotData::new(
+        node.node_id,
+        SlotId(0),
+        size,
+        Arc::new(SlotImage::Rgba([
+            rgba_slot_data_to_buffer(slot_datas.get(0), &buffer_default),
+            rgba_slot_data_to_buffer(slot_datas.get(1), &buffer_default),
+            rgba_slot_data_to_buffer(slot_datas.get(2), &buffer_default),
+            rgba_slot_data_to_buffer(slot_datas.get(3), &buffer_default),
+        ])),
+    ))]
 }
 
 trait Sampling {

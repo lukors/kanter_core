@@ -101,6 +101,7 @@ pub enum NodeType {
     Mix(MixType),
     HeightToNormal,
     SplitRgba,
+    MergeRgba,
 }
 
 #[derive(Deserialize, Serialize, Copy, Clone, PartialEq)]
@@ -155,6 +156,7 @@ impl fmt::Debug for NodeType {
             NodeType::Mix(_) => write!(f, "Mix"),
             NodeType::HeightToNormal => write!(f, "HeightToNormal"),
             NodeType::SplitRgba => write!(f, "SplitRgba"),
+            NodeType::MergeRgba => write!(f, "MergeRgba"),
         }
     }
 }
@@ -207,6 +209,7 @@ impl Node {
                 NodeType::Mix(_) => 2,
                 NodeType::HeightToNormal => 1,
                 NodeType::SplitRgba => 1,
+                NodeType::MergeRgba => 4,
             },
             Side::Output => match self.node_type {
                 NodeType::InputGray => 1,
@@ -221,6 +224,7 @@ impl Node {
                 NodeType::Mix(_) => 1,
                 NodeType::HeightToNormal => 1,
                 NodeType::SplitRgba => 4,
+                NodeType::MergeRgba => 1,
             },
         }
     }

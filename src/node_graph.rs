@@ -188,26 +188,19 @@ impl NodeGraph {
     }
 
     /// Adds an rgba input node and exposes its slots externally at the given `SlotId`s.
-    pub fn add_external_input_rgba(&mut self, external_slots: Vec<SlotId>) -> Result<NodeId> {
-        if external_slots.len() != 4 || has_dup(&external_slots) {
-            return Err(TexProError::InvalidNodeId);
-        }
-        for external_slot in &external_slots {
-            if self.external_input_occupied(*external_slot) {
-                return Err(TexProError::SlotOccupied);
-            }
+    pub fn add_external_input_rgba(&mut self, external_slot: SlotId) -> Result<NodeId> {
+        if self.external_input_occupied(external_slot) {
+            return Err(TexProError::SlotOccupied);
         }
 
         let internal_node = self.new_id();
         self.add_node_internal(Node::new(NodeType::InputRgba), internal_node);
 
-        for (i, external_slot) in external_slots.iter().enumerate() {
-            self.input_mappings.push(ExternalMapping {
-                external_slot: *external_slot,
-                internal_node,
-                internal_slot: SlotId(i as u32),
-            });
-        }
+        self.input_mappings.push(ExternalMapping {
+            external_slot,
+            internal_node,
+            internal_slot: SlotId(0),
+        });
 
         Ok(internal_node)
     }
@@ -231,26 +224,19 @@ impl NodeGraph {
     }
 
     /// Adds an rgba output node and exposes its slots externally at the given `SlotId`s.
-    pub fn add_external_output_rgba(&mut self, external_slots: Vec<SlotId>) -> Result<NodeId> {
-        if external_slots.len() != 4 || has_dup(&external_slots) {
-            return Err(TexProError::InvalidNodeId);
-        }
-        for external_slot in &external_slots {
-            if self.external_output_occupied(*external_slot) {
-                return Err(TexProError::SlotOccupied);
-            }
+    pub fn add_external_output_rgba(&mut self, external_slot: SlotId) -> Result<NodeId> {
+        if self.external_output_occupied(external_slot) {
+            return Err(TexProError::SlotOccupied);
         }
 
         let internal_node = self.new_id();
         self.add_node_internal(Node::new(NodeType::OutputRgba), internal_node);
 
-        for (i, external_slot) in external_slots.iter().enumerate() {
-            self.output_mappings.push(ExternalMapping {
-                external_slot: *external_slot,
-                internal_node,
-                internal_slot: SlotId(i as u32),
-            });
-        }
+        self.output_mappings.push(ExternalMapping {
+            external_slot,
+            internal_node,
+            internal_slot: SlotId(0),
+        });
 
         Ok(internal_node)
     }
