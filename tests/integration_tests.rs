@@ -436,49 +436,6 @@ fn unconnected_node() {
         .unwrap();
 }
 
-#[test]
-#[timeout(20000)]
-fn resize_rgba() {
-    const SIZE: u32 = 256;
-    const IN_PATH: &str = &"data/image_2.png";
-    const OUT_PATH: &str = &"out/resize_rgba.png";
-    let tex_pro = TextureProcessor::new();
-
-    let n_in = tex_pro
-        .add_node(Node::new(NodeType::Image(IN_PATH.into())))
-        .unwrap();
-
-    let n_out = tex_pro
-        .add_node(
-            Node::new(NodeType::OutputRgba)
-                .resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
-        )
-        .unwrap();
-
-    for i in 0..4 {
-        tex_pro
-            .connect(n_in, n_out, SlotId(i as u32), SlotId(i as u32))
-            .unwrap();
-    }
-
-    ensure_out_dir();
-    image::save_buffer(
-        &Path::new(OUT_PATH),
-        &image::RgbaImage::from_vec(
-            SIZE,
-            SIZE,
-            tex_pro.get_output_rgba(n_out, SlotId(0)).unwrap(),
-        )
-        .unwrap(),
-        SIZE,
-        SIZE,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
-
-    assert!(images_equal(OUT_PATH, IN_PATH));
-}
-
 // #[test]
 // #[timeout(20000)]
 // fn input_output_2() {
@@ -635,59 +592,18 @@ fn shuffle_channels() {
     assert!(images_equal(PATH_OUT, PATH_CMP));
 }
 
-#[test]
-#[timeout(20000)]
-fn resize_policy_most_pixels() {
-    let tex_pro = TextureProcessor::new();
-
-    let node_128 = tex_pro
-        .add_node(Node::new(NodeType::Image(HEART_128.into())))
-        .unwrap();
-    let node_256 = tex_pro
-        .add_node(Node::new(NodeType::Image(HEART_256.into())))
-        .unwrap();
-    let output = tex_pro
-        .add_node(Node::new(NodeType::OutputRgba).resize_policy(ResizePolicy::MostPixels))
-        .unwrap();
-
-    tex_pro
-        .connect(node_128, output, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .connect(node_256, output, SlotId(0), SlotId(1))
-        .unwrap();
-
-    assert!(
-        tex_pro.node_slot_datas(output).unwrap()[0].size
-            == tex_pro.node_slot_datas(output).unwrap()[1].size
-    );
-}
-
-#[test]
-#[timeout(20000)]
-fn resize_policy_least_pixels() {
-    resize_policy_test(
-        ResizePolicy::LeastPixels,
-        HEART_128,
-        HEART_256,
-        (128, 128),
-        "resize_policy_least_pixels.png",
-    );
-}
-
 fn resize_policy_test(
     resize_policy: ResizePolicy,
     img_path_1: &str,
     img_path_2: &str,
     expected_size: (u32, u32),
-    name: &str,
 ) {
     let tex_pro = TextureProcessor::new();
 
-    let node_128 = tex_pro
+    let image_node_1 = tex_pro
         .add_node(Node::new(NodeType::Image(img_path_1.into())))
         .unwrap();
-    let node_256 = tex_pro
+    let image_node_2 = tex_pro
         .add_node(Node::new(NodeType::Image(img_path_2.into())))
         .unwrap();
 
@@ -696,58 +612,77 @@ fn resize_policy_test(
         mix_node.resize_policy = resize_policy;
         tex_pro.add_node(mix_node).unwrap()
     };
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
 
     tex_pro
-        .connect(node_128, mix_node, SlotId(0), SlotId(0))
+        .connect(image_node_1, mix_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
-        .connect(node_256, mix_node, SlotId(0), SlotId(1))
+        .connect(image_node_2, mix_node, SlotId(0), SlotId(1))
         .unwrap();
 
-    tex_pro
-        .connect(mix_node, output_node, SlotId(0), SlotId(0))
-        .unwrap();
+    let actual_size = tex_pro.node_slot_data(mix_node).unwrap()[0].size;
+    let expected_size = Size::new(expected_size.0, expected_size.1);
+    assert_eq!(
+        actual_size, expected_size,
+        "Actual size: {:?}, Expected size: {:?}",
+        actual_size, expected_size
+    );
+}
 
-    save_and_compare_size(tex_pro, output_node, expected_size, name);
+#[test]
+#[timeout(20000)]
+fn resize_policy_least_pixels() {
+    resize_policy_test(ResizePolicy::LeastPixels, HEART_128, HEART_256, (128, 128));
 }
 
 #[test]
 #[timeout(20000)]
 fn resize_policy_largest_axes() {
-    let tex_pro = TextureProcessor::new();
-
-    let node_256x128 = tex_pro
-        .add_node(Node::new(NodeType::Image(HEART_WIDE.into())))
-        .unwrap();
-    let node_128x256 = tex_pro
-        .add_node(Node::new(NodeType::Image(HEART_TALL.into())))
-        .unwrap();
-    let output = tex_pro
-        .add_node(Node::new(NodeType::OutputRgba).resize_policy(ResizePolicy::LargestAxes))
-        .unwrap();
-
-    tex_pro
-        .connect(node_256x128, output, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .connect(node_128x256, output, SlotId(1), SlotId(1))
-        .unwrap();
-
-    let target_size = Size::new(
-        tex_pro.node_slot_datas(node_256x128).unwrap()[0].size.width,
-        tex_pro.node_slot_datas(node_128x256).unwrap()[0]
-            .size
-            .height,
+    resize_policy_test(
+        ResizePolicy::LargestAxes,
+        HEART_WIDE,
+        HEART_TALL,
+        (128, 128),
     );
+}
 
-    assert_eq!(
-        tex_pro.node_slot_datas(output).unwrap()[0].size,
-        target_size
+#[test]
+#[timeout(20000)]
+fn resize_policy_smallest_axes() {
+    resize_policy_test(ResizePolicy::SmallestAxes, HEART_WIDE, HEART_TALL, (64, 64));
+}
+
+#[test]
+#[timeout(20000)]
+fn resize_policy_most_pixels() {
+    resize_policy_test(ResizePolicy::MostPixels, HEART_128, HEART_256, (256, 256));
+}
+
+#[test]
+#[timeout(20000)]
+fn resize_policy_specific_size() {
+    resize_policy_test(
+        ResizePolicy::SpecificSize(Size::new(256, 256)),
+        HEART_128,
+        HEART_WIDE,
+        (256, 256),
     );
-    assert_eq!(
-        tex_pro.node_slot_datas(output).unwrap()[1].size,
-        target_size
+}
+
+#[test]
+#[timeout(20000)]
+fn resize_policy_specific_slot() {
+    resize_policy_test(
+        ResizePolicy::SpecificSlot(SlotId(1)),
+        HEART_128,
+        HEART_WIDE,
+        (128, 64),
+    );
+    resize_policy_test(
+        ResizePolicy::SpecificSlot(SlotId(2)),
+        HEART_128,
+        HEART_WIDE,
+        (128, 128),
     );
 }
 
@@ -759,19 +694,19 @@ fn save_and_compare_size(tex_pro: TextureProcessor, node_id: NodeId, size: (u32,
     let (path_out, path_cmp) = build_paths(name);
 
     ensure_out_dir();
-    image::save_buffer(
-        &path_out,
-        &image::RgbaImage::from_vec(
-            size.0,
-            size.1,
-            tex_pro.get_output_rgba(node_id, SlotId(0)).unwrap(),
-        )
-        .unwrap(),
-        size.0,
-        size.1,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
+    let vec = tex_pro.get_output_rgba(node_id, SlotId(0)).unwrap();
+    let vec_len = vec.len();
+    let buf = &image::RgbaImage::from_vec(size.0, size.1, vec).expect(&format!(
+        "Buffer was not big enough, \
+        expected image size: {:?}, \
+        number of pixels: {}, \
+        Sqrt(number of pixels) = {}",
+        size,
+        vec_len,
+        (vec_len as f32).sqrt()
+    ));
+
+    image::save_buffer(&path_out, buf, size.0, size.1, image::ColorType::RGBA(8)).unwrap();
 
     assert!(images_equal(path_out, path_cmp));
 }

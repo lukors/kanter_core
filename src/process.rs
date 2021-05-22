@@ -36,7 +36,7 @@ pub fn process_node(
         edges.sort_unstable_by(|a, b| a.input_slot.cmp(&b.input_slot));
 
         let slot_datas: Vec<Arc<SlotData>> =
-            resize_buffers(&slot_datas, node.resize_policy, node.resize_filter)?;
+            resize_buffers(&slot_datas, &edges, node.resize_policy, node.resize_filter)?;
 
         edges
             .iter()

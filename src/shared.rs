@@ -1,4 +1,7 @@
-use crate::error::{Result, TexProError};
+use crate::{
+    error::{Result, TexProError},
+    node_graph::Edge,
+};
 use crate::{node::*, slot_data::*};
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Luma, RgbaImage};
 use std::{
@@ -83,6 +86,7 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<BoxBuffer> {
 
 pub fn resize_buffers(
     slot_datas: &[Arc<SlotData>],
+    edges: &[Edge],
     policy: ResizePolicy,
     filter: ResizeFilter,
 ) -> Result<Vec<Arc<SlotData>>> {
@@ -110,11 +114,22 @@ pub fn resize_buffers(
                 Size::new(min(a.width, b.size.width), min(a.height, b.size.height))
             }),
         ResizePolicy::SpecificSlot(slot_id) => {
-            slot_datas
+            let edge = edges
                 .iter()
-                .find(|node_data| node_data.slot_id == slot_id)
-                .expect("Couldn't find a buffer with the given `NodeId` while resizing")
-                .size
+                .find(|edge| edge.input_slot == slot_id)
+                .or_else(|| edges.first());
+
+            if let Some(edge) = edge {
+                slot_datas
+                    .iter()
+                    .find(|node_data| {
+                        node_data.slot_id == edge.output_slot && node_data.node_id == edge.output_id
+                    })
+                    .expect("Couldn't find a buffer with the given `NodeId` while resizing")
+                    .size
+            } else {
+                Size::new(1, 1)
+            }
         }
         ResizePolicy::SpecificSize(size) => size,
     };
