@@ -213,6 +213,14 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
 
     let size = slot_datas[0].size;
 
+    // Since the tests for rgba SlotDatas almost all work now, maybe its time to tackle handling
+    // Slots as real things rather than amounts on each side of nodes.
+    //
+    // For this function I need to specifically know which slot is occupied to know what to do,
+    // and it would be trivial and less error prone to do that if slots were named etc.
+    //
+    // I need to do that either way so might as well do it now.
+    
     let slot_image: SlotImage = match (&*slot_datas[0].image, &*slot_datas[1].image) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {
             SlotImage::Gray(Arc::new(Box::new(match mix_type {

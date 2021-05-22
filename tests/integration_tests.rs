@@ -177,15 +177,10 @@ fn input_output_intercept() {
 #[test]
 #[timeout(20000)]
 fn mix_node_single_input() {
-    const SIZE: u32 = 256;
-    let path_in = IMAGE_2.to_string();
-    const PATH_OUT: &str = &"out/mix_node_single_input.png";
-    const PATH_CMP: &str = &"data/test_compare/mix_node_single_input.png";
-
     let tex_pro = TextureProcessor::new();
 
     let value_node = tex_pro
-        .add_node(Node::new(NodeType::Image(path_in.clone().into())))
+        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
     let mix_node = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::Add)))
@@ -199,19 +194,7 @@ fn mix_node_single_input() {
         .connect(mix_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
 
-    let output = tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap();
-
-    ensure_out_dir();
-    image::save_buffer(
-        &Path::new(&PATH_OUT),
-        &image::RgbaImage::from_vec(SIZE, SIZE, output).unwrap(),
-        SIZE,
-        SIZE,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
-
-    assert!(images_equal(PATH_CMP, PATH_OUT));
+    save_and_compare(tex_pro, output_node, "mix_node_single_input.png");
 }
 
 #[test]
@@ -333,7 +316,7 @@ fn repeat_process() {
 
 #[test]
 #[timeout(20000)]
-fn mix_images() {
+fn split_node() {
     let tex_pro = TextureProcessor::new();
 
     let input_1 = tex_pro
@@ -516,9 +499,6 @@ fn connect_invalid_slot() {
 #[test]
 #[timeout(20000)]
 fn value_node() {
-    const PATH_OUT: &str = &"out/value_node.png";
-    const PATH_CMP: &str = &"data/test_compare/value_node.png";
-
     let tex_pro = TextureProcessor::new();
 
     let red_node = tex_pro.add_node(Node::new(NodeType::Value(0.))).unwrap();
@@ -526,70 +506,20 @@ fn value_node() {
     let blue_node = tex_pro.add_node(Node::new(NodeType::Value(0.66))).unwrap();
     let alpha_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
 
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let merge_node = {
+        let mut node = Node::new(NodeType::MergeRgba);
+        node.resize_policy = ResizePolicy::SpecificSize(Size::new(256, 256));
+        tex_pro.add_node(node).unwrap()
+    };
 
     let node_ids = [red_node, green_node, blue_node, alpha_node];
     for i in 0..4 {
         tex_pro
-            .connect(node_ids[i], output_node, SlotId(0), SlotId(i as u32))
+            .connect(node_ids[i], merge_node, SlotId(0), SlotId(i as u32))
             .unwrap();
     }
 
-    ensure_out_dir();
-    image::save_buffer(
-        &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(
-            1,
-            1,
-            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
-        )
-        .unwrap(),
-        1,
-        1,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
-
-    assert!(images_equal(PATH_OUT, PATH_CMP));
-}
-
-#[test]
-#[timeout(20000)]
-fn shuffle_channels() {
-    const PATH_OUT: &str = &"out/shuffle_channels.png";
-    const PATH_CMP: &str = &"data/test_compare/shuffle_channels.png";
-
-    let tex_pro = TextureProcessor::new();
-
-    let image_node = tex_pro
-        .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-        .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
-    let output_slots = [SlotId(3), SlotId(1), SlotId(2), SlotId(0)];
-    for i in 0..4 {
-        tex_pro
-            .connect(image_node, output_node, SlotId(i), output_slots[i as usize])
-            .unwrap();
-    }
-
-    ensure_out_dir();
-    let size = 256;
-    image::save_buffer(
-        &Path::new(PATH_OUT),
-        &image::RgbaImage::from_vec(
-            size,
-            size,
-            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
-        )
-        .unwrap(),
-        size,
-        size,
-        image::ColorType::RGBA(8),
-    )
-    .unwrap();
-
-    assert!(images_equal(PATH_OUT, PATH_CMP));
+    save_and_compare(tex_pro, merge_node, "value_node.png");
 }
 
 fn resize_policy_test(
@@ -944,17 +874,17 @@ fn graph_node_gray() {
     assert!(images_equal(path_out, path_cmp));
 }
 
-#[test]
-#[should_panic]
-#[timeout(20000)]
-fn wrong_slot_type() {
-    let tex_pro = TextureProcessor::new();
+// #[test]
+// #[should_panic]
+// #[timeout(20000)]
+// fn wrong_slot_type() {
+//     let tex_pro = TextureProcessor::new();
 
-    tex_pro
-        .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
-        .unwrap();
-    tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
-}
+//     tex_pro
+//         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+//         .unwrap();
+//     tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+// }
 
 // #[test]
 // #[timeout(20000)]
