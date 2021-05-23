@@ -273,7 +273,7 @@ fn embedded_node_data() {
         .embed_slot_data_with_id(Arc::clone(&node_data[0]), EmbeddedNodeDataId(0))
         .unwrap();
     let input = tex_pro_2
-        .add_node(Node::new(NodeType::NodeData(end_id)))
+        .add_node(Node::new(NodeType::Embedded(end_id)))
         .unwrap();
     tex_pro_2
         .connect(input, tp2_output_node, SlotId(0), SlotId(0))

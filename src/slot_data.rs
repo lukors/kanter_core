@@ -1,7 +1,7 @@
 use crate::{node::EmbeddedNodeDataId, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
-use std::{fmt, sync::Arc};
+use std::{fmt, mem, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub enum SlotImage {
@@ -9,12 +9,55 @@ pub enum SlotImage {
     Rgba([Arc<BoxBuffer>; 4]),
 }
 
+impl PartialEq for SlotImage {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
 impl SlotImage {
+    pub fn from_value(size: Size, value: ChannelPixel, rgba: bool) -> Self {
+        if rgba {
+            Self::Rgba([
+                Arc::new(Box::new(
+                    Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()])
+                        .unwrap(),
+                )),
+                Arc::new(Box::new(
+                    Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()])
+                        .unwrap(),
+                )),
+                Arc::new(Box::new(
+                    Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()])
+                        .unwrap(),
+                )),
+                Arc::new(Box::new(
+                    Buffer::from_raw(size.width, size.height, vec![1.0; size.pixel_count()])
+                        .unwrap(),
+                )),
+            ])
+        } else {
+            Self::Gray(Arc::new(Box::new(
+                Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()]).unwrap(),
+            )))
+        }
+    }
+
     pub fn size(&self) -> Size {
         match self {
             Self::Gray(buf) => Size::new(buf.width(), buf.height()),
             Self::Rgba(bufs) => Size::new(bufs[0].width(), bufs[0].height()),
         }
+    }
+
+    pub fn is_rgba(&self) -> bool {
+        mem::discriminant(self)
+            == mem::discriminant(&Self::Rgba([
+                Arc::new(Box::new(Buffer::from_raw(0, 0, Vec::new()).unwrap())),
+                Arc::new(Box::new(Buffer::from_raw(0, 0, Vec::new()).unwrap())),
+                Arc::new(Box::new(Buffer::from_raw(0, 0, Vec::new()).unwrap())),
+                Arc::new(Box::new(Buffer::from_raw(0, 0, Vec::new()).unwrap())),
+            ]))
     }
 }
 
@@ -64,8 +107,8 @@ impl Size {
         Size { width, height }
     }
 
-    pub fn pixel_count(self) -> u32 {
-        self.width * self.height
+    pub fn pixel_count(self) -> usize {
+        (self.width * self.height) as usize
     }
 }
 
@@ -92,6 +135,15 @@ impl SlotData {
             size,
             image,
         }
+    }
+
+    pub fn from_value(size: Size, value: ChannelPixel, rgba: bool) -> Self {
+        Self::new(
+            NodeId(0),
+            SlotId(0),
+            size,
+            Arc::new(SlotImage::from_value(size, value, rgba)),
+        )
     }
 }
 

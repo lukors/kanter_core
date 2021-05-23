@@ -158,107 +158,64 @@ impl NodeGraph {
         self.nodes.iter_mut().find(|node| node.node_id == node_id)
     }
 
-    pub fn node_has_slot(&self, node_id: NodeId, side: Side, slot_id: SlotId) -> Result<()> {
-        let node = self.node_with_id(node_id)?;
-        node.slot_exists(slot_id, side)
-    }
-
-    fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) {
+    fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) -> Result<NodeId> {
+        match node.node_type {
+            NodeType::InputGray(name) |
+            NodeType::InputRgba(name) => {
+                if self.input_names().contains(&name) {
+                    return Err(TexProError::InvalidName);
+                }
+            }
+            NodeType::OutputGray(name) |
+            NodeType::OutputRgba(name) => {
+                if self.output_names().contains(&name) {
+                    return Err(TexProError::InvalidName);
+                }
+            }
+            _ => ()
+        }
+        
         node.node_id = node_id;
         self.nodes.push(node);
+
+        Ok(node_id)
     }
 
-    /// Adds a grayscale input node and exposes its slots externally at the given `SlotId`.
-    pub fn add_external_input_gray(&mut self, external_slot: SlotId) -> Result<NodeId> {
-        if self.external_input_occupied(external_slot) {
-            return Err(TexProError::SlotOccupied);
-        }
-
-        let internal_node = self.new_id();
-        self.add_node_internal(Node::new(NodeType::InputGray), internal_node);
-
-        self.input_mappings.push(ExternalMapping {
-            external_slot,
-            internal_node,
-            internal_slot: SlotId(0),
-        });
-
-        Ok(internal_node)
+    pub fn input_nodes(&self) -> Vec<&Node> {
+        self.nodes.iter().filter(|node| node.node_type.is_input()).collect()
     }
 
-    /// Adds an rgba input node and exposes its slots externally at the given `SlotId`s.
-    pub fn add_external_input_rgba(&mut self, external_slot: SlotId) -> Result<NodeId> {
-        if self.external_input_occupied(external_slot) {
-            return Err(TexProError::SlotOccupied);
-        }
-
-        let internal_node = self.new_id();
-        self.add_node_internal(Node::new(NodeType::InputRgba), internal_node);
-
-        self.input_mappings.push(ExternalMapping {
-            external_slot,
-            internal_node,
-            internal_slot: SlotId(0),
-        });
-
-        Ok(internal_node)
+    pub fn output_nodes(&self) -> Vec<&Node> {
+        self.nodes.iter().filter(|node| node.node_type.is_output()).collect()
     }
 
-    /// Adds a grayscale output node and exposes its slots externally at the given `SlotId`.
-    pub fn add_external_output_gray(&mut self, external_slot: SlotId) -> Result<NodeId> {
-        if self.external_output_occupied(external_slot) {
-            return Err(TexProError::SlotOccupied);
-        }
-
-        let internal_node = self.new_id();
-        self.add_node_internal(Node::new(NodeType::OutputGray), internal_node);
-
-        self.output_mappings.push(ExternalMapping {
-            external_slot,
-            internal_node,
-            internal_slot: SlotId(0),
-        });
-
-        Ok(internal_node)
+    pub fn input_names(&self) -> Vec<String> {
+        self.input_nodes().iter().map(|node| {
+            if let NodeType::InputGray(name) | NodeType::InputRgba(name) = node.node_type {
+                name
+            } else {
+                unreachable!();
+            }
+        }).collect()
     }
 
-    /// Adds an rgba output node and exposes its slots externally at the given `SlotId`s.
-    pub fn add_external_output_rgba(&mut self, external_slot: SlotId) -> Result<NodeId> {
-        if self.external_output_occupied(external_slot) {
-            return Err(TexProError::SlotOccupied);
-        }
-
-        let internal_node = self.new_id();
-        self.add_node_internal(Node::new(NodeType::OutputRgba), internal_node);
-
-        self.output_mappings.push(ExternalMapping {
-            external_slot,
-            internal_node,
-            internal_slot: SlotId(0),
-        });
-
-        Ok(internal_node)
+    pub fn output_names(&self) -> Vec<String> {
+        self.output_nodes().iter().map(|node| {
+            if let NodeType::OutputGray(name) | NodeType::OutputRgba(name) = node.node_type {
+                name
+            } else {
+                unreachable!();
+            }
+        }).collect()
     }
 
-    /// Checks if the given external input `SlotId` is occupied.
-    fn external_input_occupied(&self, external_slot_check: SlotId) -> bool {
-        self.input_mappings
-            .iter()
-            .any(|input_mapping| input_mapping.external_slot == external_slot_check)
-    }
-
-    /// Checks if the given external output `SlotId` is occupied.
-    fn external_output_occupied(&self, external_slot_check: SlotId) -> bool {
-        self.output_mappings
-            .iter()
-            .any(|output_mapping| output_mapping.external_slot == external_slot_check)
+    pub fn input_slots(&self) -> Vec<SlotInput> {
+        self.input_nodes().iter().map(|node| {
+            
+        })
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
-        if node.node_type == NodeType::InputRgba || node.node_type == NodeType::InputGray {
-            return Err(TexProError::InvalidNodeType);
-        }
-
         let node_id = self.new_id();
         self.add_node_internal(node, node_id);
 
@@ -273,38 +230,6 @@ impl NodeGraph {
         }
 
         Ok(node_id)
-    }
-
-    pub fn input_count(&self) -> usize {
-        let input_rgba_count = self
-            .nodes
-            .iter()
-            .filter(|node| node.node_type == NodeType::InputRgba)
-            .count();
-
-        let input_gray_count = self
-            .nodes
-            .iter()
-            .filter(|node| node.node_type == NodeType::InputGray)
-            .count();
-
-        input_rgba_count * 4 + input_gray_count
-    }
-
-    pub fn output_count(&self) -> usize {
-        let output_rgba_count = self
-            .nodes
-            .iter()
-            .filter(|node| node.node_type == NodeType::OutputRgba)
-            .count();
-
-        let output_gray_count = self
-            .nodes
-            .iter()
-            .filter(|node| node.node_type == NodeType::OutputGray)
-            .count();
-
-        output_rgba_count * 4 + output_gray_count
     }
 
     /// Returns all `NodeId`s that belong to `OutputRgba` or `OutputGray` nodes.
@@ -322,7 +247,7 @@ impl NodeGraph {
         self.nodes
             .iter()
             .filter(|node| {
-                node.node_type == NodeType::InputRgba || node.node_type == NodeType::InputGray
+                node.node_type.is_input()
             })
             .map(|node| node.node_id)
             .collect()
@@ -387,8 +312,8 @@ impl NodeGraph {
         let output_node = self.node_with_id(output_node_id)?;
         let input_node = self.node_with_id(input_node_id)?;
 
-        output_node.slot_exists(output_slot, Side::Output)?;
-        input_node.slot_exists(input_slot, Side::Input)?;
+        output_node.output_slot_with_id(output_slot)?;
+        input_node.input_slot_with_id(input_slot)?;
 
         let _ = self.disconnect_slot(input_node_id, Side::Input, input_slot);
 

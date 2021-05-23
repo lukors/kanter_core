@@ -19,6 +19,7 @@ pub enum TexProError {
     TryLockError,
     NodeDirty,
     Io(io::Error),
+    InvalidName,
 }
 
 impl fmt::Display for TexProError {
@@ -39,6 +40,9 @@ impl fmt::Display for TexProError {
             Self::TryLockError => f.write_str("Error when trying to lock"),
             Self::NodeDirty => f.write_str("The node is not up to date"),
             Self::Io(ref e) => e.fmt(f),
+            Self::InvalidName => f.write_str(
+                "Invalid name, can only contain lowercase letters, numbers and underscores",
+            ),
         }
     }
 }

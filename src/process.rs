@@ -17,12 +17,6 @@ pub fn process_node(
     input_slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<SlotData>>> {
-    assert!(
-        slot_datas.len() <= node.capacity(Side::Input),
-        "slot_datas.len(): {:?}, node.capacity(Side::Input): {:?}",
-        slot_datas.len(),
-        node.capacity(Side::Input)
-    );
     assert_eq!(
         edges.len(),
         slot_datas.len(),
@@ -30,7 +24,7 @@ pub fn process_node(
         node.node_type
     );
 
-    // Slot datas resized and sorted by input node id.
+    // Slot datas resized, sorted by input `SlotId` and given the `SlotId` they belong in.
     let slot_datas = {
         let mut edges = edges.to_vec();
         edges.sort_unstable_by(|a, b| a.input_slot.cmp(&b.input_slot));
@@ -38,27 +32,16 @@ pub fn process_node(
         let slot_datas: Vec<Arc<SlotData>> =
             resize_buffers(&slot_datas, &edges, node.resize_policy, node.resize_filter)?;
 
-        edges
-            .iter()
-            .map(|edge| {
-                slot_datas
-                    .iter()
-                    .find(|slot_data| {
-                        edge.output_slot == slot_data.slot_id && edge.output_id == slot_data.node_id
-                    })
-                    .unwrap()
-                    .clone()
-            })
-            .collect::<Vec<Arc<SlotData>>>()
+        assign_slot_ids(&slot_datas, &edges)
     };
 
     let output: Vec<Arc<SlotData>> = match node.node_type {
         NodeType::InputRgba => input_rgba(&node, &input_slot_datas),
         NodeType::InputGray => input_gray(&node, &input_slot_datas),
         NodeType::OutputRgba | NodeType::OutputGray => output(&slot_datas, &node),
-        NodeType::Graph(ref node_graph) => graph(&slot_datas, &node, node_graph)?,
+        NodeType::Graph(ref node_graph) => process_graph(&slot_datas, &node, node_graph)?,
         NodeType::Image(ref path) => image(&node, path)?,
-        NodeType::NodeData(embedded_node_data_id) => {
+        NodeType::Embedded(embedded_node_data_id) => {
             image_buffer(&node, embedded_slot_datas, embedded_node_data_id)?
         }
         NodeType::Write(ref path) => write(&slot_datas, path)?,
@@ -69,8 +52,27 @@ pub fn process_node(
         NodeType::MergeRgba => merge_rgba(&slot_datas, &node),
     };
 
-    assert!(output.len() <= node.capacity(Side::Output));
     Ok(output)
+}
+
+fn assign_slot_ids(slot_datas: &Vec<Arc<SlotData>>, edges: &[Edge]) -> Vec<Arc<SlotData>> {
+    edges
+        .iter()
+        .map(|edge| {
+            let slot_data = slot_datas
+                .iter()
+                .find(|slot_data| {
+                    edge.output_slot == slot_data.slot_id && edge.output_id == slot_data.node_id
+                })
+                .unwrap();
+            Arc::new(SlotData::new(
+                edge.input_id,
+                edge.input_slot,
+                slot_data.size,
+                Arc::clone(&slot_data.image),
+            ))
+        })
+        .collect::<Vec<Arc<SlotData>>>()
 }
 
 fn input_gray(node: &Node, input_node_datas: &[Arc<SlotData>]) -> Vec<Arc<SlotData>> {
@@ -85,16 +87,11 @@ fn input_gray(node: &Node, input_node_datas: &[Arc<SlotData>]) -> Vec<Arc<SlotDa
 }
 
 fn input_rgba(node: &Node, input_node_datas: &[Arc<SlotData>]) -> Vec<Arc<SlotData>> {
-    let mut new_node_datas: Vec<Arc<SlotData>> = Vec::with_capacity(node.capacity(Side::Input));
+    let mut output = (*input_node_datas[0]).clone();
+    output.slot_id = SlotId(0);
+    output.node_id = node.node_id;
 
-    for node_data in input_node_datas
-        .iter()
-        .filter(|nd| nd.node_id == node.node_id)
-    {
-        new_node_datas.push(Arc::clone(&node_data));
-    }
-
-    new_node_datas
+    vec![Arc::new(output)]
 }
 
 fn image_buffer(
@@ -126,7 +123,7 @@ fn output(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
 }
 
 /// Executes the node graph contained in the node.
-fn graph(
+fn process_graph(
     node_datas: &[Arc<SlotData>],
     node: &Node,
     graph: &NodeGraph,
@@ -211,17 +208,36 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
         return Vec::new();
     }
 
-    let size = slot_datas[0].size;
+    dbg!(node.input_slot_with_name("left".into()).unwrap().slot_id);
+    dbg!(node.input_slot_with_name("right".into()).unwrap().slot_id);
+    dbg!(slot_datas.len());
 
-    // Since the tests for rgba SlotDatas almost all work now, maybe its time to tackle handling
-    // Slots as real things rather than amounts on each side of nodes.
-    //
-    // For this function I need to specifically know which slot is occupied to know what to do,
-    // and it would be trivial and less error prone to do that if slots were named etc.
-    //
-    // I need to do that either way so might as well do it now.
-    
-    let slot_image: SlotImage = match (&*slot_datas[0].image, &*slot_datas[1].image) {
+    let size = slot_datas[0].size;
+    let is_rgba = Arc::clone(&slot_datas[0].image).is_rgba();
+
+    let image_left = Arc::clone(
+        &slot_data_with_slot_id(
+            &slot_datas,
+            node.input_slot_with_name("left".into()).unwrap().slot_id,
+        )
+        .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
+        .image,
+    );
+
+    let image_right = Arc::clone(
+        &slot_data_with_slot_id(
+            &slot_datas,
+            node.input_slot_with_name("right".into()).unwrap().slot_id,
+        )
+        .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
+        .image,
+    );
+
+    if image_left.is_rgba() != image_right.is_rgba() {
+        return Vec::new();
+    }
+
+    let slot_image: SlotImage = match (&*image_left, &*image_right) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {
             SlotImage::Gray(Arc::new(Box::new(match mix_type {
                 MixType::Add => process_add_gray(left, right, size),
@@ -247,6 +263,17 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
         size,
         Arc::new(slot_image),
     ))]
+}
+
+fn slot_data_with_slot_id(slot_datas: &[Arc<SlotData>], slot_id: SlotId) -> Option<Arc<SlotData>> {
+    if let Some(slot_data) = slot_datas
+        .iter()
+        .find(|slot_data| slot_data.slot_id == slot_id)
+    {
+        Some(Arc::clone(slot_data))
+    } else {
+        None
+    }
 }
 
 fn process_add_gray(left: &Arc<BoxBuffer>, right: &Arc<BoxBuffer>, size: Size) -> Buffer {
