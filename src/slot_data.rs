@@ -177,13 +177,49 @@ impl SlotData {
     }
 }
 
+trait SrgbColorSpace {
+    fn linear_to_srgb(self) -> f32;
+    fn srgb_to_linear(self) -> f32;
+}
+
+// source: https://entropymine.com/imageworsener/srgbformula/
+impl SrgbColorSpace for f32 {
+    fn linear_to_srgb(self) -> f32 {
+        if self <= 0.0 {
+            return self;
+        }
+
+        if self <= 0.0031308 {
+            self * 12.92 // linear falloff in dark values
+        } else {
+            (1.055 * self.powf(1.0 / 2.4)) - 0.055 // gamma curve in other area
+        }
+    }
+
+    fn srgb_to_linear(self) -> f32 {
+        if self <= 0.0 {
+            return self;
+        }
+        if self <= 0.04045 {
+            self / 12.92 // linear falloff in dark values
+        } else {
+            ((self + 0.055) / 1.055).powf(2.4) // gamma curve in other area
+        }
+    }
+}
+
 impl SlotImage {
+    #[inline]
+    fn f32_to_u8(value: f32) -> u8 {
+        ((value.clamp(0.0, 1.0) * 255.).min(255.)) as u8
+    }
+
     pub fn to_u8(&self) -> Vec<u8> {
         match self {
             Self::Gray(buf) => buf
                 .pixels()
                 .map(|x| {
-                    let value = ((x[0].clamp(0.0, 1.0) * 255.).min(255.)) as u8;
+                    let value = Self::f32_to_u8(x[0]);
                     vec![value, value, value, 255]
                 })
                 .flatten()
@@ -195,7 +231,33 @@ impl SlotImage {
                 .zip(bufs[3].pixels())
                 .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
                 .flatten()
-                .map(|x| ((x[0].clamp(0.0, 1.0) * 255.).min(255.)) as u8)
+                .map(|x| Self::f32_to_u8(x[0]))
+                .collect(),
+        }
+    }
+
+    pub fn to_u8_srgb(&self) -> Vec<u8> {
+        #[inline]
+        fn f32_to_u8_srgb(value: f32) -> u8 {
+            ((value.clamp(0.0, 1.0).srgb_to_linear() * 255.).min(255.)) as u8
+        }
+
+        match self {
+            Self::Gray(buf) => buf
+                .pixels()
+                .map(|x| {
+                    let value = f32_to_u8_srgb(x[0]);
+                    vec![value, value, value, 255]
+                })
+                .flatten()
+                .collect(),
+            Self::Rgba(bufs) => bufs[0]
+                .pixels()
+                .zip(bufs[1].pixels())
+                .zip(bufs[2].pixels())
+                .zip(bufs[3].pixels())
+                .map(|(((r, g), b), a)| vec![f32_to_u8_srgb(r.data[0]), f32_to_u8_srgb(g.data[0]), f32_to_u8_srgb(b.data[0]), Self::f32_to_u8(a.data[0])])
+                .flatten()
                 .collect(),
         }
     }
