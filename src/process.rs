@@ -48,8 +48,8 @@ pub fn process_node(
         NodeType::Value(val) => value(&node, val),
         NodeType::Mix(mix_type) => process_mix(&slot_datas, &node, mix_type),
         NodeType::HeightToNormal => process_height_to_normal(&slot_datas, &node),
-        NodeType::SplitRgba => split_rgba(&slot_datas, &node),
-        NodeType::MergeRgba => merge_rgba(&slot_datas, &node),
+        NodeType::SeparateRgba => separate_rgba(&slot_datas, &node),
+        NodeType::CombineRgba => combine_rgba(&slot_datas, &node),
     };
 
     Ok(output)
@@ -449,7 +449,7 @@ fn process_height_to_normal(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Ar
     ))]
 }
 
-fn split_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
+fn separate_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
     if let SlotImage::Rgba(buf) = &*slot_datas[0].image {
         let size = slot_datas[0].size;
         vec![
@@ -483,7 +483,7 @@ fn split_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
     }
 }
 
-fn merge_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
+fn combine_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
     fn rgba_slot_data_to_buffer(
         slot_data: Option<&Arc<SlotData>>,
         buffer_default: &Arc<Box<Buffer>>,

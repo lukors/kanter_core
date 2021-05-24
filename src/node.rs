@@ -101,8 +101,8 @@ pub enum NodeType {
     Value(f32),
     Mix(MixType),
     HeightToNormal,
-    SplitRgba,
-    MergeRgba,
+    SeparateRgba,
+    CombineRgba,
 }
 
 impl PartialEq for NodeType {
@@ -186,8 +186,8 @@ impl fmt::Debug for NodeType {
             NodeType::Value(value) => write!(f, "Value: {}", value),
             NodeType::Mix(_) => write!(f, "Mix"),
             NodeType::HeightToNormal => write!(f, "HeightToNormal"),
-            NodeType::SplitRgba => write!(f, "SplitRgba"),
-            NodeType::MergeRgba => write!(f, "MergeRgba"),
+            NodeType::SeparateRgba => write!(f, "SeparateRgba"),
+            NodeType::CombineRgba => write!(f, "CombineRgba"),
         }
     }
 }
@@ -247,10 +247,10 @@ impl Node {
             NodeType::HeightToNormal => {
                 vec![SlotInput::new("input".into(), SlotId(0), SlotType::Gray)]
             }
-            NodeType::SplitRgba => {
+            NodeType::SeparateRgba => {
                 vec![SlotInput::new("input".into(), SlotId(0), SlotType::Rgba)]
             }
-            NodeType::MergeRgba => vec![
+            NodeType::CombineRgba => vec![
                 SlotInput::new("red".into(), SlotId(0), SlotType::Gray),
                 SlotInput::new("green".into(), SlotId(1), SlotType::Gray),
                 SlotInput::new("blue".into(), SlotId(2), SlotType::Gray),
@@ -284,13 +284,13 @@ impl Node {
             NodeType::HeightToNormal => {
                 vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
             }
-            NodeType::SplitRgba => vec![
+            NodeType::SeparateRgba => vec![
                 SlotOutput::new("red".into(), SlotId(0), SlotType::Gray),
                 SlotOutput::new("green".into(), SlotId(1), SlotType::Gray),
                 SlotOutput::new("blue".into(), SlotId(2), SlotType::Gray),
                 SlotOutput::new("alpha".into(), SlotId(3), SlotType::Gray),
             ],
-            NodeType::MergeRgba => {
+            NodeType::CombineRgba => {
                 vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
             }
         }
