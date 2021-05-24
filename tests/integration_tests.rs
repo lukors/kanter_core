@@ -1,5 +1,5 @@
 use kanter_core::{
-    node::{EmbeddedNodeDataId, MixType, Node, NodeType, ResizeFilter, ResizePolicy},
+    node::{EmbeddedSlotDataId, MixType, Node, NodeType, ResizeFilter, ResizePolicy},
     node_graph::{NodeGraph, NodeId, SlotId},
     slot_data::Size,
     texture_processor::TextureProcessor,
@@ -59,7 +59,7 @@ fn input_output() {
         &image::RgbaImage::from_vec(
             SIZE,
             SIZE,
-            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+            tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap(),
         )
         .unwrap(),
         SIZE,
@@ -88,7 +88,7 @@ fn request_empty_buffer() {
         .unwrap();
 
     #[allow(unused_variables)]
-    let nothing = tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap();
+    let nothing = tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap();
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn input_output_intercept() {
     let mut intercepted = false;
     loop {
         if !intercepted {
-            if let Ok(buffer) = tex_pro.try_get_output_rgba(resize_node_1, SlotId(0)) {
+            if let Ok(buffer) = tex_pro.try_buffer_rgba(resize_node_1, SlotId(0)) {
                 ensure_out_dir();
                 image::save_buffer(
                     &Path::new(&PATH_OUT_INTERCEPT),
@@ -164,7 +164,7 @@ fn input_output_intercept() {
             }
         }
 
-        if let Ok(buffer) = tex_pro.try_get_output_rgba(output_node, SlotId(0)) {
+        if let Ok(buffer) = tex_pro.try_buffer_rgba(output_node, SlotId(0)) {
             ensure_out_dir();
             image::save_buffer(
                 &Path::new(&PATH_OUT),
@@ -232,7 +232,7 @@ fn mix_node_single_input_2() {
         .connect(mix_node, output_node, SlotId(0), SlotId(0))
         .unwrap();
 
-    let output = tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap();
+    let output = tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap();
 
     ensure_out_dir();
     image::save_buffer(
@@ -286,7 +286,7 @@ fn embedded_node_data() {
         .unwrap();
 
     let end_id = tex_pro_2
-        .embed_slot_data_with_id(Arc::clone(&node_data[0]), EmbeddedNodeDataId(0))
+        .embed_slot_data_with_id(Arc::clone(&node_data[0]), EmbeddedSlotDataId(0))
         .unwrap();
     let input = tex_pro_2
         .add_node(Node::new(NodeType::Embedded(end_id)))
@@ -302,7 +302,7 @@ fn embedded_node_data() {
             256,
             256,
             tex_pro_2
-                .get_output_rgba(tp2_output_node, SlotId(0))
+                .buffer_rgba(tp2_output_node, SlotId(0))
                 .unwrap(),
         )
         .unwrap(),
@@ -415,7 +415,7 @@ fn irregular_sizes() {
         &image::RgbaImage::from_vec(
             size.width,
             size.height,
-            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+            tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap(),
         )
         .unwrap(),
         size.width,
@@ -604,7 +604,7 @@ fn save_and_compare_size(tex_pro: TextureProcessor, node_id: NodeId, size: (u32,
     let (path_out, path_cmp) = build_paths(name);
 
     ensure_out_dir();
-    let vec = tex_pro.get_output_rgba(node_id, SlotId(0)).unwrap();
+    let vec = tex_pro.buffer_rgba(node_id, SlotId(0)).unwrap();
     let vec_len = vec.len();
     let buf = &image::RgbaImage::from_vec(size.0, size.1, vec).expect(&format!(
         "Buffer was not big enough, \
@@ -835,7 +835,7 @@ fn graph_node_rgba() {
         &image::RgbaImage::from_vec(
             256,
             256,
-            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+            tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap(),
         )
         .unwrap(),
         256,
@@ -906,7 +906,7 @@ fn graph_node_gray() {
         &image::RgbaImage::from_vec(
             256,
             256,
-            tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
+            tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap(),
         )
         .unwrap(),
         256,

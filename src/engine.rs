@@ -1,6 +1,6 @@
 use crate::{
     error::{Result, TexProError},
-    node::{EmbeddedNodeDataId, Node, Side},
+    node::{EmbeddedSlotDataId, Node, Side},
     node_graph::*,
     process::*,
     slot_data::*,
@@ -34,7 +34,7 @@ impl Default for NodeState {
 pub struct Engine {
     pub node_graph: NodeGraph,
     pub slot_datas: Vec<Arc<SlotData>>,
-    pub embedded_slot_datas: Vec<Arc<EmbeddedNodeData>>,
+    pub embedded_slot_datas: Vec<Arc<EmbeddedSlotData>>,
     pub input_slot_datas: Vec<Arc<SlotData>>,
     node_states: BTreeMap<NodeId, NodeState>,
     changed: BTreeSet<NodeId>,
@@ -130,7 +130,7 @@ impl Engine {
 
                     let node = tex_pro.node_graph.node_with_id(node_id).unwrap();
 
-                    let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = tex_pro
+                    let embedded_node_datas: Vec<Arc<EmbeddedSlotData>> = tex_pro
                         .embedded_slot_datas
                         .iter()
                         .map(|end| Arc::clone(&end))
@@ -226,6 +226,13 @@ impl Engine {
         for node_id in self.node_graph.output_ids() {
             self.request(node_id).unwrap();
         }
+    }
+
+    pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+        Ok(self
+            .slot_data(node_id, slot_id)?
+            .image
+            .to_rgba())
     }
 
     /// Return all changed `NodeId`s.
@@ -458,15 +465,15 @@ impl Engine {
     pub fn embed_node_data_with_id(
         &mut self,
         node_data: Arc<SlotData>,
-        id: EmbeddedNodeDataId,
-    ) -> Result<EmbeddedNodeDataId> {
+        id: EmbeddedSlotDataId,
+    ) -> Result<EmbeddedSlotDataId> {
         if self
             .embedded_slot_datas
             .iter()
             .all(|end| end.node_data_id != id)
         {
             self.embedded_slot_datas
-                .push(Arc::new(EmbeddedNodeData::from_node_data(node_data, id)));
+                .push(Arc::new(EmbeddedSlotData::from_node_data(node_data, id)));
             Ok(id)
         } else {
             Err(TexProError::InvalidSlotId)
@@ -494,6 +501,17 @@ impl Engine {
         self.slot_datas.clone()
     }
 
+    /// Gets all output `SlotData`s in this `TextureProcessor`.
+    pub fn slot_datas_output(&self) -> Vec<Arc<SlotData>> {
+        self.slot_datas.iter().filter(|slot_data| {
+            if let Ok(node) = self.node_graph.node_with_id(slot_data.node_id) {
+                node.node_type.is_output()
+            } else {
+                false
+            }
+        }).cloned().collect()
+    }
+
     /// Gets any `SlotData`s associated with a given `NodeId`.
     pub fn node_slot_datas(&self, node_id: NodeId) -> Vec<Arc<SlotData>> {
         self.slot_datas
@@ -503,11 +521,12 @@ impl Engine {
             .collect()
     }
 
-    pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Option<Arc<SlotData>> {
+    pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
         self.node_slot_datas(node_id)
             .iter()
             .find(|slot_data| slot_data.slot_id == slot_id)
             .cloned()
+            .ok_or(TexProError::InvalidSlotId)
     }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {

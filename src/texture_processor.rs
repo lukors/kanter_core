@@ -1,17 +1,14 @@
 use crate::{
     engine::*,
     error::{Result, TexProError},
-    node::{EmbeddedNodeDataId, Node, Side},
+    node::{EmbeddedSlotDataId, Node, Side},
     node_graph::*,
     slot_data::*,
 };
-use std::{
-    sync::{
+use std::{sync::{
         atomic::{AtomicBool, Ordering},
         Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    },
-    thread,
-};
+    }, thread};
 
 #[derive(Default)]
 pub struct TextureProcessor {
@@ -46,23 +43,17 @@ impl TextureProcessor {
         Arc::clone(&self.engine)
     }
 
-    pub fn get_output_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        Ok(self
-            .wait_for_state_read(node_id, NodeState::Clean)?
-            .slot_data(node_id, slot_id)
-            .ok_or(TexProError::InvalidSlotId)?
-            .image
-            .to_rgba())
+    pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+        self.wait_for_state_read(node_id, NodeState::Clean)?.buffer_rgba(node_id, slot_id)
     }
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
-    pub fn try_get_output_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+    pub fn try_buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         let result = if let Ok(engine) = self.engine.try_read() {
             if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
                     Ok(engine
-                        .slot_data(node_id, slot_id)
-                        .ok_or(TexProError::InvalidSlotId)?
+                        .slot_data(node_id, slot_id)?
                         .image
                         .to_rgba())
                 } else {
@@ -88,7 +79,7 @@ impl TextureProcessor {
         self.engine.write().unwrap().process_then_kill();
     }
 
-    pub fn external_output_ids(&self) -> Vec<NodeId> {
+    pub fn output_ids(&self) -> Vec<NodeId> {
         self.engine.read().unwrap().node_graph.output_ids()
     }
 
@@ -175,6 +166,12 @@ impl TextureProcessor {
             .node_slot_datas(node_id))
     }
 
+    pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
+        self
+            .wait_for_state_read(node_id, NodeState::Clean)?
+            .slot_data(node_id, slot_id)
+    }
+
     pub fn wait_for_state_write(
         &self,
         node_id: NodeId,
@@ -203,8 +200,8 @@ impl TextureProcessor {
     pub fn embed_slot_data_with_id(
         &self,
         slot_data: Arc<SlotData>,
-        id: EmbeddedNodeDataId,
-    ) -> Result<EmbeddedNodeDataId> {
+        id: EmbeddedSlotDataId,
+    ) -> Result<EmbeddedSlotDataId> {
         self.engine
             .write()
             .unwrap()

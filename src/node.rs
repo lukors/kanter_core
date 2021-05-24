@@ -80,7 +80,7 @@ impl From<ResizeFilter> for FilterType {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, PartialOrd, Serialize)]
-pub struct EmbeddedNodeDataId(pub u32);
+pub struct EmbeddedSlotDataId(pub u32);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Side {
@@ -96,7 +96,7 @@ pub enum NodeType {
     OutputRgba(String),
     Graph(NodeGraph),
     Image(PathBuf),
-    Embedded(EmbeddedNodeDataId), // Maybe `Image` can handle both embedded and external images?
+    Embedded(EmbeddedSlotDataId), // Maybe `Image` can handle both embedded and external images?
     Write(PathBuf),               // Probably remove this type, leave saving to application.
     Value(f32),
     Mix(MixType),

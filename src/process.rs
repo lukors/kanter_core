@@ -13,7 +13,7 @@ use std::{path::Path, sync::Arc};
 pub fn process_node(
     node: Node,
     slot_datas: &[Arc<SlotData>],
-    embedded_slot_datas: &[Arc<EmbeddedNodeData>],
+    embedded_slot_datas: &[Arc<EmbeddedSlotData>],
     input_slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
 ) -> Result<Vec<Arc<SlotData>>> {
@@ -96,8 +96,8 @@ fn input_rgba(node: &Node, input_node_datas: &[Arc<SlotData>]) -> Vec<Arc<SlotDa
 
 fn image_buffer(
     node: &Node,
-    embedded_node_datas: &[Arc<EmbeddedNodeData>],
-    embedded_node_data_id: EmbeddedNodeDataId,
+    embedded_node_datas: &[Arc<EmbeddedSlotData>],
+    embedded_node_data_id: EmbeddedSlotDataId,
 ) -> Result<Vec<Arc<SlotData>>> {
     if let Some(enode_data) = embedded_node_datas
         .iter()
@@ -115,11 +115,15 @@ fn image_buffer(
 }
 
 fn output(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
-    let mut output = (*node_datas[0]).clone();
-    output.node_id = node.node_id;
-    output.slot_id = SlotId(0);
-
-    vec![Arc::new(output)]
+    if let Some(slot_data) = node_datas.get(0) {
+        let mut slot_data = (**slot_data).clone();
+        slot_data.node_id = node.node_id;
+        slot_data.slot_id = SlotId(0);
+    
+        vec![Arc::new(slot_data)]
+    } else {
+        Vec::new()
+    }
 }
 
 /// Executes the node graph contained in the node.
@@ -143,7 +147,7 @@ fn process_graph(
     }
 
     // Fill the output vector with `SlotData`.
-    for output_node_id in tex_pro.external_output_ids() {
+    for output_node_id in tex_pro.output_ids() {
         for slot_data in tex_pro.node_slot_datas(output_node_id)? {
             let output_node_data = SlotData::new(
                 node.node_id,
@@ -204,10 +208,6 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
     if slot_datas.is_empty() {
         return Vec::new();
     }
-
-    dbg!(node.input_slot_with_name("left".into()).unwrap().slot_id);
-    dbg!(node.input_slot_with_name("right".into()).unwrap().slot_id);
-    dbg!(slot_datas.len());
 
     let size = slot_datas[0].size;
     let is_rgba = Arc::clone(&slot_datas[0].image).is_rgba();
@@ -450,34 +450,38 @@ fn process_height_to_normal(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Ar
 }
 
 fn separate_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
-    if let SlotImage::Rgba(buf) = &*slot_datas[0].image {
-        let size = slot_datas[0].size;
-        vec![
-            Arc::new(SlotData::new(
-                node.node_id,
-                SlotId(0),
-                size,
-                Arc::new(SlotImage::Gray(Arc::clone(&buf[0]))),
-            )),
-            Arc::new(SlotData::new(
-                node.node_id,
-                SlotId(1),
-                size,
-                Arc::new(SlotImage::Gray(Arc::clone(&buf[1]))),
-            )),
-            Arc::new(SlotData::new(
-                node.node_id,
-                SlotId(2),
-                size,
-                Arc::new(SlotImage::Gray(Arc::clone(&buf[2]))),
-            )),
-            Arc::new(SlotData::new(
-                node.node_id,
-                SlotId(3),
-                size,
-                Arc::new(SlotImage::Gray(Arc::clone(&buf[3]))),
-            )),
-        ]
+    if let Some(slot_data) = slot_datas.get(0) {
+        if let SlotImage::Rgba(buf) = &*slot_data.image {
+            let size = slot_datas[0].size;
+            vec![
+                Arc::new(SlotData::new(
+                    node.node_id,
+                    SlotId(0),
+                    size,
+                    Arc::new(SlotImage::Gray(Arc::clone(&buf[0]))),
+                )),
+                Arc::new(SlotData::new(
+                    node.node_id,
+                    SlotId(1),
+                    size,
+                    Arc::new(SlotImage::Gray(Arc::clone(&buf[1]))),
+                )),
+                Arc::new(SlotData::new(
+                    node.node_id,
+                    SlotId(2),
+                    size,
+                    Arc::new(SlotImage::Gray(Arc::clone(&buf[2]))),
+                )),
+                Arc::new(SlotData::new(
+                    node.node_id,
+                    SlotId(3),
+                    size,
+                    Arc::new(SlotImage::Gray(Arc::clone(&buf[3]))),
+                )),
+            ]
+        } else {
+            Vec::new()
+        }
     } else {
         Vec::new()
     }
@@ -499,28 +503,32 @@ fn combine_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>>
         }
     }
 
-    let size = slot_datas[0].size;
-
-    let buffer_default = Arc::new(Box::new(
-        Buffer::from_raw(
-            size.width,
-            size.height,
-            vec![1.0; (size.width * size.height) as usize],
-        )
-        .unwrap(),
-    ));
-
-    vec![Arc::new(SlotData::new(
-        node.node_id,
-        SlotId(0),
-        size,
-        Arc::new(SlotImage::Rgba([
-            rgba_slot_data_to_buffer(slot_datas.get(0), &buffer_default),
-            rgba_slot_data_to_buffer(slot_datas.get(1), &buffer_default),
-            rgba_slot_data_to_buffer(slot_datas.get(2), &buffer_default),
-            rgba_slot_data_to_buffer(slot_datas.get(3), &buffer_default),
-        ])),
-    ))]
+    if let Some(slot_data) = slot_datas.get(0) {
+        let size = slot_data.size;
+        
+        let buffer_default = Arc::new(Box::new(
+            Buffer::from_raw(
+                size.width,
+                size.height,
+                vec![1.0; (size.width * size.height) as usize],
+            )
+            .unwrap(),
+        ));
+    
+        vec![Arc::new(SlotData::new(
+            node.node_id,
+            SlotId(0),
+            size,
+            Arc::new(SlotImage::Rgba([
+                rgba_slot_data_to_buffer(slot_datas.get(0), &buffer_default),
+                rgba_slot_data_to_buffer(slot_datas.get(1), &buffer_default),
+                rgba_slot_data_to_buffer(slot_datas.get(2), &buffer_default),
+                rgba_slot_data_to_buffer(slot_datas.get(3), &buffer_default),
+            ])),
+        ))]
+    } else {
+        Vec::new()
+    }
 }
 
 trait Sampling {

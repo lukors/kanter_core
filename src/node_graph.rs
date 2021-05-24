@@ -259,7 +259,7 @@ impl NodeGraph {
             .collect()
     }
 
-    pub fn external_input_ids(&self) -> Vec<NodeId> {
+    pub fn input_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
             .filter(|node| node.node_type.is_input())
