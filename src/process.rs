@@ -178,7 +178,7 @@ fn write(slot_datas: &[Arc<SlotData>], path: &Path) -> Result<Vec<Arc<SlotData>>
 
         image::save_buffer(
             &path,
-            &image::RgbaImage::from_vec(width, height, slot_data.image.to_rgba()).unwrap(),
+            &image::RgbaImage::from_vec(width, height, slot_data.image.to_u8()).unwrap(),
             width,
             height,
             image::ColorType::RGBA(8),
@@ -205,28 +205,29 @@ fn value(node: &Node, value: f32) -> Vec<Arc<SlotData>> {
 // TODO: Look into optimizing this by sampling straight into the un-resized image instead of
 // resizing the image before blending.
 fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> Vec<Arc<SlotData>> {
-    if slot_datas.is_empty() {
-        return Vec::new();
-    }
+    let (image_left, image_right) = {
+        if let Some(slot_data_left) = slot_data_with_name(&slot_datas, &node, "left") {
+            let is_rgba = slot_data_left.image.is_rgba();
 
-    let size = slot_datas[0].size;
-    let is_rgba = Arc::clone(&slot_datas[0].image).is_rgba();
-
-    let image_left = Arc::clone(
-        &slot_data_with_name(&slot_datas, &node, "left")
-            .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
-            .image,
-    );
-
-    let image_right = Arc::clone(
-        &slot_data_with_name(&slot_datas, &node, "right")
-            .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
-            .image,
-    );
-
-    if image_left.is_rgba() != image_right.is_rgba() {
-        return Vec::new();
-    }
+            let image_right = {
+                if let Some(slot_data) = slot_data_with_name(&slot_datas, &node, "right") {
+                    (*slot_data.image).clone().to_type(is_rgba)
+                } else {
+                    SlotImage::from_value(slot_data_left.size, 0.0, is_rgba)
+                }
+            };
+            
+            (Arc::clone(&slot_data_left.image), Arc::new(image_right))
+        } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
+            let image_left = SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.is_rgba());
+            
+            (Arc::new(image_left), Arc::clone(&slot_data_right.image))
+        } else {
+            return Vec::new();
+        }
+    };
+    
+    let size = image_left.size();
 
     let slot_image: SlotImage = match (&*image_left, &*image_right) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {

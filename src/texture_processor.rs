@@ -55,7 +55,7 @@ impl TextureProcessor {
                     Ok(engine
                         .slot_data(node_id, slot_id)?
                         .image
-                        .to_rgba())
+                        .to_u8())
                 } else {
                     Err(TexProError::InvalidNodeId)
                 }

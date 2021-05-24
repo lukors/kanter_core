@@ -232,7 +232,7 @@ impl Engine {
         Ok(self
             .slot_data(node_id, slot_id)?
             .image
-            .to_rgba())
+            .to_u8())
     }
 
     /// Return all changed `NodeId`s.

@@ -178,7 +178,7 @@ impl SlotData {
 }
 
 impl SlotImage {
-    pub fn to_rgba(&self) -> Vec<u8> {
+    pub fn to_u8(&self) -> Vec<u8> {
         match self {
             Self::Gray(buf) => buf
                 .pixels()
@@ -197,6 +197,26 @@ impl SlotImage {
                 .flatten()
                 .map(|x| ((x[0].clamp(0.0, 1.0) * 255.).min(255.)) as u8)
                 .collect(),
+        }
+    }
+
+    pub fn to_type(self, rgba: bool) -> Self {
+        if self.is_rgba() == rgba {
+            return self
+        }
+
+        let (width, height) = (self.size().width, self.size().height);
+        
+        match self {
+            Self::Gray(buf) => Self::Rgba([
+                Arc::clone(&buf), Arc::clone(&buf), buf, Arc::new(Box::new(Buffer::from_raw(width, height, vec![1.0; (width * height) as usize]
+                ).unwrap()))
+            ]),
+            Self::Rgba(bufs) => {
+                    Self::Gray(Arc::new(Box::new(Buffer::from_fn(width, height, |x, y| {
+                    Luma([ (bufs[0].get_pixel(x, y).data[0] + bufs[1].get_pixel(x, y).data[0] + bufs[2].get_pixel(x, y).data[0]) / 3. ] )
+                }))))
+            },
         }
     }
 }
