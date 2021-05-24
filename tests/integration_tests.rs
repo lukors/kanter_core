@@ -301,9 +301,7 @@ fn embedded_node_data() {
         &image::RgbaImage::from_vec(
             256,
             256,
-            tex_pro_2
-                .buffer_rgba(tp2_output_node, SlotId(0))
-                .unwrap(),
+            tex_pro_2.buffer_rgba(tp2_output_node, SlotId(0)).unwrap(),
         )
         .unwrap(),
         256,
@@ -888,7 +886,12 @@ fn graph_node_gray() {
         .connect(input_node, separate_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
-        .connect(separate_node, graph_node, SlotId(0), graph_node_input_slot_id)
+        .connect(
+            separate_node,
+            graph_node,
+            SlotId(0),
+            graph_node_input_slot_id,
+        )
         .unwrap();
 
     tex_pro

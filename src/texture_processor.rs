@@ -5,10 +5,13 @@ use crate::{
     node_graph::*,
     slot_data::*,
 };
-use std::{sync::{
+use std::{
+    sync::{
         atomic::{AtomicBool, Ordering},
         Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    }, thread};
+    },
+    thread,
+};
 
 #[derive(Default)]
 pub struct TextureProcessor {
@@ -44,7 +47,8 @@ impl TextureProcessor {
     }
 
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        self.wait_for_state_read(node_id, NodeState::Clean)?.buffer_rgba(node_id, slot_id)
+        self.wait_for_state_read(node_id, NodeState::Clean)?
+            .buffer_rgba(node_id, slot_id)
     }
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
@@ -52,10 +56,7 @@ impl TextureProcessor {
         let result = if let Ok(engine) = self.engine.try_read() {
             if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
-                    Ok(engine
-                        .slot_data(node_id, slot_id)?
-                        .image
-                        .to_u8())
+                    Ok(engine.slot_data(node_id, slot_id)?.image.to_u8())
                 } else {
                     Err(TexProError::InvalidNodeId)
                 }
@@ -167,8 +168,7 @@ impl TextureProcessor {
     }
 
     pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
-        self
-            .wait_for_state_read(node_id, NodeState::Clean)?
+        self.wait_for_state_read(node_id, NodeState::Clean)?
             .slot_data(node_id, slot_id)
     }
 

@@ -441,7 +441,9 @@ impl NodeGraph {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
+)]
 pub struct NodeId(pub u32);
 
 impl NodeId {
@@ -456,7 +458,9 @@ impl fmt::Display for NodeId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize,
+)]
 pub struct SlotId(pub u32);
 
 impl fmt::Display for SlotId {

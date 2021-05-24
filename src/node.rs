@@ -88,6 +88,12 @@ pub enum Side {
     Output,
 }
 
+impl Default for Side {
+    fn default() -> Self {
+        Self::Input
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone)]
 pub enum NodeType {
     InputGray(String),
@@ -334,6 +340,12 @@ pub enum SlotType {
     Gray,
     Rgba,
     GrayOrRgba,
+}
+
+impl Default for SlotType {
+    fn default() -> Self {
+        Self::GrayOrRgba
+    }
 }
 
 impl SlotType {

@@ -229,10 +229,7 @@ impl Engine {
     }
 
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        Ok(self
-            .slot_data(node_id, slot_id)?
-            .image
-            .to_u8())
+        Ok(self.slot_data(node_id, slot_id)?.image.to_u8())
     }
 
     /// Return all changed `NodeId`s.
@@ -503,13 +500,17 @@ impl Engine {
 
     /// Gets all output `SlotData`s in this `TextureProcessor`.
     pub fn slot_datas_output(&self) -> Vec<Arc<SlotData>> {
-        self.slot_datas.iter().filter(|slot_data| {
-            if let Ok(node) = self.node_graph.node_with_id(slot_data.node_id) {
-                node.node_type.is_output()
-            } else {
-                false
-            }
-        }).cloned().collect()
+        self.slot_datas
+            .iter()
+            .filter(|slot_data| {
+                if let Ok(node) = self.node_graph.node_with_id(slot_data.node_id) {
+                    node.node_type.is_output()
+                } else {
+                    false
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     /// Gets any `SlotData`s associated with a given `NodeId`.

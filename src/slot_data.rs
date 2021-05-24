@@ -256,29 +256,45 @@ impl SlotImage {
                 .zip(bufs[1].pixels())
                 .zip(bufs[2].pixels())
                 .zip(bufs[3].pixels())
-                .map(|(((r, g), b), a)| vec![f32_to_u8_srgb(r.data[0]), f32_to_u8_srgb(g.data[0]), f32_to_u8_srgb(b.data[0]), Self::f32_to_u8(a.data[0])])
+                .map(|(((r, g), b), a)| {
+                    vec![
+                        f32_to_u8_srgb(r.data[0]),
+                        f32_to_u8_srgb(g.data[0]),
+                        f32_to_u8_srgb(b.data[0]),
+                        Self::f32_to_u8(a.data[0]),
+                    ]
+                })
                 .flatten()
                 .collect(),
         }
     }
 
-    pub fn to_type(self, rgba: bool) -> Self {
+    pub fn into_type(self, rgba: bool) -> Self {
         if self.is_rgba() == rgba {
-            return self
+            return self;
         }
 
         let (width, height) = (self.size().width, self.size().height);
-        
+
         match self {
             Self::Gray(buf) => Self::Rgba([
-                Arc::clone(&buf), Arc::clone(&buf), buf, Arc::new(Box::new(Buffer::from_raw(width, height, vec![1.0; (width * height) as usize]
-                ).unwrap()))
+                Arc::clone(&buf),
+                Arc::clone(&buf),
+                buf,
+                Arc::new(Box::new(
+                    Buffer::from_raw(width, height, vec![1.0; (width * height) as usize]).unwrap(),
+                )),
             ]),
-            Self::Rgba(bufs) => {
-                    Self::Gray(Arc::new(Box::new(Buffer::from_fn(width, height, |x, y| {
-                    Luma([ (bufs[0].get_pixel(x, y).data[0] + bufs[1].get_pixel(x, y).data[0] + bufs[2].get_pixel(x, y).data[0]) / 3. ] )
-                }))))
-            },
+            Self::Rgba(bufs) => Self::Gray(Arc::new(Box::new(Buffer::from_fn(
+                width,
+                height,
+                |x, y| {
+                    Luma([(bufs[0].get_pixel(x, y).data[0]
+                        + bufs[1].get_pixel(x, y).data[0]
+                        + bufs[2].get_pixel(x, y).data[0])
+                        / 3.])
+                },
+            )))),
         }
     }
 }

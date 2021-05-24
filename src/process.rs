@@ -119,7 +119,7 @@ fn output(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
         let mut slot_data = (**slot_data).clone();
         slot_data.node_id = node.node_id;
         slot_data.slot_id = SlotId(0);
-    
+
         vec![Arc::new(slot_data)]
     } else {
         Vec::new()
@@ -211,22 +211,23 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
 
             let image_right = {
                 if let Some(slot_data) = slot_data_with_name(&slot_datas, &node, "right") {
-                    (*slot_data.image).clone().to_type(is_rgba)
+                    (*slot_data.image).clone().into_type(is_rgba)
                 } else {
                     SlotImage::from_value(slot_data_left.size, 0.0, is_rgba)
                 }
             };
-            
+
             (Arc::clone(&slot_data_left.image), Arc::new(image_right))
         } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
-            let image_left = SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.is_rgba());
-            
+            let image_left =
+                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.is_rgba());
+
             (Arc::new(image_left), Arc::clone(&slot_data_right.image))
         } else {
             return Vec::new();
         }
     };
-    
+
     let size = image_left.size();
 
     let slot_image: SlotImage = match (&*image_left, &*image_right) {
@@ -506,7 +507,7 @@ fn combine_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>>
 
     if let Some(slot_data) = slot_datas.get(0) {
         let size = slot_data.size;
-        
+
         let buffer_default = Arc::new(Box::new(
             Buffer::from_raw(
                 size.width,
@@ -515,7 +516,7 @@ fn combine_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>>
             )
             .unwrap(),
         ));
-    
+
         vec![Arc::new(SlotData::new(
             node.node_id,
             SlotId(0),
