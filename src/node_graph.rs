@@ -10,8 +10,6 @@ use std::{
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 pub struct NodeGraph {
-    input_mappings: Vec<ExternalMapping>,
-    output_mappings: Vec<ExternalMapping>,
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
 }
@@ -19,8 +17,6 @@ pub struct NodeGraph {
 impl NodeGraph {
     pub fn new() -> Self {
         Self {
-            input_mappings: Vec::new(),
-            output_mappings: Vec::new(),
             nodes: Vec::new(),
             edges: Vec::new(),
         }
@@ -89,38 +85,6 @@ impl NodeGraph {
     fn import_json(path: String) -> io::Result<Self> {
         let file = File::open(path)?;
         Ok(serde_json::from_reader(file)?)
-    }
-
-    /// Returns the `NodeId` and `SlotId` associated with the given
-    /// external `SlotId` in `input_mappings`.
-    pub fn input_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
-        self.resolve_mapping(external_slot, &self.input_mappings)
-    }
-
-    /// Returns the `NodeId` and `SlotId` associated with the given
-    /// external `SlotId` in `input_mappings`.
-    pub fn output_mapping(&self, external_slot: SlotId) -> Result<(NodeId, SlotId)> {
-        self.resolve_mapping(external_slot, &self.output_mappings)
-    }
-
-    /// Returns the `NodeId` and `SlotId` associated with the given
-    /// external `SlotId` in the given `ExternalMapping`.
-    fn resolve_mapping(
-        &self,
-        external_slot: SlotId,
-        external_mappings: &[ExternalMapping],
-    ) -> Result<(NodeId, SlotId)> {
-        let external_mapping = external_mappings
-            .iter()
-            .find(|external_mapping| external_mapping.external_slot == external_slot);
-
-        match external_mapping {
-            Some(external_mapping) => Ok((
-                external_mapping.internal_node,
-                external_mapping.internal_slot,
-            )),
-            None => Err(TexProError::InvalidSlotId),
-        }
     }
 
     fn index_of_node(&self, node_id: NodeId) -> Option<usize> {
@@ -456,13 +420,6 @@ impl NodeGraph {
             Ok(removed_edges)
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-struct ExternalMapping {
-    external_slot: SlotId,
-    internal_node: NodeId,
-    internal_slot: SlotId,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]

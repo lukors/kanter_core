@@ -1,9 +1,7 @@
 {
-  "input_mappings": [],
-  "output_mappings": [],
   "nodes": [
     {
-      "node_id": 1310621641,
+      "node_id": 876941547,
       "node_type": {
         "Value": 1.0
       },
@@ -11,7 +9,7 @@
       "resize_filter": "Triangle"
     },
     {
-      "node_id": 2255579761,
+      "node_id": 808182335,
       "node_type": {
         "InputGray": "in"
       },
@@ -19,7 +17,7 @@
       "resize_filter": "Triangle"
     },
     {
-      "node_id": 1693153641,
+      "node_id": 3098157114,
       "node_type": {
         "Mix": "Subtract"
       },
@@ -27,7 +25,7 @@
       "resize_filter": "Triangle"
     },
     {
-      "node_id": 3812901350,
+      "node_id": 3948812722,
       "node_type": {
         "OutputGray": "out"
       },
@@ -37,20 +35,20 @@
   ],
   "edges": [
     {
-      "output_id": 1310621641,
-      "input_id": 1693153641,
+      "output_id": 876941547,
+      "input_id": 3098157114,
       "output_slot": 0,
       "input_slot": 0
     },
     {
-      "output_id": 2255579761,
-      "input_id": 1693153641,
+      "output_id": 808182335,
+      "input_id": 3098157114,
       "output_slot": 0,
       "input_slot": 1
     },
     {
-      "output_id": 1693153641,
-      "input_id": 3812901350,
+      "output_id": 3098157114,
+      "input_id": 3948812722,
       "output_slot": 0,
       "input_slot": 0
     }
