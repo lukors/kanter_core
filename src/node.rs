@@ -92,8 +92,8 @@ pub enum NodeType {
     OutputRgba(String),
     Graph(NodeGraph),
     Image(PathBuf),
-    Embedded(EmbeddedNodeDataId), // Maybe regular inputs can be used and this removed?
-    Write(PathBuf),               // Probably remove this type, seems unnecessary
+    Embedded(EmbeddedNodeDataId), // Maybe `Image` can handle both embedded and external images?
+    Write(PathBuf),               // Probably remove this type, leave saving to application.
     Value(f32),
     Mix(MixType),
     HeightToNormal,
@@ -112,12 +112,29 @@ impl NodeType {
         *self == Self::InputGray(String::new()) ||
         *self == Self::InputRgba(String::new())
     }
-}
 
-impl NodeType {
     pub fn is_output(&self) -> bool {
         *self == Self::OutputGray(String::new()) ||
         *self == Self::OutputRgba(String::new())
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        if let Self::InputGray(name) |
+        Self::InputRgba(name) |
+        Self::OutputGray(name) |
+        Self::OutputRgba(name) = self {
+            Some(name)
+        } else {
+            None
+        }
+    }
+
+    pub fn to_slot_type(&self) -> Option<SlotType> {
+        match self {
+            Self::InputGray(_) | Self::OutputGray(_) => Some(SlotType::Gray),
+            Self::InputRgba(_) | Self::OutputRgba(_) => Some(SlotType::Rgba),
+            _ => None
+        }
     }
 }
 
@@ -325,5 +342,5 @@ impl Slot {
     }
 }
 
-type SlotInput = Slot;
-type SlotOutput = Slot;
+pub(crate) type SlotInput = Slot;
+pub(crate) type SlotOutput = Slot;

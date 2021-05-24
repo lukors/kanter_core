@@ -36,9 +36,9 @@ pub fn process_node(
     };
 
     let output: Vec<Arc<SlotData>> = match node.node_type {
-        NodeType::InputRgba => input_rgba(&node, &input_slot_datas),
-        NodeType::InputGray => input_gray(&node, &input_slot_datas),
-        NodeType::OutputRgba | NodeType::OutputGray => output(&slot_datas, &node),
+        NodeType::InputRgba(_) => input_rgba(&node, &input_slot_datas),
+        NodeType::InputGray(_) => input_gray(&node, &input_slot_datas),
+        NodeType::OutputRgba(_) | NodeType::OutputGray(_) => output(&slot_datas, &node),
         NodeType::Graph(ref node_graph) => process_graph(&slot_datas, &node, node_graph)?,
         NodeType::Image(ref path) => image(&node, path)?,
         NodeType::Embedded(embedded_node_data_id) => {
@@ -124,7 +124,7 @@ fn output(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
 
 /// Executes the node graph contained in the node.
 fn process_graph(
-    node_datas: &[Arc<SlotData>],
+    slot_datas: &[Arc<SlotData>],
     node: &Node,
     graph: &NodeGraph,
 ) -> Result<Vec<Arc<SlotData>>> {
@@ -132,16 +132,13 @@ fn process_graph(
     let tex_pro = TextureProcessor::new();
     tex_pro.set_node_graph((*graph).clone())?;
 
-    // Take the `NodeData`s that are fed into this node from the parent node and associate
-    // them with the correct outputs on the input nodes in the child graph.
-    for node_data in node_datas {
-        let (target_node, target_slot) = tex_pro.input_mapping(node_data.slot_id)?;
-
+    // Insert `SlotData`s into the graph TexPro.
+    for slot_data in slot_datas {
         tex_pro.input_slot_datas_push(Arc::new(SlotData::new(
-            target_node,
-            target_slot,
-            node_data.size,
-            Arc::clone(&node_data.image),
+            NodeId(slot_data.slot_id.0),
+            SlotId(0),
+            slot_data.size,
+            Arc::clone(&slot_data.image),
         )));
     }
 
@@ -150,7 +147,7 @@ fn process_graph(
         for slot_data in tex_pro.node_slot_datas(output_node_id)? {
             let output_node_data = SlotData::new(
                 node.node_id,
-                slot_data.slot_id,
+                SlotId(output_node_id.0),
                 slot_data.size,
                 Arc::clone(&slot_data.image),
             );
@@ -216,18 +213,20 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
     let is_rgba = Arc::clone(&slot_datas[0].image).is_rgba();
 
     let image_left = Arc::clone(
-        &slot_data_with_slot_id(
+        &slot_data_with_name(
             &slot_datas,
-            node.input_slot_with_name("left".into()).unwrap().slot_id,
+            &node,
+            "left"
         )
         .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
         .image,
     );
 
     let image_right = Arc::clone(
-        &slot_data_with_slot_id(
+        &slot_data_with_name(
             &slot_datas,
-            node.input_slot_with_name("right".into()).unwrap().slot_id,
+            &node,
+            "right"
         )
         .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
         .image,
@@ -263,6 +262,13 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
         size,
         Arc::new(slot_image),
     ))]
+}
+
+fn slot_data_with_name(slot_datas: &[Arc<SlotData>], node: &Node, name: &str) -> Option<Arc<SlotData>> {
+    slot_data_with_slot_id(
+        &slot_datas,
+        node.input_slot_with_name(name.into()).unwrap().slot_id,
+    )
 }
 
 fn slot_data_with_slot_id(slot_datas: &[Arc<SlotData>], slot_id: SlotId) -> Option<Arc<SlotData>> {

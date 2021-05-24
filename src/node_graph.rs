@@ -1,7 +1,4 @@
-use crate::{
-    error::*,
-    node::{MixType, Node, NodeType, Side},
-};
+use crate::{error::*, node::{MixType, Node, NodeType, Side, SlotInput, SlotOutput}};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
@@ -159,16 +156,22 @@ impl NodeGraph {
     }
 
     fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) -> Result<NodeId> {
+        if let Some(name) = node.node_type.name() {
+            if name.is_empty() {
+                return Err(TexProError::InvalidName);
+            }
+        }
+
         match node.node_type {
-            NodeType::InputGray(name) |
-            NodeType::InputRgba(name) => {
-                if self.input_names().contains(&name) {
+            NodeType::InputGray(ref name) |
+            NodeType::InputRgba(ref name) => {
+                if self.input_names().contains(&&name) {
                     return Err(TexProError::InvalidName);
                 }
             }
-            NodeType::OutputGray(name) |
-            NodeType::OutputRgba(name) => {
-                if self.output_names().contains(&name) {
+            NodeType::OutputGray(ref name) |
+            NodeType::OutputRgba(ref name) => {
+                if self.output_names().contains(&&name) {
                     return Err(TexProError::InvalidName);
                 }
             }
@@ -189,9 +192,9 @@ impl NodeGraph {
         self.nodes.iter().filter(|node| node.node_type.is_output()).collect()
     }
 
-    pub fn input_names(&self) -> Vec<String> {
+    pub fn input_names(&self) -> Vec<&String> {
         self.input_nodes().iter().map(|node| {
-            if let NodeType::InputGray(name) | NodeType::InputRgba(name) = node.node_type {
+            if let NodeType::InputGray(name) | NodeType::InputRgba(name) = &node.node_type {
                 name
             } else {
                 unreachable!();
@@ -199,32 +202,66 @@ impl NodeGraph {
         }).collect()
     }
 
-    pub fn output_names(&self) -> Vec<String> {
+    pub fn output_names(&self) -> Vec<&String> {
         self.output_nodes().iter().map(|node| {
-            if let NodeType::OutputGray(name) | NodeType::OutputRgba(name) = node.node_type {
+            if let NodeType::OutputGray(name) | NodeType::OutputRgba(name) = &node.node_type {
                 name
             } else {
                 unreachable!();
             }
         }).collect()
+    }
+
+    pub fn input_slot_id_with_name(&self, name: &str) -> Option<SlotId> {
+        if let Some(node) = self.input_nodes().iter().find(|node| node.node_type.name().unwrap() == name) {
+            Some(SlotId(node.node_id.0))
+        } else {
+            None
+        }
+    }
+
+    pub fn output_slot_id_with_name(&self, name: &str) -> Option<SlotId> {
+        if let Some(node) = self.output_nodes().iter().find(|node| node.node_type.name().unwrap() == name) {
+            Some(SlotId(node.node_id.0))
+        } else {
+            None
+        }
     }
 
     pub fn input_slots(&self) -> Vec<SlotInput> {
         self.input_nodes().iter().map(|node| {
+            let node_type = &node.node_type;
             
-        })
+            SlotInput {
+                name: node_type.name().unwrap().to_string(),
+                slot_type: node_type.to_slot_type().unwrap(),
+                slot_id: SlotId(node.node_id.0),
+            }
+        }).collect()
+    }
+
+    pub fn output_slots(&self) -> Vec<SlotOutput> {
+        self.output_nodes().iter().map(|node| {
+            let node_type = &node.node_type;
+            
+            SlotOutput {
+                name: node_type.name().unwrap().to_string(),
+                slot_type: node_type.to_slot_type().unwrap(),
+                slot_id: SlotId(node.node_id.0),
+            }
+        }).collect()
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
         let node_id = self.new_id();
-        self.add_node_internal(node, node_id);
+        self.add_node_internal(node, node_id)?;
 
         Ok(node_id)
     }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
         if self.node_with_id(node_id).is_err() {
-            self.add_node_internal(node, node_id);
+            self.add_node_internal(node, node_id)?;
         } else {
             return Err(TexProError::InvalidNodeId);
         }
@@ -237,7 +274,7 @@ impl NodeGraph {
         self.nodes
             .iter()
             .filter(|node| {
-                node.node_type == NodeType::OutputRgba || node.node_type == NodeType::OutputGray
+                node.node_type.is_output()
             })
             .map(|node| node.node_id)
             .collect()

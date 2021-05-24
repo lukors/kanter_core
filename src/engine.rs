@@ -34,8 +34,8 @@ impl Default for NodeState {
 pub struct Engine {
     pub node_graph: NodeGraph,
     pub slot_datas: Vec<Arc<SlotData>>,
-    pub embedded_node_datas: Vec<Arc<EmbeddedNodeData>>,
-    pub input_node_datas: Vec<Arc<SlotData>>,
+    pub embedded_slot_datas: Vec<Arc<EmbeddedNodeData>>,
+    pub input_slot_datas: Vec<Arc<SlotData>>,
     node_states: BTreeMap<NodeId, NodeState>,
     changed: BTreeSet<NodeId>,
     one_shot: bool,
@@ -47,8 +47,8 @@ impl Engine {
         Self {
             node_graph: NodeGraph::new(),
             slot_datas: Vec::new(),
-            embedded_node_datas: Vec::new(),
-            input_node_datas: Vec::new(),
+            embedded_slot_datas: Vec::new(),
+            input_slot_datas: Vec::new(),
             node_states: BTreeMap::new(),
             changed: BTreeSet::new(),
             one_shot: false,
@@ -131,13 +131,13 @@ impl Engine {
                     let node = tex_pro.node_graph.node_with_id(node_id).unwrap();
 
                     let embedded_node_datas: Vec<Arc<EmbeddedNodeData>> = tex_pro
-                        .embedded_node_datas
+                        .embedded_slot_datas
                         .iter()
                         .map(|end| Arc::clone(&end))
                         .collect();
 
                     let input_node_datas: Vec<Arc<SlotData>> = tex_pro
-                        .input_node_datas
+                        .input_slot_datas
                         .iter()
                         .map(|nd| Arc::clone(&nd))
                         .collect();
@@ -461,11 +461,11 @@ impl Engine {
         id: EmbeddedNodeDataId,
     ) -> Result<EmbeddedNodeDataId> {
         if self
-            .embedded_node_datas
+            .embedded_slot_datas
             .iter()
             .all(|end| end.node_data_id != id)
         {
-            self.embedded_node_datas
+            self.embedded_slot_datas
                 .push(Arc::new(EmbeddedNodeData::from_node_data(node_data, id)));
             Ok(id)
         } else {

@@ -1,21 +1,9 @@
 {
-  "input_mappings": [
-    {
-      "external_slot": 0,
-      "internal_node": 313523460,
-      "internal_slot": 0
-    }
-  ],
-  "output_mappings": [
-    {
-      "external_slot": 0,
-      "internal_node": 1484787644,
-      "internal_slot": 0
-    }
-  ],
+  "input_mappings": [],
+  "output_mappings": [],
   "nodes": [
     {
-      "node_id": 2476781652,
+      "node_id": 1310621641,
       "node_type": {
         "Value": 1.0
       },
@@ -23,13 +11,15 @@
       "resize_filter": "Triangle"
     },
     {
-      "node_id": 313523460,
-      "node_type": "InputGray",
+      "node_id": 2255579761,
+      "node_type": {
+        "InputGray": "in"
+      },
       "resize_policy": "MostPixels",
       "resize_filter": "Triangle"
     },
     {
-      "node_id": 2642059456,
+      "node_id": 1693153641,
       "node_type": {
         "Mix": "Subtract"
       },
@@ -37,28 +27,30 @@
       "resize_filter": "Triangle"
     },
     {
-      "node_id": 1484787644,
-      "node_type": "OutputGray",
+      "node_id": 3812901350,
+      "node_type": {
+        "OutputGray": "out"
+      },
       "resize_policy": "MostPixels",
       "resize_filter": "Triangle"
     }
   ],
   "edges": [
     {
-      "output_id": 2476781652,
-      "input_id": 2642059456,
+      "output_id": 1310621641,
+      "input_id": 1693153641,
       "output_slot": 0,
       "input_slot": 0
     },
     {
-      "output_id": 313523460,
-      "input_id": 2642059456,
+      "output_id": 2255579761,
+      "input_id": 1693153641,
       "output_slot": 0,
       "input_slot": 1
     },
     {
-      "output_id": 2642059456,
-      "input_id": 1484787644,
+      "output_id": 1693153641,
+      "input_id": 3812901350,
       "output_slot": 0,
       "input_slot": 0
     }

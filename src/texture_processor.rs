@@ -115,7 +115,7 @@ impl TextureProcessor {
         self.engine
             .write()
             .unwrap()
-            .input_node_datas
+            .input_slot_datas
             .push(node_data);
     }
 

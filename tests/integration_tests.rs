@@ -45,7 +45,7 @@ fn input_output() {
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro
         .connect(input_node, output_node, SlotId(0), SlotId(0))
@@ -77,7 +77,7 @@ fn request_empty_buffer() {
     let mix_node = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::default())))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro
         .connect(mix_node, output_node, SlotId(0), SlotId(0))
@@ -103,7 +103,7 @@ fn input_output_intercept() {
         .unwrap();
     let resize_node_1 = tex_pro
         .add_node(
-            Node::new(NodeType::OutputRgba)
+            Node::new(NodeType::Mix(MixType::default()))
                 .resize_filter(ResizeFilter::Lanczos3)
                 .resize_policy(ResizePolicy::SpecificSize(Size::new(
                     SIZE_SMALL, SIZE_SMALL,
@@ -112,7 +112,7 @@ fn input_output_intercept() {
         .unwrap();
     let resize_node_2 = tex_pro
         .add_node(
-            Node::new(NodeType::OutputRgba)
+            Node::new(NodeType::Mix(MixType::default()))
                 .resize_filter(ResizeFilter::Lanczos3)
                 .resize_policy(ResizePolicy::SpecificSize(Size::new(
                     SIZE_LARGE, SIZE_LARGE,
@@ -121,12 +121,12 @@ fn input_output_intercept() {
         .unwrap();
     let resize_node_3 = tex_pro
         .add_node(
-            Node::new(NodeType::OutputRgba)
+            Node::new(NodeType::Mix(MixType::default()))
                 .resize_filter(ResizeFilter::Lanczos3)
                 .resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
         )
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro
         .connect(input_node, resize_node_1, SlotId(0), SlotId(0))
@@ -185,7 +185,7 @@ fn mix_node_single_input() {
     let mix_node = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::Add)))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
 
     tex_pro
         .connect(value_node, mix_node, SlotId(0), SlotId(0))
@@ -213,7 +213,7 @@ fn mix_node_single_input_2() {
     let mix_node = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
 
     tex_pro
         .connect(value_node, mix_node, SlotId(0), SlotId(1))
@@ -242,7 +242,7 @@ fn mix_node_single_input_2() {
 fn unconnected() {
     let tex_pro = TextureProcessor::new();
 
-    tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 }
 
 #[test]
@@ -256,7 +256,7 @@ fn embedded_node_data() {
     let tp1_input_node = tex_pro_1
         .add_node(Node::new(NodeType::Image(path_cmp.clone().into())))
         .unwrap();
-    let tp1_output_node = tex_pro_1.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let tp1_output_node = tex_pro_1.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro_1
         .connect(tp1_input_node, tp1_output_node, SlotId(0), SlotId(0))
@@ -267,7 +267,7 @@ fn embedded_node_data() {
     // Second graph
     let tex_pro_2 = TextureProcessor::new();
 
-    let tp2_output_node = tex_pro_2.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let tp2_output_node = tex_pro_2.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     let end_id = tex_pro_2
         .embed_slot_data_with_id(Arc::clone(&node_data[0]), EmbeddedNodeDataId(0))
@@ -307,7 +307,7 @@ fn repeat_process() {
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Image("data/image_1.png".into())))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro
         .connect(input_node, output_node, SlotId(0), SlotId(0))
@@ -327,7 +327,7 @@ fn split_node() {
         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
         .unwrap();
     let split_2 = tex_pro.add_node(Node::new(NodeType::SplitRgba)).unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
     let merge = tex_pro.add_node(Node::new(NodeType::MergeRgba)).unwrap();
 
     tex_pro
@@ -371,7 +371,7 @@ fn irregular_sizes() {
     let mix = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::default())))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro.connect(input_1, mix, SlotId(0), SlotId(0)).unwrap();
     tex_pro.connect(input_2, mix, SlotId(0), SlotId(1)).unwrap();
@@ -412,7 +412,7 @@ fn unconnected_node() {
 
     let input_1 = tex_pro.add_node(Node::new(NodeType::Value(0.0))).unwrap();
     tex_pro.add_node(Node::new(NodeType::Value(0.0))).unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
 
     tex_pro
         .connect(input_1, output_node, SlotId(0), SlotId(0))
@@ -445,7 +445,7 @@ fn input_output_2_internal() -> TextureProcessor {
     let input_node_2 = tex_pro
         .add_node(Node::new(NodeType::Image("data/px_1.png".into())))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro
         .connect(input_node_2, output_node, SlotId(2), SlotId(2))
@@ -657,11 +657,14 @@ fn invert_graph_node() {
     let white_node_nested = invert_graph
         .add_node(Node::new(NodeType::Value(1.)))
         .unwrap();
-    let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
+    let nested_input_node = invert_graph.add_node(Node::new(NodeType::InputGray("in".into()))).unwrap();
     let subtract_node = invert_graph
         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
         .unwrap();
-    let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
+    let nested_output_node = invert_graph.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
+
+    let graph_node_input_slot_id = invert_graph.input_slot_id_with_name("in").unwrap();
+    let graph_node_output_slot_id = invert_graph.output_slot_id_with_name("out").unwrap();
 
     invert_graph
         .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
@@ -684,17 +687,17 @@ fn invert_graph_node() {
         .add_node(Node::new(NodeType::Graph(invert_graph)))
         .unwrap();
     let split_node = tex_pro.add_node(Node::new(NodeType::SplitRgba)).unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
 
     tex_pro
         .connect(image_node, split_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
-        .connect(split_node, invert_graph_node, SlotId(0), SlotId(0))
+        .connect(split_node, invert_graph_node, SlotId(0), graph_node_input_slot_id)
         .unwrap();
 
     tex_pro
-        .connect(invert_graph_node, output_node, SlotId(0), SlotId(0))
+        .connect(invert_graph_node, output_node, graph_node_output_slot_id, SlotId(0))
         .unwrap();
 
     save_and_compare(tex_pro, output_node, "invert_graph_node.png");
@@ -709,11 +712,11 @@ fn invert_graph_node_export() {
     let white_node_nested = invert_graph
         .add_node(Node::new(NodeType::Value(1.)))
         .unwrap();
-    let nested_input_node = invert_graph.add_external_input_gray(SlotId(0)).unwrap();
+    let nested_input_node = invert_graph.add_node(Node::new(NodeType::InputGray("in".into()))).unwrap();
     let subtract_node = invert_graph
         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
         .unwrap();
-    let nested_output_node = invert_graph.add_external_output_gray(SlotId(0)).unwrap();
+    let nested_output_node = invert_graph.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
 
     invert_graph
         .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
@@ -737,6 +740,9 @@ fn invert_graph_node_import() {
     // Nested invert graph
     let invert_graph = NodeGraph::from_path("data/invert_graph.json".into()).unwrap();
 
+    let graph_node_input_slot_id = invert_graph.input_slot_id_with_name("in").unwrap();
+    let graph_node_output_slot_id = invert_graph.output_slot_id_with_name("out").unwrap();
+
     // Main graph
     let tex_pro = TextureProcessor::new();
 
@@ -747,16 +753,16 @@ fn invert_graph_node_import() {
     let invert_graph_node = tex_pro
         .add_node(Node::new(NodeType::Graph(invert_graph)))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
 
     tex_pro
         .connect(image_node, split_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
-        .connect(split_node, invert_graph_node, SlotId(0), SlotId(0))
+        .connect(split_node, invert_graph_node, SlotId(0), graph_node_input_slot_id)
         .unwrap();
     tex_pro
-        .connect(invert_graph_node, output_node, SlotId(0), SlotId(0))
+        .connect(invert_graph_node, output_node, graph_node_output_slot_id, SlotId(0))
         .unwrap();
 
     save_and_compare(tex_pro, output_node, "invert_graph_node_import.png");
@@ -770,8 +776,11 @@ fn graph_node_rgba() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
-    let nested_input_node = nested_graph.add_external_input_rgba(SlotId(0)).unwrap();
-    let nested_output_node = nested_graph.add_external_output_rgba(SlotId(0)).unwrap();
+    let nested_input_node = nested_graph.add_node(Node::new(NodeType::InputRgba("in".into()))).unwrap();
+    let nested_output_node = nested_graph.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
+
+    let graph_node_input_slot_id = nested_graph.input_slot_id_with_name("in").unwrap();
+    let graph_node_output_slot_id = nested_graph.output_slot_id_with_name("out").unwrap();
 
     nested_graph
         .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
@@ -786,14 +795,14 @@ fn graph_node_rgba() {
     let graph_node = tex_pro
         .add_node(Node::new(NodeType::Graph(nested_graph)))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro
-        .connect(input_node, graph_node, SlotId(0), SlotId(0))
+        .connect(input_node, graph_node, SlotId(0), graph_node_input_slot_id)
         .unwrap();
 
     tex_pro
-        .connect(graph_node, output_node, SlotId(0), SlotId(0))
+        .connect(graph_node, output_node, graph_node_output_slot_id, SlotId(0))
         .unwrap();
 
     ensure_out_dir();
@@ -824,11 +833,14 @@ fn graph_node_gray() {
     // Nested graph
     let mut nested_graph = NodeGraph::new();
 
-    let nested_input_node = nested_graph.add_external_input_gray(SlotId(0)).unwrap();
+    let nested_input_node = nested_graph.add_node(Node::new(NodeType::InputGray("in".into()))).unwrap();
     let nested_output_node = nested_graph
-        .add_node(Node::new(NodeType::OutputGray))
+        .add_node(Node::new(NodeType::OutputGray("out".into())))
         .unwrap();
 
+    let graph_node_input_slot_id = nested_graph.input_slot_id_with_name("in").unwrap();
+    let graph_node_output_slot_id = nested_graph.output_slot_id_with_name("out").unwrap();
+        
     nested_graph
         .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
         .unwrap();
@@ -843,19 +855,19 @@ fn graph_node_gray() {
     let graph_node = tex_pro
         .add_node(Node::new(NodeType::Graph(nested_graph)))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
-
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
+    
     tex_pro
         .connect(input_node, split_node, SlotId(0), SlotId(0))
         .unwrap();
     tex_pro
-        .connect(split_node, graph_node, SlotId(0), SlotId(0))
+        .connect(split_node, graph_node, SlotId(0), graph_node_input_slot_id)
         .unwrap();
 
     tex_pro
-        .connect(graph_node, output_node, SlotId(0), SlotId(0))
+        .connect(graph_node, output_node, graph_node_output_slot_id, SlotId(0))
         .unwrap();
-
+    
     ensure_out_dir();
     image::save_buffer(
         &path_out,
@@ -883,7 +895,7 @@ fn graph_node_gray() {
 //     tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
 //         .unwrap();
-//     tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+//     tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
 // }
 
 // #[test]
@@ -901,7 +913,7 @@ fn graph_node_gray() {
 //     let h2n_node = tex_pro
 //         .add_node(Node::new(NodeType::HeightToNormal))
 //         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
 //     tex_pro
 //         .connect(input_node, h2n_node, SlotId(0), SlotId(0))
@@ -946,7 +958,7 @@ fn mix_node_test_gray(mix_type: MixType, name: &str) {
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Mix(mix_type)))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
 
     tex_pro
         .connect(image_node, split_node, SlotId(0), SlotId(0))
@@ -977,7 +989,7 @@ fn mix_node_test_rgba(mix_type: MixType, name: &str) {
     let multiply_node = tex_pro
         .add_node(Node::new(NodeType::Mix(mix_type)))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba)).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
     tex_pro
         .connect(image_node_1, multiply_node, SlotId(0), SlotId(0))
