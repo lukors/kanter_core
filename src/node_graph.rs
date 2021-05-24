@@ -1,4 +1,7 @@
-use crate::{error::*, node::{MixType, Node, NodeType, Side, SlotInput, SlotOutput}};
+use crate::{
+    error::*,
+    node::{MixType, Node, NodeType, Side, SlotInput, SlotOutput},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
@@ -127,21 +130,19 @@ impl NodeGraph {
         }
 
         match node.node_type {
-            NodeType::InputGray(ref name) |
-            NodeType::InputRgba(ref name) => {
+            NodeType::InputGray(ref name) | NodeType::InputRgba(ref name) => {
                 if self.input_names().contains(&&name) {
                     return Err(TexProError::InvalidName);
                 }
             }
-            NodeType::OutputGray(ref name) |
-            NodeType::OutputRgba(ref name) => {
+            NodeType::OutputGray(ref name) | NodeType::OutputRgba(ref name) => {
                 if self.output_names().contains(&&name) {
                     return Err(TexProError::InvalidName);
                 }
             }
-            _ => ()
+            _ => (),
         }
-        
+
         node.node_id = node_id;
         self.nodes.push(node);
 
@@ -149,63 +150,87 @@ impl NodeGraph {
     }
 
     pub fn input_nodes(&self) -> Vec<&Node> {
-        self.nodes.iter().filter(|node| node.node_type.is_input()).collect()
+        self.nodes
+            .iter()
+            .filter(|node| node.node_type.is_input())
+            .collect()
     }
 
     pub fn output_nodes(&self) -> Vec<&Node> {
-        self.nodes.iter().filter(|node| node.node_type.is_output()).collect()
+        self.nodes
+            .iter()
+            .filter(|node| node.node_type.is_output())
+            .collect()
     }
 
     pub fn input_names(&self) -> Vec<&String> {
-        self.input_nodes().iter().map(|node| {
-            if let NodeType::InputGray(name) | NodeType::InputRgba(name) = &node.node_type {
-                name
-            } else {
-                unreachable!();
-            }
-        }).collect()
+        self.input_nodes()
+            .iter()
+            .map(|node| {
+                if let NodeType::InputGray(name) | NodeType::InputRgba(name) = &node.node_type {
+                    name
+                } else {
+                    unreachable!();
+                }
+            })
+            .collect()
     }
 
     pub fn output_names(&self) -> Vec<&String> {
-        self.output_nodes().iter().map(|node| {
-            if let NodeType::OutputGray(name) | NodeType::OutputRgba(name) = &node.node_type {
-                name
-            } else {
-                unreachable!();
-            }
-        }).collect()
+        self.output_nodes()
+            .iter()
+            .map(|node| {
+                if let NodeType::OutputGray(name) | NodeType::OutputRgba(name) = &node.node_type {
+                    name
+                } else {
+                    unreachable!();
+                }
+            })
+            .collect()
     }
 
     pub fn input_slot_id_with_name(&self, name: &str) -> Option<SlotId> {
-        self.input_nodes().iter().find(|node| node.node_type.name().unwrap() == name).map(|node| SlotId(node.node_id.0))
+        self.input_nodes()
+            .iter()
+            .find(|node| node.node_type.name().unwrap() == name)
+            .map(|node| SlotId(node.node_id.0))
     }
 
     pub fn output_slot_id_with_name(&self, name: &str) -> Option<SlotId> {
-        self.output_nodes().iter().find(|node| node.node_type.name().unwrap() == name).map(|node| SlotId(node.node_id.0))
+        self.output_nodes()
+            .iter()
+            .find(|node| node.node_type.name().unwrap() == name)
+            .map(|node| SlotId(node.node_id.0))
     }
 
     pub fn input_slots(&self) -> Vec<SlotInput> {
-        self.input_nodes().iter().map(|node| {
-            let node_type = &node.node_type;
-            
-            SlotInput {
-                name: node_type.name().unwrap().to_string(),
-                slot_type: node_type.to_slot_type().unwrap(),
-                slot_id: SlotId(node.node_id.0),
-            }
-        }).collect()
+        self.input_nodes()
+            .iter()
+            .map(|node| {
+                let node_type = &node.node_type;
+
+                SlotInput {
+                    name: node_type.name().unwrap().to_string(),
+                    slot_type: node_type.to_slot_type().unwrap(),
+                    slot_id: SlotId(node.node_id.0),
+                }
+            })
+            .collect()
     }
 
     pub fn output_slots(&self) -> Vec<SlotOutput> {
-        self.output_nodes().iter().map(|node| {
-            let node_type = &node.node_type;
-            
-            SlotOutput {
-                name: node_type.name().unwrap().to_string(),
-                slot_type: node_type.to_slot_type().unwrap(),
-                slot_id: SlotId(node.node_id.0),
-            }
-        }).collect()
+        self.output_nodes()
+            .iter()
+            .map(|node| {
+                let node_type = &node.node_type;
+
+                SlotOutput {
+                    name: node_type.name().unwrap().to_string(),
+                    slot_type: node_type.to_slot_type().unwrap(),
+                    slot_id: SlotId(node.node_id.0),
+                }
+            })
+            .collect()
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
@@ -229,9 +254,7 @@ impl NodeGraph {
     pub fn output_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| {
-                node.node_type.is_output()
-            })
+            .filter(|node| node.node_type.is_output())
             .map(|node| node.node_id)
             .collect()
     }
@@ -239,9 +262,7 @@ impl NodeGraph {
     pub fn external_input_ids(&self) -> Vec<NodeId> {
         self.nodes
             .iter()
-            .filter(|node| {
-                node.node_type.is_input()
-            })
+            .filter(|node| node.node_type.is_input())
             .map(|node| node.node_id)
             .collect()
     }
@@ -289,8 +310,12 @@ impl NodeGraph {
             return Err(TexProError::SlotOccupied);
         }
 
-        self.edges
-            .push(Edge::new(output_node_id, input_node_id, output_slot_id, input_slot_id));
+        self.edges.push(Edge::new(
+            output_node_id,
+            input_node_id,
+            output_slot_id,
+            input_slot_id,
+        ));
 
         Ok(())
     }

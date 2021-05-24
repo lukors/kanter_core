@@ -3,7 +3,7 @@ use crate::{
     node_graph::Edge,
 };
 use crate::{node::*, slot_data::*};
-use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Luma, RgbaImage};
+use image::{imageops, DynamicImage, GenericImageView, ImageBuffer};
 use std::{
     cmp::{max, min},
     path::Path,

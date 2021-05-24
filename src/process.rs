@@ -213,23 +213,15 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
     let is_rgba = Arc::clone(&slot_datas[0].image).is_rgba();
 
     let image_left = Arc::clone(
-        &slot_data_with_name(
-            &slot_datas,
-            &node,
-            "left"
-        )
-        .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
-        .image,
+        &slot_data_with_name(&slot_datas, &node, "left")
+            .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
+            .image,
     );
 
     let image_right = Arc::clone(
-        &slot_data_with_name(
-            &slot_datas,
-            &node,
-            "right"
-        )
-        .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
-        .image,
+        &slot_data_with_name(&slot_datas, &node, "right")
+            .unwrap_or_else(|| Arc::new(SlotData::from_value(size, 0.0, is_rgba)))
+            .image,
     );
 
     if image_left.is_rgba() != image_right.is_rgba() {
@@ -264,7 +256,11 @@ fn process_mix(slot_datas: &[Arc<SlotData>], node: &Node, mix_type: MixType) -> 
     ))]
 }
 
-fn slot_data_with_name(slot_datas: &[Arc<SlotData>], node: &Node, name: &str) -> Option<Arc<SlotData>> {
+fn slot_data_with_name(
+    slot_datas: &[Arc<SlotData>],
+    node: &Node,
+    name: &str,
+) -> Option<Arc<SlotData>> {
     slot_data_with_slot_id(
         &slot_datas,
         node.input_slot_with_name(name.into()).unwrap().slot_id,
@@ -274,7 +270,8 @@ fn slot_data_with_name(slot_datas: &[Arc<SlotData>], node: &Node, name: &str) ->
 fn slot_data_with_slot_id(slot_datas: &[Arc<SlotData>], slot_id: SlotId) -> Option<Arc<SlotData>> {
     slot_datas
         .iter()
-        .find(|slot_data| slot_data.slot_id == slot_id).map(|slot_data| Arc::clone(slot_data))
+        .find(|slot_data| slot_data.slot_id == slot_id)
+        .map(|slot_data| Arc::clone(slot_data))
 }
 
 fn process_add_gray(left: &Arc<BoxBuffer>, right: &Arc<BoxBuffer>, size: Size) -> Buffer {
@@ -419,13 +416,17 @@ fn process_height_to_normal(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Ar
     } else {
         return Vec::new();
     };
-    
+
     let size = slot_data.size;
     let (width, height) = (size.width, size.height);
     let pixel_distance_x = 1. / width as f32;
     let pixel_distance_y = 1. / height as f32;
 
-    let mut buffer_normal: [Buffer; 3] = [ImageBuffer::new(width, height), ImageBuffer::new(width, height), ImageBuffer::new(width, height)];
+    let mut buffer_normal: [Buffer; 3] = [
+        ImageBuffer::new(width, height),
+        ImageBuffer::new(width, height),
+        ImageBuffer::new(width, height),
+    ];
 
     for (x, y, px) in buffer_height.enumerate_pixels() {
         let sample_up = buffer_height.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
@@ -440,7 +441,12 @@ fn process_height_to_normal(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Ar
         }
     }
 
-    vec![Arc::new(SlotData::new(node.node_id, SlotId(0), size, Arc::new(SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap())))]
+    vec![Arc::new(SlotData::new(
+        node.node_id,
+        SlotId(0),
+        size,
+        Arc::new(SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap()),
+    ))]
 }
 
 fn split_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {

@@ -50,7 +50,7 @@ impl SlotImage {
 
         let mut buffers = buffers.to_vec();
         buffers.reverse();
-        
+
         Ok(Self::Rgba([
             Arc::new(Box::new(buffers.pop().unwrap())),
             Arc::new(Box::new(buffers.pop().unwrap())),
@@ -67,9 +67,9 @@ impl SlotImage {
         let (width, height) = (buffers[0].width(), buffers[0].height());
         let mut buffers = buffers.to_vec();
 
-        buffers.push(Buffer::from_raw(width, height, vec![1.0; (width * height) as usize])
-        .unwrap());
-        
+        buffers
+            .push(Buffer::from_raw(width, height, vec![1.0; (width * height) as usize]).unwrap());
+
         Self::from_buffers_rgba(&mut buffers)
     }
 

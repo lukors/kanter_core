@@ -1,6 +1,6 @@
 use crate::{
     error::{Result, TexProError},
-    node::{EmbeddedNodeDataId, Node, NodeType, Side},
+    node::{EmbeddedNodeDataId, Node, Side},
     node_graph::*,
     process::*,
     slot_data::*,

@@ -5,7 +5,11 @@ use crate::{
 };
 use image::FilterType;
 use serde::{Deserialize, Serialize};
-use std::{fmt::{self, Display}, mem, path::PathBuf};
+use std::{
+    fmt::{self, Display},
+    mem,
+    path::PathBuf,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum ResizePolicy {
@@ -109,20 +113,19 @@ impl PartialEq for NodeType {
 
 impl NodeType {
     pub fn is_input(&self) -> bool {
-        *self == Self::InputGray(String::new()) ||
-        *self == Self::InputRgba(String::new())
+        *self == Self::InputGray(String::new()) || *self == Self::InputRgba(String::new())
     }
 
     pub fn is_output(&self) -> bool {
-        *self == Self::OutputGray(String::new()) ||
-        *self == Self::OutputRgba(String::new())
+        *self == Self::OutputGray(String::new()) || *self == Self::OutputRgba(String::new())
     }
 
     pub fn name(&self) -> Option<&String> {
-        if let Self::InputGray(name) |
-        Self::InputRgba(name) |
-        Self::OutputGray(name) |
-        Self::OutputRgba(name) = self {
+        if let Self::InputGray(name)
+        | Self::InputRgba(name)
+        | Self::OutputGray(name)
+        | Self::OutputRgba(name) = self
+        {
             Some(name)
         } else {
             None
@@ -133,7 +136,7 @@ impl NodeType {
         match self {
             Self::InputGray(_) | Self::OutputGray(_) => Some(SlotType::Gray),
             Self::InputRgba(_) | Self::OutputRgba(_) => Some(SlotType::Rgba),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -258,13 +261,19 @@ impl Node {
 
     pub fn output_slots(&self) -> Vec<SlotOutput> {
         match self.node_type {
-            NodeType::InputGray(_) => vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Gray)],
-            NodeType::InputRgba(_) => vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)],
+            NodeType::InputGray(_) => {
+                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Gray)]
+            }
+            NodeType::InputRgba(_) => {
+                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
+            }
             NodeType::OutputGray(_) => Vec::new(),
             NodeType::OutputRgba(_) => Vec::new(),
             NodeType::Graph(ref graph) => graph.output_slots(),
             NodeType::Image(_) => vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)],
-            NodeType::Embedded(_) => vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)],
+            NodeType::Embedded(_) => {
+                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
+            }
             NodeType::Write(_) => unimplemented!(),
             NodeType::Value(_) => vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Gray)],
             NodeType::Mix(_) => vec![SlotOutput::new(
@@ -281,7 +290,9 @@ impl Node {
                 SlotOutput::new("blue".into(), SlotId(2), SlotType::Gray),
                 SlotOutput::new("alpha".into(), SlotId(3), SlotType::Gray),
             ],
-            NodeType::MergeRgba => vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)],
+            NodeType::MergeRgba => {
+                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
+            }
         }
     }
 
