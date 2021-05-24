@@ -47,7 +47,7 @@ pub fn process_node(
         NodeType::Write(ref path) => write(&slot_datas, path)?,
         NodeType::Value(val) => value(&node, val),
         NodeType::Mix(mix_type) => process_mix(&slot_datas, &node, mix_type),
-        NodeType::HeightToNormal => unimplemented!(), // process_height_to_normal(&node_datas, &node),
+        NodeType::HeightToNormal => process_height_to_normal(&slot_datas, &node),
         NodeType::SplitRgba => split_rgba(&slot_datas, &node),
         NodeType::MergeRgba => merge_rgba(&slot_datas, &node),
     };
@@ -55,7 +55,7 @@ pub fn process_node(
     Ok(output)
 }
 
-fn assign_slot_ids(slot_datas: &Vec<Arc<SlotData>>, edges: &[Edge]) -> Vec<Arc<SlotData>> {
+fn assign_slot_ids(slot_datas: &[Arc<SlotData>], edges: &[Edge]) -> Vec<Arc<SlotData>> {
     edges
         .iter()
         .map(|edge| {
@@ -272,14 +272,9 @@ fn slot_data_with_name(slot_datas: &[Arc<SlotData>], node: &Node, name: &str) ->
 }
 
 fn slot_data_with_slot_id(slot_datas: &[Arc<SlotData>], slot_id: SlotId) -> Option<Arc<SlotData>> {
-    if let Some(slot_data) = slot_datas
+    slot_datas
         .iter()
-        .find(|slot_data| slot_data.slot_id == slot_id)
-    {
-        Some(Arc::clone(slot_data))
-    } else {
-        None
-    }
+        .find(|slot_data| slot_data.slot_id == slot_id).map(|slot_data| Arc::clone(slot_data))
 }
 
 fn process_add_gray(left: &Arc<BoxBuffer>, right: &Arc<BoxBuffer>, size: Size) -> Buffer {
@@ -412,41 +407,40 @@ fn process_pow_rgba(
     ]
 }
 
-fn process_height_to_normal(node_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
-    unimplemented!()
-    // let channel_count = 3;
-    // let heightmap = &node_datas[0].image;
-    // let (width, height) = (heightmap.width(), heightmap.height());
-    // let pixel_distance_x = 1. / width as f32;
-    // let pixel_distance_y = 1. / height as f32;
+fn process_height_to_normal(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
+    let slot_data = if let Some(slot_data) = slot_data_with_name(slot_datas, node, "input") {
+        slot_data
+    } else {
+        return Vec::new();
+    };
 
-    // let mut output_buffers: Vec<BoxBuffer> =
-    //     vec![Box::new(ImageBuffer::new(width, height)); channel_count];
+    let buffer_height = if let SlotImage::Gray(buf) = &*slot_data.image {
+        buf
+    } else {
+        return Vec::new();
+    };
+    
+    let size = slot_data.size;
+    let (width, height) = (size.width, size.height);
+    let pixel_distance_x = 1. / width as f32;
+    let pixel_distance_y = 1. / height as f32;
 
-    // for (x, y, px) in heightmap.enumerate_pixels() {
-    //     let sample_up = heightmap.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
-    //     let sample_left = heightmap.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
+    let mut buffer_normal: [Buffer; 3] = [ImageBuffer::new(width, height), ImageBuffer::new(width, height), ImageBuffer::new(width, height)];
 
-    //     let tangent = Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
-    //     let bitangent = Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
-    //     let normal = tangent.cross(&bitangent).normalize();
+    for (x, y, px) in buffer_height.enumerate_pixels() {
+        let sample_up = buffer_height.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
+        let sample_left = buffer_height.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
 
-    //     for (i, buffer) in output_buffers.iter_mut().enumerate() {
-    //         buffer.put_pixel(x, y, Luma([normal[i] * 0.5 + 0.5]));
-    //     }
-    // }
+        let tangent = Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
+        let bitangent = Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
+        let normal = tangent.cross(&bitangent).normalize();
 
-    // let mut output_node_datas = Vec::with_capacity(channel_count);
-    // for (i, buffer) in output_buffers.into_iter().enumerate() {
-    //     output_node_datas.push(Arc::new(SlotData::new(
-    //         node.node_id,
-    //         SlotId(i as u32),
-    //         Size::new(heightmap.width(), heightmap.height()),
-    //         Arc::new(buffer),
-    //     )));
-    // }
+        for (i, buffer) in buffer_normal.iter_mut().enumerate() {
+            buffer.put_pixel(x, y, Luma([normal[i] * 0.5 + 0.5]));
+        }
+    }
 
-    // output_node_datas
+    vec![Arc::new(SlotData::new(node.node_id, SlotId(0), size, Arc::new(SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap())))]
 }
 
 fn split_rgba(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {

@@ -419,50 +419,6 @@ fn unconnected_node() {
         .unwrap();
 }
 
-// #[test]
-// #[timeout(20000)]
-// fn input_output_2() {
-//     let tex_pro_compare = input_output_2_internal();
-
-//     for _ in 0..30 {
-//         let tex_pro = input_output_2_internal();
-
-//         for node_data_cmp in &tex_pro_compare.slot_datas() {
-//             assert!(tex_pro
-//                 .slot_datas()
-//                 .iter()
-//                 .any(|node_data| *node_data == *node_data_cmp));
-//         }
-//     }
-// }
-
-fn input_output_2_internal() -> TextureProcessor {
-    let tex_pro = TextureProcessor::new();
-
-    let input_node_1 = tex_pro
-        .add_node(Node::new(NodeType::Image("data/px_1.png".into())))
-        .unwrap();
-    let input_node_2 = tex_pro
-        .add_node(Node::new(NodeType::Image("data/px_1.png".into())))
-        .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
-
-    tex_pro
-        .connect(input_node_2, output_node, SlotId(2), SlotId(2))
-        .unwrap();
-    tex_pro
-        .connect(input_node_1, output_node, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .connect(input_node_1, output_node, SlotId(1), SlotId(1))
-        .unwrap();
-    tex_pro
-        .connect(input_node_2, output_node, SlotId(3), SlotId(3))
-        .unwrap();
-
-    tex_pro
-}
-
 #[test]
 #[timeout(20000)]
 fn remove_node() {
@@ -855,7 +811,7 @@ fn graph_node_gray() {
     let graph_node = tex_pro
         .add_node(Node::new(NodeType::Graph(nested_graph)))
         .unwrap();
-    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
     
     tex_pro
         .connect(input_node, split_node, SlotId(0), SlotId(0))
@@ -886,67 +842,48 @@ fn graph_node_gray() {
     assert!(images_equal(path_out, path_cmp));
 }
 
-// #[test]
-// #[should_panic]
-// #[timeout(20000)]
-// fn wrong_slot_type() {
-//     let tex_pro = TextureProcessor::new();
+#[test]
+#[should_panic]
+#[timeout(20000)]
+fn wrong_slot_type() {
+    let tex_pro = TextureProcessor::new();
 
-//     tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
-//         .unwrap();
-//     tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
-// }
+    let image_node = tex_pro
+        .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+        .unwrap();
+    let gray_node = tex_pro.add_node(Node::new(NodeType::OutputGray("out".into()))).unwrap();
+    tex_pro.connect(image_node, gray_node, SlotId(0), SlotId(0)).unwrap();
+}
 
-// #[test]
-// #[timeout(20000)]
-// fn height_to_normal_node() {
-//     const PATH_OUT: &str = &"out/height_to_normal_node.png";
-//     const PATH_CMP: &str = &"data/test_compare/height_to_normal_node.png";
+#[test]
+#[timeout(20000)]
+fn height_to_normal_node() {
+    // Texture Processor
+    let tex_pro = TextureProcessor::new();
 
-//     // Texture Processor
-//     let tex_pro = TextureProcessor::new();
+    let input_node = tex_pro
+        .add_node(Node::new(NodeType::Image(CLOUDS.into())))
+        .unwrap();
+    let split_node = tex_pro
+        .add_node(Node::new(NodeType::SplitRgba))
+        .unwrap();
+    let h2n_node = tex_pro
+        .add_node(Node::new(NodeType::HeightToNormal))
+        .unwrap();
+    let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
 
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(CLOUDS.into())))
-//         .unwrap();
-//     let h2n_node = tex_pro
-//         .add_node(Node::new(NodeType::HeightToNormal))
-//         .unwrap();
-//     let output_node = tex_pro.add_node(Node::new(NodeType::OutputRgba("out".into()))).unwrap();
+    tex_pro
+        .connect(input_node, split_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(split_node, h2n_node, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(h2n_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
 
-//     tex_pro
-//         .connect(input_node, h2n_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(h2n_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(h2n_node, output_node, SlotId(1), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(h2n_node, output_node, SlotId(2), SlotId(2))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     // Output
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(
-//             256,
-//             256,
-//             tex_pro.get_output_rgba(output_node, SlotId(0)).unwrap(),
-//         )
-//         .unwrap(),
-//         256,
-//         256,
-//         image::ColorType::RGBA(8),
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
+    save_and_compare(tex_pro, output_node, "height_to_normal_node.png");
+}
 
 fn mix_node_test_gray(mix_type: MixType, name: &str) {
     let tex_pro = TextureProcessor::new();

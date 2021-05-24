@@ -318,11 +318,25 @@ impl Node {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SlotType {
     Gray,
     Rgba,
     GrayOrRgba,
+}
+
+impl SlotType {
+    pub fn fits(&self, other: Self) -> Result<()> {
+        if match self {
+            Self::Gray => other == Self::Gray || other == Self::GrayOrRgba,
+            Self::Rgba => other == Self::Rgba || other == Self::GrayOrRgba,
+            Self::GrayOrRgba => true,
+        } {
+            Ok(())
+        } else {
+            Err(TexProError::InvalidSlotType)
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -177,19 +177,11 @@ impl NodeGraph {
     }
 
     pub fn input_slot_id_with_name(&self, name: &str) -> Option<SlotId> {
-        if let Some(node) = self.input_nodes().iter().find(|node| node.node_type.name().unwrap() == name) {
-            Some(SlotId(node.node_id.0))
-        } else {
-            None
-        }
+        self.input_nodes().iter().find(|node| node.node_type.name().unwrap() == name).map(|node| SlotId(node.node_id.0))
     }
 
     pub fn output_slot_id_with_name(&self, name: &str) -> Option<SlotId> {
-        if let Some(node) = self.output_nodes().iter().find(|node| node.node_type.name().unwrap() == name) {
-            Some(SlotId(node.node_id.0))
-        } else {
-            None
-        }
+        self.output_nodes().iter().find(|node| node.node_type.name().unwrap() == name).map(|node| SlotId(node.node_id.0))
     }
 
     pub fn input_slots(&self) -> Vec<SlotInput> {
@@ -285,20 +277,20 @@ impl NodeGraph {
 
     pub fn try_connect(
         &mut self,
-        output_node: NodeId,
-        input_node: NodeId,
-        output_slot: SlotId,
-        input_slot: SlotId,
+        output_node_id: NodeId,
+        input_node_id: NodeId,
+        output_slot_id: SlotId,
+        input_slot_id: SlotId,
     ) -> Result<()> {
-        self.has_node_with_id(output_node)?;
-        self.has_node_with_id(input_node)?;
+        self.has_node_with_id(output_node_id)?;
+        self.has_node_with_id(input_node_id)?;
 
-        if self.slot_occupied(input_node, Side::Input, input_slot) {
+        if self.slot_occupied(input_node_id, Side::Input, input_slot_id) {
             return Err(TexProError::SlotOccupied);
         }
 
         self.edges
-            .push(Edge::new(output_node, input_node, output_slot, input_slot));
+            .push(Edge::new(output_node_id, input_node_id, output_slot_id, input_slot_id));
 
         Ok(())
     }
@@ -307,22 +299,24 @@ impl NodeGraph {
         &mut self,
         output_node_id: NodeId,
         input_node_id: NodeId,
-        output_slot: SlotId,
-        input_slot: SlotId,
+        output_slot_id: SlotId,
+        input_slot_id: SlotId,
     ) -> Result<&Edge> {
         let output_node = self.node_with_id(output_node_id)?;
         let input_node = self.node_with_id(input_node_id)?;
 
-        output_node.output_slot_with_id(output_slot)?;
-        input_node.input_slot_with_id(input_slot)?;
+        let output_slot_type = output_node.output_slot_with_id(output_slot_id)?.slot_type;
+        let input_slot_type = input_node.input_slot_with_id(input_slot_id)?.slot_type;
 
-        let _ = self.disconnect_slot(input_node_id, Side::Input, input_slot);
+        output_slot_type.fits(input_slot_type)?;
+
+        let _ = self.disconnect_slot(input_node_id, Side::Input, input_slot_id);
 
         self.edges.push(Edge::new(
             output_node_id,
             input_node_id,
-            output_slot,
-            input_slot,
+            output_slot_id,
+            input_slot_id,
         ));
 
         if let Some(edge) = self.edges.last() {

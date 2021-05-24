@@ -1,4 +1,4 @@
-use crate::{node::EmbeddedNodeDataId, node_graph::*};
+use crate::{error::*, node::EmbeddedNodeDataId, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
 use std::{fmt, mem, sync::Arc};
@@ -41,6 +41,36 @@ impl SlotImage {
                 Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()]).unwrap(),
             )))
         }
+    }
+
+    pub fn from_buffers_rgba(buffers: &mut [Buffer]) -> Result<Self> {
+        if buffers.len() != 4 {
+            return Err(TexProError::InvalidBufferCount);
+        }
+
+        let mut buffers = buffers.to_vec();
+        buffers.reverse();
+        
+        Ok(Self::Rgba([
+            Arc::new(Box::new(buffers.pop().unwrap())),
+            Arc::new(Box::new(buffers.pop().unwrap())),
+            Arc::new(Box::new(buffers.pop().unwrap())),
+            Arc::new(Box::new(buffers.pop().unwrap())),
+        ]))
+    }
+
+    pub fn from_buffers_rgb(buffers: &mut [Buffer]) -> Result<Self> {
+        if buffers.len() != 3 {
+            return Err(TexProError::InvalidBufferCount);
+        }
+
+        let (width, height) = (buffers[0].width(), buffers[0].height());
+        let mut buffers = buffers.to_vec();
+
+        buffers.push(Buffer::from_raw(width, height, vec![1.0; (width * height) as usize])
+        .unwrap());
+        
+        Self::from_buffers_rgba(&mut buffers)
     }
 
     pub fn size(&self) -> Size {
