@@ -122,25 +122,48 @@ impl NodeGraph {
         self.nodes.iter_mut().find(|node| node.node_id == node_id)
     }
 
-    fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) -> Result<NodeId> {
-        if let Some(name) = node.node_type.name() {
-            if name.is_empty() {
-                return Err(TexProError::InvalidName);
+    fn avoid_name_collision(name_list: Vec<&String>, name: &str) -> String {
+        let mut name_edit = name.to_string();
+
+        while name_list.contains(&&name_edit) {
+            // Find the last underscore
+            if let Some((name, number)) = name_edit.rsplit_once('_') {
+                if number.chars().all(char::is_numeric) {
+                    let number = if let Ok(number) = number.parse::<u32>() {
+                        number.wrapping_add(1)
+                    } else {
+                        0
+                    };
+
+                    name_edit = String::from(format!("{}_{}", name, number).as_str());
+                } else {
+                    name_edit = String::from(format!("{}_0", name).as_str());
+                }
+            } else {
+                name_edit = String::from(format!("{}_0", name_edit).as_str());
             }
         }
 
-        match node.node_type {
-            NodeType::InputGray(ref name) | NodeType::InputRgba(ref name) => {
-                if self.input_names().contains(&&name) {
-                    return Err(TexProError::InvalidName);
-                }
+        name_edit
+    }
+
+    fn add_node_internal(&mut self, mut node: Node, node_id: NodeId) -> Result<NodeId> {
+        let node_type_clone = node.node_type.clone();
+
+        if let Some(name) = node.node_type.name_mut() {
+            if name.is_empty() {
+                *name = String::from("untitled");
             }
-            NodeType::OutputGray(ref name) | NodeType::OutputRgba(ref name) => {
-                if self.output_names().contains(&&name) {
-                    return Err(TexProError::InvalidName);
+
+            match node_type_clone {
+                NodeType::InputGray(_) | NodeType::InputRgba(_) => {
+                    *name = Self::avoid_name_collision(self.input_names(), &name);
                 }
+                NodeType::OutputGray(_) | NodeType::OutputRgba(_) => {
+                    *name = Self::avoid_name_collision(self.output_names(), &name);
+                }
+                _ => unreachable!("Only inputs and outputs have names"),
             }
-            _ => (),
         }
 
         node.node_id = node_id;

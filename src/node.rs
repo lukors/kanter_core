@@ -138,6 +138,18 @@ impl NodeType {
         }
     }
 
+    pub fn name_mut(&mut self) -> Option<&mut String> {
+        if let Self::InputGray(name)
+        | Self::InputRgba(name)
+        | Self::OutputGray(name)
+        | Self::OutputRgba(name) = self
+        {
+            Some(name)
+        } else {
+            None
+        }
+    }
+
     pub fn to_slot_type(&self) -> Option<SlotType> {
         match self {
             Self::InputGray(_) | Self::OutputGray(_) => Some(SlotType::Gray),
