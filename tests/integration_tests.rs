@@ -1,5 +1,5 @@
 use kanter_core::{
-    node::{EmbeddedSlotDataId, MixType, Node, NodeType, ResizeFilter, ResizePolicy},
+    node::{EmbeddedSlotDataId, MixType, Node, node_type::NodeType, ResizeFilter, ResizePolicy},
     node_graph::{NodeGraph, NodeId, SlotId},
     slot_data::Size,
     texture_processor::TextureProcessor,
