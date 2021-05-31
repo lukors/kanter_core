@@ -1,5 +1,8 @@
 use kanter_core::{
-    node::{EmbeddedSlotDataId, MixType, Node, node_type::NodeType, ResizeFilter, ResizePolicy},
+    node::{
+        embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, Node, ResizeFilter,
+        ResizePolicy,
+    },
     node_graph::{NodeGraph, NodeId, SlotId},
     slot_data::Size,
     texture_processor::TextureProcessor,
@@ -289,7 +292,7 @@ fn embedded_node_data() {
         .embed_slot_data_with_id(Arc::clone(&node_data[0]), EmbeddedSlotDataId(0))
         .unwrap();
     let input = tex_pro_2
-        .add_node(Node::new(NodeType::Embedded(end_id)))
+        .add_node(Node::new(NodeType::Embed(end_id)))
         .unwrap();
     tex_pro_2
         .connect(input, tp2_output_node, SlotId(0), SlotId(0))

@@ -1,6 +1,6 @@
 use crate::{
     error::*,
-    node::{MixType, Node, node_type::NodeType, Side, SlotInput, SlotOutput},
+    node::{mix::MixType, node_type::NodeType, Node, Side, SlotInput, SlotOutput},
 };
 use serde::{Deserialize, Serialize};
 use std::{

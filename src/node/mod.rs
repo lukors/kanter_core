@@ -1,4 +1,18 @@
+pub mod combine_rgba;
+pub mod embed;
+pub mod graph;
+pub mod height_to_normal;
+pub mod input_gray;
+pub mod input_rgba;
+pub mod mix;
 pub mod node_type;
+pub mod output;
+pub mod process_shared;
+pub mod read;
+pub mod separate_rgba;
+pub mod value;
+pub mod write;
+
 use crate::{
     error::{Result, TexProError},
     node_graph::*,
@@ -6,11 +20,7 @@ use crate::{
 };
 use image::FilterType;
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{self, Display},
-    mem,
-    path::PathBuf,
-};
+use std::fmt;
 
 use self::node_type::NodeType;
 
@@ -82,9 +92,6 @@ impl From<ResizeFilter> for FilterType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, PartialOrd, Serialize)]
-pub struct EmbeddedSlotDataId(pub u32);
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Side {
     Input,
@@ -94,37 +101,6 @@ pub enum Side {
 impl Default for Side {
     fn default() -> Self {
         Self::Input
-    }
-}
-
-#[derive(Deserialize, Serialize, Copy, Clone, PartialEq)]
-pub enum MixType {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Pow,
-}
-
-impl Default for MixType {
-    fn default() -> Self {
-        Self::Add
-    }
-}
-
-impl Display for MixType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Add => "Add",
-                Self::Subtract => "Subtract",
-                Self::Multiply => "Multiply",
-                Self::Divide => "Divide",
-                Self::Pow => "Power",
-            }
-        )
     }
 }
 
@@ -159,77 +135,6 @@ impl Node {
     pub fn resize_filter(mut self, resize_filter: ResizeFilter) -> Self {
         self.resize_filter = resize_filter;
         self
-    }
-
-    pub fn input_slots(&self) -> Vec<SlotInput> {
-        match self.node_type {
-            NodeType::InputGray(_) => Vec::new(),
-            NodeType::InputRgba(_) => Vec::new(),
-            NodeType::OutputGray(_) => {
-                vec![SlotInput::new("input".into(), SlotId(0), SlotType::Gray)]
-            }
-            NodeType::OutputRgba(_) => {
-                vec![SlotInput::new("input".into(), SlotId(0), SlotType::Rgba)]
-            }
-            NodeType::Graph(ref graph) => graph.input_slots(),
-            NodeType::Image(_) => Vec::new(),
-            NodeType::Embedded(_) => Vec::new(),
-            NodeType::Write(_) => unimplemented!(),
-            NodeType::Value(_) => Vec::new(),
-            NodeType::Mix(_) => vec![
-                SlotInput::new("left".into(), SlotId(0), SlotType::GrayOrRgba),
-                SlotInput::new("right".into(), SlotId(1), SlotType::GrayOrRgba),
-            ],
-            NodeType::HeightToNormal => {
-                vec![SlotInput::new("input".into(), SlotId(0), SlotType::Gray)]
-            }
-            NodeType::SeparateRgba => {
-                vec![SlotInput::new("input".into(), SlotId(0), SlotType::Rgba)]
-            }
-            NodeType::CombineRgba => vec![
-                SlotInput::new("red".into(), SlotId(0), SlotType::Gray),
-                SlotInput::new("green".into(), SlotId(1), SlotType::Gray),
-                SlotInput::new("blue".into(), SlotId(2), SlotType::Gray),
-                SlotInput::new("alpha".into(), SlotId(3), SlotType::Gray),
-            ],
-        }
-    }
-
-    pub fn output_slots(&self) -> Vec<SlotOutput> {
-        match self.node_type {
-            NodeType::InputGray(_) => {
-                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Gray)]
-            }
-            NodeType::InputRgba(_) => {
-                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
-            }
-            NodeType::OutputGray(_) => Vec::new(),
-            NodeType::OutputRgba(_) => Vec::new(),
-            NodeType::Graph(ref graph) => graph.output_slots(),
-            NodeType::Image(_) => vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)],
-            NodeType::Embedded(_) => {
-                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
-            }
-            NodeType::Write(_) => unimplemented!(),
-            NodeType::Value(_) => vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Gray)],
-            NodeType::Mix(_) => vec![SlotOutput::new(
-                "output".into(),
-                SlotId(0),
-                SlotType::GrayOrRgba,
-            )],
-            NodeType::HeightToNormal => {
-                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
-            }
-            NodeType::SeparateRgba => vec![
-                SlotOutput::new("red".into(), SlotId(0), SlotType::Gray),
-                SlotOutput::new("green".into(), SlotId(1), SlotType::Gray),
-                SlotOutput::new("blue".into(), SlotId(2), SlotType::Gray),
-                SlotOutput::new("alpha".into(), SlotId(3), SlotType::Gray),
-            ],
-            NodeType::CombineRgba => {
-                vec![SlotOutput::new("output".into(), SlotId(0), SlotType::Rgba)]
-            }
-        }
     }
 
     pub fn input_slot_with_id(&self, slot_id: SlotId) -> Result<Slot> {

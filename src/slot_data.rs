@@ -1,4 +1,4 @@
-use crate::{error::*, node::EmbeddedSlotDataId, node_graph::*};
+use crate::{error::*, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
 use std::{fmt, mem, sync::Arc};
@@ -97,24 +97,6 @@ pub struct SlotData {
     pub slot_id: SlotId,
     pub size: Size,
     pub image: Arc<SlotImage>,
-}
-#[derive(Debug, Clone)]
-pub struct EmbeddedSlotData {
-    pub node_data_id: EmbeddedSlotDataId,
-    pub slot_id: SlotId,
-    pub size: Size,
-    pub image: Arc<SlotImage>,
-}
-
-impl EmbeddedSlotData {
-    pub fn from_node_data(node_data: Arc<SlotData>, node_data_id: EmbeddedSlotDataId) -> Self {
-        Self {
-            node_data_id,
-            slot_id: node_data.slot_id,
-            size: node_data.size,
-            image: Arc::clone(&node_data.image),
-        }
-    }
 }
 
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;

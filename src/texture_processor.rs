@@ -1,7 +1,7 @@
 use crate::{
     engine::*,
     error::{Result, TexProError},
-    node::{EmbeddedSlotDataId, Node, Side},
+    node::{embed::EmbeddedSlotDataId, Node, Side},
     node_graph::*,
     slot_data::*,
 };

@@ -1,8 +1,11 @@
 use crate::{
     error::{Result, TexProError},
-    node::{EmbeddedSlotDataId, Node, Side},
+    node::{
+        embed::{EmbeddedSlotData, EmbeddedSlotDataId},
+        node_type::process_node,
+        Node, Side,
+    },
     node_graph::*,
-    process::*,
     slot_data::*,
 };
 use image::ImageBuffer;
