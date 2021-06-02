@@ -8,7 +8,7 @@ use kanter_core::{
     texture_processor::TextureProcessor,
 };
 use ntest::timeout;
-use std::{fs::create_dir, path::Path, sync::Arc};
+use std::{fs::create_dir, path::Path, sync::Arc, thread};
 
 const DIR_OUT: &str = "out";
 const DIR_CMP: &str = &"data/test_compare";
@@ -72,6 +72,59 @@ fn input_output() {
     .unwrap();
 
     assert!(images_equal(PATH_IN, PATH_OUT));
+}
+
+#[test]
+#[timeout(20000)]
+fn no_cache() {
+    let tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+    let output_node = tex_pro
+        .add_node(Node::new(NodeType::OutputGray("out".into())))
+        .unwrap();
+
+    tex_pro
+        .connect(value_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.engine().write().unwrap().auto_update = true;
+
+    thread::sleep(std::time::Duration::from_secs(1));
+
+    assert!(tex_pro
+        .engine()
+        .read()
+        .unwrap()
+        .slot_data(value_node, SlotId(0))
+        .is_err());
+}
+
+#[test]
+#[timeout(20000)]
+fn use_cache() {
+    let tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+    let output_node = tex_pro
+        .add_node(Node::new(NodeType::OutputGray("out".into())))
+        .unwrap();
+
+    tex_pro
+        .connect(value_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.engine().write().unwrap().use_cache = true;
+    tex_pro.engine().write().unwrap().auto_update = true;
+
+    thread::sleep(std::time::Duration::from_secs(1));
+
+    assert!(tex_pro
+        .engine()
+        .read()
+        .unwrap()
+        .slot_data(value_node, SlotId(0))
+        .is_ok());
 }
 
 #[test]

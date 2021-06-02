@@ -43,6 +43,7 @@ pub struct Engine {
     changed: BTreeSet<NodeId>,
     one_shot: bool,
     pub auto_update: bool,
+    pub use_cache: bool,
 }
 
 impl Engine {
@@ -56,6 +57,7 @@ impl Engine {
             changed: BTreeSet::new(),
             one_shot: false,
             auto_update: false,
+            use_cache: false,
         }
     }
 
@@ -96,6 +98,24 @@ impl Engine {
                     if tex_pro.set_state(node_id, NodeState::Clean).is_err() {
                         shutdown.store(true, Ordering::Relaxed);
                         return;
+                    }
+
+                    if !tex_pro.use_cache {
+                        for parent in tex_pro.get_parents(node_id) {
+                            if tex_pro
+                                .get_children(parent)
+                                .iter()
+                                .flatten()
+                                .all(|node_id| {
+                                    matches![
+                                        tex_pro.node_state(*node_id).unwrap(),
+                                        NodeState::Clean | NodeState::Processing
+                                    ]
+                                })
+                            {
+                                tex_pro.remove_nodes_data(parent);
+                            }
+                        }
                     }
                 }
 
@@ -355,13 +375,18 @@ impl Engine {
     pub fn get_children(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
         self.node_graph.has_node_with_id(node_id)?;
 
-        Ok(self
+        let mut children = self
             .node_graph
             .edges
             .iter()
             .filter(|edge| edge.output_id == node_id)
             .map(|edge| edge.input_id)
-            .collect())
+            .collect::<Vec<NodeId>>();
+
+        children.sort_unstable();
+        children.dedup();
+
+        Ok(children)
     }
 
     /// Returns the NodeIds of all children of this node.
