@@ -57,35 +57,32 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<BoxBuffer> {
 ///
 /// Note: `edges` may only contain `Edge`s that connect to the inputs of the same node.
 pub(crate) fn calculate_size(
-    sizes: &[(NodeId, SlotId, Size)],
+    slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
     policy: ResizePolicy,
 ) -> Size {
     assert!(edges
         .iter()
         .all(|edge| edges.first().unwrap().input_id == edge.input_id));
-
-    let sizes_only = sizes
-        .iter()
-        .map(|(_, _, size)| *size)
-        .collect::<Vec<Size>>();
-
+    
     match policy {
-        ResizePolicy::MostPixels => *sizes_only
+        ResizePolicy::MostPixels => slot_datas
             .iter()
-            .max_by(|a, b| a.pixel_count().cmp(&b.pixel_count()))
+            .max_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
+            .map(|node_data| node_data.size)
             .unwrap(),
-        ResizePolicy::LeastPixels => *sizes_only
+        ResizePolicy::LeastPixels => slot_datas
             .iter()
-            .min_by(|a, b| a.pixel_count().cmp(&b.pixel_count()))
+            .min_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
+            .map(|node_data| node_data.size)
             .unwrap(),
-        ResizePolicy::LargestAxes => sizes_only.iter().fold(Size::new(0, 0), |a, b| {
-            Size::new(max(a.width, b.width), max(a.height, b.height))
+        ResizePolicy::LargestAxes => slot_datas.iter().fold(Size::new(0, 0), |a, b| {
+            Size::new(max(a.width, b.size.width), max(a.height, b.size.height))
         }),
-        ResizePolicy::SmallestAxes => sizes_only
+        ResizePolicy::SmallestAxes => slot_datas
             .iter()
             .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
-                Size::new(min(a.width, b.width), min(a.height, b.height))
+                Size::new(min(a.width, b.size.width), min(a.height, b.size.height))
             }),
         ResizePolicy::SpecificSlot(slot_id) => {
             let mut edges = edges.to_vec();
@@ -97,13 +94,13 @@ pub(crate) fn calculate_size(
                 .or_else(|| edges.first());
 
             if let Some(edge) = edge {
-                *sizes
+                slot_datas
                     .iter()
-                    .find(|(node_id, slot_id, _)| {
-                        *slot_id == edge.output_slot && *node_id == edge.output_id
+                    .find(|node_data| {
+                        node_data.slot_id == edge.output_slot && node_data.node_id == edge.output_id
                     })
-                    .map(|(_, _, size)| size)
-                    .expect("Couldn't find a size with the given `NodeId`")
+                    .expect("Couldn't find a buffer with the given `NodeId` while resizing")
+                    .size
             } else {
                 // TODO: This should fall back to the size of the graph here. Graphs don't have a size
                 // when this is written.
@@ -112,6 +109,54 @@ pub(crate) fn calculate_size(
         }
         ResizePolicy::SpecificSize(size) => size,
     }
+
+    // let sizes_only = sizes
+    //     .iter()
+    //     .map(|(_, _, size)| *size)
+    //     .collect::<Vec<Size>>();
+
+    // match policy {
+    //     ResizePolicy::MostPixels => *sizes_only
+    //         .iter()
+    //         .max_by(|a, b| a.pixel_count().cmp(&b.pixel_count()))
+    //         .unwrap(),
+    //     ResizePolicy::LeastPixels => *sizes_only
+    //         .iter()
+    //         .min_by(|a, b| a.pixel_count().cmp(&b.pixel_count()))
+    //         .unwrap(),
+    //     ResizePolicy::LargestAxes => sizes_only.iter().fold(Size::new(0, 0), |a, b| {
+    //         Size::new(max(a.width, b.width), max(a.height, b.height))
+    //     }),
+    //     ResizePolicy::SmallestAxes => sizes_only
+    //         .iter()
+    //         .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
+    //             Size::new(min(a.width, b.width), min(a.height, b.height))
+    //         }),
+    //     ResizePolicy::SpecificSlot(slot_id) => {
+    //         let mut edges = edges.to_vec();
+    //         edges.sort_unstable_by(|a, b| a.input_slot.cmp(&b.input_slot));
+
+    //         let edge = edges
+    //             .iter()
+    //             .find(|edge| edge.input_slot == slot_id)
+    //             .or_else(|| edges.first());
+
+    //         if let Some(edge) = edge {
+    //             *sizes
+    //                 .iter()
+    //                 .find(|(node_id, slot_id, _)| {
+    //                     *slot_id == edge.output_slot && *node_id == edge.output_id
+    //                 })
+    //                 .map(|(_, _, size)| size)
+    //                 .expect("Couldn't find a size with the given `NodeId`")
+    //         } else {
+    //             // TODO: This should fall back to the size of the graph here. Graphs don't have a size
+    //             // when this is written.
+    //             Size::new(1, 1)
+    //         }
+    //     }
+    //     ResizePolicy::SpecificSize(size) => size,
+    // }
 }
 
 pub(crate) fn resize_buffers(
@@ -124,12 +169,7 @@ pub(crate) fn resize_buffers(
         return Ok(slot_datas.into());
     }
 
-    let slot_data_sizes = slot_datas
-        .iter()
-        .map(|slot_data| (slot_data.node_id, slot_data.slot_id, slot_data.size))
-        .collect::<Vec<(NodeId, SlotId, Size)>>();
-
-    let size = calculate_size(&slot_data_sizes, edges, policy);
+    let size = calculate_size(slot_datas, edges, policy);
 
     let output: Vec<Arc<SlotData>> = slot_datas
         .iter()
