@@ -1,6 +1,6 @@
 use crate::{
     error::{Result, TexProError},
-    node_graph::Edge,
+    node_graph::{Edge, NodeId, SlotId},
 };
 use crate::{node::*, slot_data::*};
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer};
@@ -53,6 +53,55 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<BoxBuffer> {
         .collect()
 }
 
+pub fn calculate_size(
+    sizes: &[(NodeId, SlotId, Size)],
+    edges: &[Edge],
+    policy: ResizePolicy,
+) -> Size {
+    let sizes_only = sizes
+        .iter()
+        .map(|(_, _, size)| *size)
+        .collect::<Vec<Size>>();
+
+    match policy {
+        ResizePolicy::MostPixels => *sizes_only
+            .iter()
+            .max_by(|a, b| a.pixel_count().cmp(&b.pixel_count()))
+            .unwrap(),
+        ResizePolicy::LeastPixels => *sizes_only
+            .iter()
+            .min_by(|a, b| a.pixel_count().cmp(&b.pixel_count()))
+            .unwrap(),
+        ResizePolicy::LargestAxes => sizes_only.iter().fold(Size::new(0, 0), |a, b| {
+            Size::new(max(a.width, b.width), max(a.height, b.height))
+        }),
+        ResizePolicy::SmallestAxes => sizes_only
+            .iter()
+            .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
+                Size::new(min(a.width, b.width), min(a.height, b.height))
+            }),
+        ResizePolicy::SpecificSlot(slot_id) => {
+            let edge = edges
+                .iter()
+                .find(|edge| edge.input_slot == slot_id)
+                .or_else(|| edges.first());
+
+            if let Some(edge) = edge {
+                *sizes
+                    .iter()
+                    .find(|(node_id, slot_id, _)| {
+                        *slot_id == edge.output_slot && *node_id == edge.output_id
+                    })
+                    .map(|(_, _, size)| size)
+                    .expect("Couldn't find a size with the given `NodeId`")
+            } else {
+                unreachable!()
+            }
+        }
+        ResizePolicy::SpecificSize(size) => size,
+    }
+}
+
 pub fn resize_buffers(
     slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
@@ -63,45 +112,12 @@ pub fn resize_buffers(
         return Ok(slot_datas.into());
     }
 
-    let size = match policy {
-        ResizePolicy::MostPixels => slot_datas
-            .iter()
-            .max_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
-            .map(|node_data| node_data.size)
-            .unwrap(),
-        ResizePolicy::LeastPixels => slot_datas
-            .iter()
-            .min_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
-            .map(|node_data| node_data.size)
-            .unwrap(),
-        ResizePolicy::LargestAxes => slot_datas.iter().fold(Size::new(0, 0), |a, b| {
-            Size::new(max(a.width, b.size.width), max(a.height, b.size.height))
-        }),
-        ResizePolicy::SmallestAxes => slot_datas
-            .iter()
-            .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
-                Size::new(min(a.width, b.size.width), min(a.height, b.size.height))
-            }),
-        ResizePolicy::SpecificSlot(slot_id) => {
-            let edge = edges
-                .iter()
-                .find(|edge| edge.input_slot == slot_id)
-                .or_else(|| edges.first());
+    let slot_data_sizes = slot_datas
+        .iter()
+        .map(|slot_data| (slot_data.node_id, slot_data.slot_id, slot_data.size))
+        .collect::<Vec<(NodeId, SlotId, Size)>>();
 
-            if let Some(edge) = edge {
-                slot_datas
-                    .iter()
-                    .find(|node_data| {
-                        node_data.slot_id == edge.output_slot && node_data.node_id == edge.output_id
-                    })
-                    .expect("Couldn't find a buffer with the given `NodeId` while resizing")
-                    .size
-            } else {
-                Size::new(1, 1)
-            }
-        }
-        ResizePolicy::SpecificSize(size) => size,
-    };
+    let size = calculate_size(&slot_data_sizes, edges, policy);
 
     let output: Vec<Arc<SlotData>> = slot_datas
         .iter()

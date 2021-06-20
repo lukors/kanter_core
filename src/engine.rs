@@ -262,6 +262,11 @@ impl Engine {
             * size_of::<ChannelPixel>()
     }
 
+    // fn ram_needed_by_node(&self, node_id: NodeId) -> usize {
+    //     let closest_clean = self.get_closest_ancestors_state(node_id, NodeState::Clean);
+
+    // }
+
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         Ok(self.slot_data(node_id, slot_id)?.image.to_u8())
     }
@@ -439,7 +444,7 @@ impl Engine {
         output
     }
 
-    /// Returns the NodeIds of the closest ancestors matching any of the given states, including self.
+    /// Returns the NodeIds of the closest ancestors that are ready to be processed, including self.
     pub fn get_closest_processable(&self, node_id: NodeId) -> Vec<NodeId> {
         let mut closest_processable = Vec::new();
 
@@ -472,6 +477,31 @@ impl Engine {
         closest_processable.dedup();
 
         closest_processable
+    }
+
+    /// Returns the `NodeId`s of the closest ancestors to the given `NodeId` in the given `NodeState`, including self.
+    pub fn get_closest_ancestors_state(
+        &self,
+        node_id: NodeId,
+        node_states: &[NodeState],
+    ) -> Vec<NodeId> {
+        let mut output = Vec::new();
+
+        for node_state in node_states.iter() {
+            if self.node_state(node_id).unwrap() == *node_state {
+                output.push(node_id);
+            }
+        }
+
+        if output.is_empty() {
+            for node_id in self.get_parents(node_id) {
+                output.append(&mut self.get_closest_ancestors_state(node_id, node_states));
+            }
+        }
+
+        output.sort_unstable();
+        output.dedup();
+        output
     }
 
     /// Returns the `Size` of the `SlotData` for the given `NodeId` and `SlotId`.
