@@ -53,11 +53,18 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<BoxBuffer> {
         .collect()
 }
 
-pub fn calculate_size(
+/// Finds out the size that a node will have.
+///
+/// Note: `edges` may only contain `Edge`s that connect to the inputs of the same node.
+pub(crate) fn calculate_size(
     sizes: &[(NodeId, SlotId, Size)],
     edges: &[Edge],
     policy: ResizePolicy,
 ) -> Size {
+    assert!(edges
+        .iter()
+        .all(|edge| edges.first().unwrap().input_id == edge.input_id));
+
     let sizes_only = sizes
         .iter()
         .map(|(_, _, size)| *size)
@@ -81,6 +88,9 @@ pub fn calculate_size(
                 Size::new(min(a.width, b.width), min(a.height, b.height))
             }),
         ResizePolicy::SpecificSlot(slot_id) => {
+            let mut edges = edges.to_vec();
+            edges.sort_unstable_by(|a, b| a.input_slot.cmp(&b.input_slot));
+
             let edge = edges
                 .iter()
                 .find(|edge| edge.input_slot == slot_id)
@@ -95,14 +105,16 @@ pub fn calculate_size(
                     .map(|(_, _, size)| size)
                     .expect("Couldn't find a size with the given `NodeId`")
             } else {
-                unreachable!()
+                // TODO: This should fall back to the size of the graph here. Graphs don't have a size
+                // when this is written.
+                Size::new(1, 1)
             }
         }
         ResizePolicy::SpecificSize(size) => size,
     }
 }
 
-pub fn resize_buffers(
+pub(crate) fn resize_buffers(
     slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
     policy: ResizePolicy,

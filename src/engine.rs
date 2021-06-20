@@ -262,9 +262,14 @@ impl Engine {
             * size_of::<ChannelPixel>()
     }
 
-    // fn ram_needed_by_node(&self, node_id: NodeId) -> usize {
-    //     let closest_clean = self.get_closest_ancestors_state(node_id, NodeState::Clean);
+    // fn ram_needed_by_node(&self, node_id: NodeId) -> Result<usize> {
+    //     let (unclean_node_ids, clean_node_ids) = self.get_ancestors_until_state_strict(node_id, &[NodeState::Clean])?;
 
+    //     let mut sizes: Vec<(NodeId, Size)> = Vec::new();
+
+    //     for node_id in clean_node_ids {
+    //         sizes.append(other)
+    //     }
     // }
 
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
@@ -479,29 +484,48 @@ impl Engine {
         closest_processable
     }
 
-    /// Returns the `NodeId`s of the closest ancestors to the given `NodeId` in the given `NodeState`, including self.
-    pub fn get_closest_ancestors_state(
+    /// Returns the `NodeId`s of all ancestors until a node with the given `NodeState` is found in the first Vec.
+    ///
+    /// Also returns the nodes with the state in the second Vec.
+    ///
+    /// Errors if any branch ends without finding a node in the given state.
+    pub fn get_ancestors_until_state_strict(
         &self,
         node_id: NodeId,
         node_states: &[NodeState],
-    ) -> Vec<NodeId> {
-        let mut output = Vec::new();
+    ) -> Result<(Vec<NodeId>, Vec<NodeId>)> {
+        let mut node_ids_with_state = Vec::new();
+        let mut node_ids_on_way = Vec::new();
 
         for node_state in node_states.iter() {
             if self.node_state(node_id).unwrap() == *node_state {
-                output.push(node_id);
+                node_ids_with_state.push(node_id);
             }
         }
 
-        if output.is_empty() {
-            for node_id in self.get_parents(node_id) {
-                output.append(&mut self.get_closest_ancestors_state(node_id, node_states));
+        if node_ids_with_state.is_empty() {
+            node_ids_on_way.push(node_id);
+
+            let parent_node_ids = self.get_parents(node_id);
+            if parent_node_ids.is_empty() {
+                return Err(TexProError::InvalidNodeId);
+            }
+
+            for node_id in parent_node_ids {
+                let (on_way, with_state) =
+                    &mut self.get_ancestors_until_state_strict(node_id, node_states)?;
+                node_ids_on_way.append(on_way);
+                node_ids_with_state.append(with_state);
             }
         }
 
-        output.sort_unstable();
-        output.dedup();
-        output
+        node_ids_on_way.sort_unstable();
+        node_ids_on_way.dedup();
+
+        node_ids_with_state.sort_unstable();
+        node_ids_with_state.dedup();
+
+        Ok((node_ids_on_way, node_ids_with_state))
     }
 
     /// Returns the `Size` of the `SlotData` for the given `NodeId` and `SlotId`.
