@@ -462,6 +462,15 @@ impl NodeGraph {
             Ok(removed_edges)
         }
     }
+
+    /// Gets all edges that are connected to input slots of this node.
+    pub fn input_edges(&self, node_id: NodeId) -> Vec<Edge> {
+        self.edges
+            .iter()
+            .filter(|edge| edge.input_id == node_id)
+            .copied()
+            .collect()
+    }
 }
 
 #[derive(

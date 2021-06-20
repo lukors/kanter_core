@@ -6,10 +6,12 @@ use crate::{
         Node, Side,
     },
     node_graph::*,
+    shared::calculate_size,
     slot_data::*,
 };
 use image::ImageBuffer;
 use std::{
+    borrow::Borrow,
     collections::{BTreeMap, BTreeSet, VecDeque},
     mem::size_of,
     sync::{
@@ -263,13 +265,21 @@ impl Engine {
     }
 
     fn bytes_needed_for_node(&self, node_id: NodeId) -> Result<usize> {
+        let node = self.node_graph.node_with_id(node_id)?;
         let parent_node_ids = self.get_parents(node_id);
 
-        let mut sizes: Vec<(NodeId, Size)> = Vec::new();
+        let slot_datas = parent_node_ids
+            .iter()
+            .map(|node_id| self.node_slot_datas(*node_id))
+            .flatten()
+            .collect::<Vec<Arc<SlotData>>>();
+        let edges = self.node_graph.input_edges(node_id);
+        let policy = node.resize_policy;
+        let output_slot_count = node.output_slots().len();
 
-        for node_id in clean_node_ids {
-            sizes.append(other)
-        }
+        Ok(calculate_size(&slot_datas, &edges, policy).pixel_count()
+            * output_slot_count
+            * size_of::<ChannelPixel>())
     }
 
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {

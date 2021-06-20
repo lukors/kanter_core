@@ -64,7 +64,7 @@ pub(crate) fn calculate_size(
     assert!(edges
         .iter()
         .all(|edge| edges.first().unwrap().input_id == edge.input_id));
-    
+
     match policy {
         ResizePolicy::MostPixels => slot_datas
             .iter()
@@ -109,54 +109,6 @@ pub(crate) fn calculate_size(
         }
         ResizePolicy::SpecificSize(size) => size,
     }
-
-    // let sizes_only = sizes
-    //     .iter()
-    //     .map(|(_, _, size)| *size)
-    //     .collect::<Vec<Size>>();
-
-    // match policy {
-    //     ResizePolicy::MostPixels => *sizes_only
-    //         .iter()
-    //         .max_by(|a, b| a.pixel_count().cmp(&b.pixel_count()))
-    //         .unwrap(),
-    //     ResizePolicy::LeastPixels => *sizes_only
-    //         .iter()
-    //         .min_by(|a, b| a.pixel_count().cmp(&b.pixel_count()))
-    //         .unwrap(),
-    //     ResizePolicy::LargestAxes => sizes_only.iter().fold(Size::new(0, 0), |a, b| {
-    //         Size::new(max(a.width, b.width), max(a.height, b.height))
-    //     }),
-    //     ResizePolicy::SmallestAxes => sizes_only
-    //         .iter()
-    //         .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
-    //             Size::new(min(a.width, b.width), min(a.height, b.height))
-    //         }),
-    //     ResizePolicy::SpecificSlot(slot_id) => {
-    //         let mut edges = edges.to_vec();
-    //         edges.sort_unstable_by(|a, b| a.input_slot.cmp(&b.input_slot));
-
-    //         let edge = edges
-    //             .iter()
-    //             .find(|edge| edge.input_slot == slot_id)
-    //             .or_else(|| edges.first());
-
-    //         if let Some(edge) = edge {
-    //             *sizes
-    //                 .iter()
-    //                 .find(|(node_id, slot_id, _)| {
-    //                     *slot_id == edge.output_slot && *node_id == edge.output_id
-    //                 })
-    //                 .map(|(_, _, size)| size)
-    //                 .expect("Couldn't find a size with the given `NodeId`")
-    //         } else {
-    //             // TODO: This should fall back to the size of the graph here. Graphs don't have a size
-    //             // when this is written.
-    //             Size::new(1, 1)
-    //         }
-    //     }
-    //     ResizePolicy::SpecificSize(size) => size,
-    // }
 }
 
 pub(crate) fn resize_buffers(
