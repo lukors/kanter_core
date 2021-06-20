@@ -9,14 +9,10 @@ use crate::{
     slot_data::*,
 };
 use image::ImageBuffer;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::{
+use std::{collections::{BTreeMap, BTreeSet, VecDeque}, sync::{
         atomic::{AtomicBool, Ordering},
         mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    },
-    thread,
-};
+    }, thread};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeState {
@@ -36,7 +32,7 @@ impl Default for NodeState {
 #[derive(Default)]
 pub struct Engine {
     pub node_graph: NodeGraph,
-    pub slot_datas: Vec<Arc<SlotData>>,
+    pub slot_datas: VecDeque<Arc<SlotData>>,
     pub embedded_slot_datas: Vec<Arc<EmbeddedSlotData>>,
     pub input_slot_datas: Vec<Arc<SlotData>>,
     node_states: BTreeMap<NodeId, NodeState>,
@@ -44,13 +40,14 @@ pub struct Engine {
     one_shot: bool,
     pub auto_update: bool,
     pub use_cache: bool,
+    pub slot_data_ram_cap: usize,
 }
 
 impl Engine {
     pub fn new() -> Self {
         Self {
             node_graph: NodeGraph::new(),
-            slot_datas: Vec::new(),
+            slot_datas: VecDeque::new(),
             embedded_slot_datas: Vec::new(),
             input_slot_datas: Vec::new(),
             node_states: BTreeMap::new(),
@@ -58,6 +55,7 @@ impl Engine {
             one_shot: false,
             auto_update: false,
             use_cache: false,
+            slot_data_ram_cap: 1_073_742_000 // 1 Gib
         }
     }
 
@@ -82,7 +80,7 @@ impl Engine {
                     match slot_datas {
                         Ok(mut slot_datas) => {
                             tex_pro.remove_nodes_data(node_id);
-                            tex_pro.slot_datas.append(&mut slot_datas);
+                            tex_pro.slot_datas.append(&mut slot_datas.into());
                         }
                         Err(e) => {
                             shutdown.store(true, Ordering::Relaxed);
@@ -523,7 +521,7 @@ impl Engine {
 
     /// Gets all `SlotData`s in this `TextureProcessor`.
     pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
-        self.slot_datas.clone()
+        self.slot_datas.clone().into()
     }
 
     /// Gets all output `SlotData`s in this `TextureProcessor`.
