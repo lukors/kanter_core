@@ -9,10 +9,15 @@ use crate::{
     slot_data::*,
 };
 use image::ImageBuffer;
-use std::{collections::{BTreeMap, BTreeSet, VecDeque}, sync::{
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    mem::size_of,
+    sync::{
         atomic::{AtomicBool, Ordering},
         mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    }, thread};
+    },
+    thread,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeState {
@@ -55,7 +60,7 @@ impl Engine {
             one_shot: false,
             auto_update: false,
             use_cache: false,
-            slot_data_ram_cap: 1_073_742_000 // 1 Gib
+            slot_data_ram_cap: 1_073_742_000, // 1 Gib
         }
     }
 
@@ -247,6 +252,14 @@ impl Engine {
         for node_id in self.node_graph.output_ids() {
             self.request(node_id).unwrap();
         }
+    }
+
+    fn total_slot_data_size(&self) -> usize {
+        self.slot_datas
+            .iter()
+            .map(|slot_data| slot_data.size.pixel_count())
+            .sum::<usize>()
+            * size_of::<ChannelPixel>()
     }
 
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
