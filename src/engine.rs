@@ -262,15 +262,15 @@ impl Engine {
             * size_of::<ChannelPixel>()
     }
 
-    // fn ram_needed_by_node(&self, node_id: NodeId) -> Result<usize> {
-    //     let (unclean_node_ids, clean_node_ids) = self.get_ancestors_until_state_strict(node_id, &[NodeState::Clean])?;
+    fn bytes_needed_for_node(&self, node_id: NodeId) -> Result<usize> {
+        let parent_node_ids = self.get_parents(node_id);
 
-    //     let mut sizes: Vec<(NodeId, Size)> = Vec::new();
+        let mut sizes: Vec<(NodeId, Size)> = Vec::new();
 
-    //     for node_id in clean_node_ids {
-    //         sizes.append(other)
-    //     }
-    // }
+        for node_id in clean_node_ids {
+            sizes.append(other)
+        }
+    }
 
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         Ok(self.slot_data(node_id, slot_id)?.image.to_u8())
