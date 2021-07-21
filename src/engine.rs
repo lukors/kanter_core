@@ -92,6 +92,9 @@ impl Engine {
                 return;
             }
 
+            // PLAN
+            // - no plan here yet, maybe loop the async writing from ram to disk here?
+
             if let Ok(mut tex_pro) = tex_pro.write() {
                 // Handle messages received from node processing threads.
                 for message in recv.try_iter() {
