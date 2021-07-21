@@ -285,12 +285,19 @@ impl Engine {
         }
     }
 
-    fn total_slot_data_size(&self) -> usize {
-        self.slot_datas
-            .iter()
-            .map(|slot_data| slot_data.size.pixel_count())
-            .sum::<usize>()
-            * size_of::<ChannelPixel>()
+    // fn total_slot_data_size(&self) -> usize {
+    //     self.slot_datas
+    //         .iter()
+    //         .map(|slot_data| slot_data.size.pixel_count())
+    //         .sum::<usize>()
+    //         * size_of::<ChannelPixel>()
+    // }
+
+    fn slot_data_bytes_total(&self) -> usize {
+        self.node_info
+            .values()
+            .map(|node_info| node_info.slot_data_bytes)
+            .sum()
     }
 
     fn bytes_needed_for_node(&self, node_id: NodeId) -> Result<usize> {
