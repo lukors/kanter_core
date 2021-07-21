@@ -36,13 +36,27 @@ impl Default for NodeState {
     }
 }
 
+struct NodeInfo {
+    node_state: NodeState,
+    slot_data_bytes: usize,
+}
+
+impl NodeInfo {
+    fn from_state(node_state: NodeState) -> Self {
+        Self {
+            node_state,
+            slot_data_bytes: 0,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct Engine {
     pub node_graph: NodeGraph,
     pub slot_datas: VecDeque<Arc<SlotData>>,
     pub embedded_slot_datas: Vec<Arc<EmbeddedSlotData>>,
     pub input_slot_datas: Vec<Arc<SlotData>>,
-    node_states: BTreeMap<NodeId, NodeState>,
+    node_info: BTreeMap<NodeId, NodeInfo>,
     changed: BTreeSet<NodeId>,
     one_shot: bool,
     pub auto_update: bool,
@@ -57,7 +71,7 @@ impl Engine {
             slot_datas: VecDeque::new(),
             embedded_slot_datas: Vec::new(),
             input_slot_datas: Vec::new(),
-            node_states: BTreeMap::new(),
+            node_info: BTreeMap::new(),
             changed: BTreeSet::new(),
             one_shot: false,
             auto_update: false,
@@ -127,19 +141,25 @@ impl Engine {
                 // Get requested nodes
                 let requested = if tex_pro.auto_update {
                     tex_pro
-                        .node_states
+                        .node_info
                         .iter()
-                        .filter(|(_, node_state)| {
-                            !matches!(node_state, NodeState::Processing | NodeState::Clean)
+                        .filter(|(_, node_info)| {
+                            !matches!(
+                                node_info.node_state,
+                                NodeState::Processing | NodeState::Clean
+                            )
                         })
                         .map(|(node_id, _)| *node_id)
                         .collect::<Vec<NodeId>>()
                 } else {
                     tex_pro
-                        .node_states
+                        .node_info
                         .iter()
-                        .filter(|(_, node_state)| {
-                            matches!(node_state, NodeState::Requested | NodeState::Prioritised)
+                        .filter(|(_, node_info)| {
+                            matches!(
+                                node_info.node_state,
+                                NodeState::Requested | NodeState::Prioritised
+                            )
                         })
                         .map(|(node_id, _)| *node_id)
                         .collect::<Vec<NodeId>>()
@@ -204,6 +224,12 @@ impl Engine {
                             .collect::<Vec<Arc<SlotData>>>()
                     };
 
+                    // PLAN
+                    // - Calculate how much space this node's SlotDatas will need into slot_data_bytes.
+                    // - If all node_info.slot_data_bytes + slot_data_bytes > slot_data_ram_cap, then continue.
+                    // - Add slot_data_bytes to `node_info.slot_data_bytes`.
+                    // - Start the node.
+
                     assert_eq!(
                         edges.len(),
                         input_data.len(),
@@ -235,9 +261,9 @@ impl Engine {
                 // If the tex_pro is set to one_shot and all nodes are clean, shut it down.
                 if tex_pro.one_shot
                     && tex_pro
-                        .node_states
+                        .node_info
                         .iter()
-                        .all(|(_, node_state)| *node_state == NodeState::Clean)
+                        .all(|(_, node_info)| node_info.node_state == NodeState::Clean)
                 {
                     shutdown.store(true, Ordering::Relaxed);
                     break;
@@ -266,9 +292,9 @@ impl Engine {
 
     fn bytes_needed_for_node(&self, node_id: NodeId) -> Result<usize> {
         let node = self.node_graph.node_with_id(node_id)?;
-        let parent_node_ids = self.get_parents(node_id);
 
-        let slot_datas = parent_node_ids
+        let slot_datas = self
+            .get_parents(node_id)
             .iter()
             .map(|node_id| self.node_slot_datas(*node_id))
             .flatten()
@@ -355,8 +381,8 @@ impl Engine {
 
     /// Gets the NodeState of the node with the given `NodeId`.
     pub fn node_state(&self, node_id: NodeId) -> Result<NodeState> {
-        if let Some(node_state) = self.node_states.get(&node_id) {
-            Ok(*node_state)
+        if let Some(node_info) = self.node_info.get(&node_id) {
+            Ok(node_info.node_state)
         } else {
             Err(TexProError::InvalidNodeId)
         }
@@ -364,25 +390,27 @@ impl Engine {
 
     /// Gets a mutable reference to the NodeState of the node with the given `NodeId`.
     pub fn node_state_mut(&mut self, node_id: NodeId) -> Result<&mut NodeState> {
-        self.node_states
+        Ok(&mut self
+            .node_info
             .get_mut(&node_id)
-            .ok_or(TexProError::InvalidNodeId)
+            .ok_or(TexProError::InvalidNodeId)?
+            .node_state)
     }
 
     /// Gets all `NodeId`s that are not clean.
     pub fn non_clean(&self) -> Vec<NodeId> {
-        self.node_states
+        self.node_info
             .iter()
-            .filter(|(_, node_state)| **node_state != NodeState::Clean)
+            .filter(|(_, node_info)| node_info.node_state != NodeState::Clean)
             .map(|(node_id, _)| *node_id)
             .collect()
     }
 
     /// Returns all `NodeId`s with the given `NodeState`.
     pub fn node_ids_with_state(&self, node_state: NodeState) -> Vec<NodeId> {
-        self.node_states
+        self.node_info
             .iter()
-            .filter(|(_, node_state_)| **node_state_ == node_state)
+            .filter(|(_, node_info)| node_info.node_state == node_state)
             .map(|(id, _)| *id)
             .collect()
     }
@@ -644,7 +672,8 @@ impl Engine {
         let node_id = self.node_graph.add_node(node)?;
 
         self.changed.insert(node_id);
-        self.node_states.insert(node_id, NodeState::Dirty);
+        self.node_info
+            .insert(node_id, NodeInfo::from_state(NodeState::Dirty));
 
         Ok(node_id)
     }
@@ -667,7 +696,7 @@ impl Engine {
             }
         }
 
-        self.node_states.remove(&node_id);
+        self.node_info.remove(&node_id);
 
         Ok(edges)
     }
@@ -759,9 +788,10 @@ impl Engine {
     ///
     /// Note: It's important that this function does not use `set_state()`.
     pub(crate) fn reset_node_states(&mut self) {
-        self.node_states.clear();
+        self.node_info.clear();
         for node_id in self.node_ids() {
-            self.node_states.insert(node_id, NodeState::default());
+            self.node_info
+                .insert(node_id, NodeInfo::from_state(NodeState::default()));
         }
     }
 
