@@ -11,7 +11,6 @@ use crate::{
 };
 use image::ImageBuffer;
 use std::{
-    borrow::Borrow,
     collections::{BTreeMap, BTreeSet, VecDeque},
     mem::size_of,
     sync::{
@@ -214,13 +213,13 @@ impl Engine {
                                     .cloned();
 
                                 output.unwrap_or({
-                                    Arc::new(SlotData::new(
+                                    Arc::new(SlotData::from_slot_image(
                                         edge.output_id,
                                         edge.output_slot,
                                         Size::new(1, 1),
-                                        Arc::new(SlotImage::Gray(Arc::new(Box::new(
+                                        SlotImage::Gray(Arc::new(Box::new(
                                             ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
-                                        )))),
+                                        ))),
                                     ))
                                 })
                             })
@@ -319,7 +318,7 @@ impl Engine {
     }
 
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        Ok(self.slot_data(node_id, slot_id)?.image.to_u8())
+        Ok(self.slot_data(node_id, slot_id)?.image.get().to_u8())
     }
 
     /// Return all changed `NodeId`s.
@@ -608,10 +607,10 @@ impl Engine {
         if self
             .embedded_slot_datas
             .iter()
-            .all(|end| end.node_data_id != id)
+            .all(|end| end.slot_data_id != id)
         {
             self.embedded_slot_datas
-                .push(Arc::new(EmbeddedSlotData::from_node_data(node_data, id)));
+                .push(Arc::new(EmbeddedSlotData::from_slot_data(node_data, id)));
             Ok(id)
         } else {
             Err(TexProError::InvalidSlotId)

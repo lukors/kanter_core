@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    error::{Result, TexProError},
-    node_graph::SlotId,
-    slot_data::{Size, SlotData, SlotImage},
-};
+use crate::{error::{Result, TexProError}, node_graph::SlotId, slot_data::{Size, SlotData, SlotImageCache}};
 
 use super::Node;
 
@@ -14,19 +10,19 @@ use serde::{Deserialize, Serialize};
 pub struct EmbeddedSlotDataId(pub u32);
 #[derive(Debug, Clone)]
 pub struct EmbeddedSlotData {
-    pub node_data_id: EmbeddedSlotDataId,
+    pub slot_data_id: EmbeddedSlotDataId,
     pub slot_id: SlotId,
     pub size: Size,
-    pub image: Arc<SlotImage>,
+    pub image: Arc<SlotImageCache>,
 }
 
 impl EmbeddedSlotData {
-    pub fn from_node_data(node_data: Arc<SlotData>, node_data_id: EmbeddedSlotDataId) -> Self {
+    pub fn from_slot_data(slot_data: Arc<SlotData>, slot_data_id: EmbeddedSlotDataId) -> Self {
         Self {
-            node_data_id,
-            slot_id: node_data.slot_id,
-            size: node_data.size,
-            image: Arc::clone(&node_data.image),
+            slot_data_id,
+            slot_id: slot_data.slot_id,
+            size: slot_data.size,
+            image: slot_data.image,
         }
     }
 }
@@ -38,7 +34,7 @@ pub(crate) fn process(
 ) -> Result<Vec<Arc<SlotData>>> {
     if let Some(enode_data) = embedded_node_datas
         .iter()
-        .find(|end| end.node_data_id == embedded_node_data_id)
+        .find(|end| end.slot_data_id == embedded_node_data_id)
     {
         Ok(vec![Arc::new(SlotData::new(
             node.node_id,

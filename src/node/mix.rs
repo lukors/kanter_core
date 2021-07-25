@@ -1,10 +1,6 @@
 use std::{fmt, sync::Arc};
 
-use crate::{
-    node::process_shared::slot_data_with_name,
-    node_graph::SlotId,
-    slot_data::{Buffer, Size, SlotData, SlotImage},
-};
+use crate::{node::process_shared::slot_data_with_name, node_graph::SlotId, slot_data::{Buffer, Size, SlotData, SlotImage}};
 
 use super::Node;
 
@@ -42,8 +38,6 @@ impl fmt::Display for MixType {
     }
 }
 
-// TODO: Look into optimizing this by sampling straight into the un-resized image instead of
-// resizing the image before blending.
 pub(crate) fn process(
     slot_datas: &[Arc<SlotData>],
     node: &Node,
@@ -55,16 +49,16 @@ pub(crate) fn process(
 
             let image_right = {
                 if let Some(slot_data) = slot_data_with_name(&slot_datas, &node, "right") {
-                    (*slot_data.image).clone().into_type(is_rgba)
+                    slot_data.image.into_type(is_rgba)
                 } else {
-                    SlotImage::from_value(slot_data_left.size, 0.0, is_rgba)
+                    SlotImage::from_value(slot_data_left.size, 0.0, is_rgba).into()
                 }
             };
 
             (Arc::clone(&slot_data_left.image), Arc::new(image_right))
         } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
             let image_left =
-                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.is_rgba());
+                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.is_rgba()).into();
 
             (Arc::new(image_left), Arc::clone(&slot_data_right.image))
         } else {
@@ -74,7 +68,7 @@ pub(crate) fn process(
 
     let size = image_left.size();
 
-    let slot_image: SlotImage = match (&*image_left, &*image_right) {
+    let slot_image: SlotImage = match (&image_left.get(), &image_right.get()) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {
             SlotImage::Gray(Arc::new(Box::new(match mix_type {
                 MixType::Add => process_add_gray(left, right, size),
@@ -98,7 +92,7 @@ pub(crate) fn process(
         node.node_id,
         SlotId(0),
         size,
-        Arc::new(slot_image),
+        Arc::new(slot_image.into()),
     ))]
 }
 

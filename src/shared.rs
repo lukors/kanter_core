@@ -128,7 +128,7 @@ pub(crate) fn resize_buffers(
         .map(|ref slot_data| {
             if slot_data.size != size {
                 let resized_image =
-                    match &*slot_data.image {
+                    match &slot_data.image.get() {
                         SlotImage::Gray(buf) => SlotImage::Gray(Arc::new(Box::new(
                             imageops::resize(&***buf, size.width, size.height, filter.into()),
                         ))),
@@ -160,11 +160,11 @@ pub(crate) fn resize_buffers(
                         ]),
                     };
 
-                Arc::new(SlotData::new(
+                Arc::new(SlotData::from_slot_image(
                     slot_data.node_id,
                     slot_data.slot_id,
                     size,
-                    Arc::new(resized_image),
+                    resized_image,
                 ))
             } else {
                 // Does not need to be resized

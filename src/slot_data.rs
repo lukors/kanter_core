@@ -1,7 +1,58 @@
 use crate::{error::*, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
-use std::{fmt, mem, sync::Arc};
+use std::{fmt, fs::File, mem, sync::Arc};
+
+#[derive(Debug)]
+pub(crate) enum SlotImageCache {
+    Ram(SlotImage),
+    Storage((Size, bool, File)), // The bool is if it's an Rgba SlotImage, otherwise it's a Gray SlotImage.
+}
+
+impl From<SlotImage> for SlotImageCache {
+    fn from(slot_image: SlotImage) -> Self {
+        Self::Ram(slot_image)
+    }
+}
+
+impl SlotImageCache {
+    // TODO: If self is Storage, this functions should turn it into Ram.
+    pub(crate) fn get(&mut self) -> SlotImage {
+        unimplemented!()
+        // match Self {
+        //     Self::Ram(slot_image) -> slot_image,
+        //     Self::Storage((size, rgba, file)) -> {
+        //         let mut buffer = Vec::<u8>::new();
+
+        //         if rgba {
+        //             // file.
+        //         } else {
+        //             file.read_to_end(&mut buffer);
+        //             Arc::new(Box::new(Buffer::from_raw(size.x, size.y, ).unwrap())),
+                    
+        //         }
+        //     }
+        // }
+    }
+
+    pub(crate) fn into_type(&self, rgba: bool) -> Self {
+        Self::Ram(self.get().into_type(rgba))
+    }
+
+    pub(crate) fn is_rgba(&self) -> bool {
+        match self {
+            Self::Ram(slot_image) => slot_image.is_rgba(),
+            Self::Storage((_, is_rgba, _)) => *is_rgba,
+        }
+    }
+
+    pub(crate) fn size(&self) -> Size {
+        match self {
+            Self::Ram(slot_image) => slot_image.size(),
+            Self::Storage((size, _, _)) => *size,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum SlotImage {
@@ -96,7 +147,7 @@ pub struct SlotData {
     pub node_id: NodeId,
     pub slot_id: SlotId,
     pub size: Size,
-    pub image: Arc<SlotImage>,
+    pub image: Arc<SlotImageCache>,
 }
 
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
@@ -140,7 +191,7 @@ pub type ChannelPixel = f32;
 // impl Eq for SlotData {}
 
 impl SlotData {
-    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, image: Arc<SlotImage>) -> Self {
+    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, image: Arc<SlotImageCache>) -> Self {
         Self {
             node_id,
             slot_id,
@@ -149,12 +200,21 @@ impl SlotData {
         }
     }
 
+    pub fn from_slot_image(node_id: NodeId, slot_id: SlotId, size: Size, image: SlotImage) -> Self {
+        Self {
+            node_id,
+            slot_id,
+            size,
+            image: Arc::new(image.into()),
+        }
+    }
+
     pub fn from_value(size: Size, value: ChannelPixel, rgba: bool) -> Self {
-        Self::new(
+        Self::from_slot_image(
             NodeId(0),
             SlotId(0),
             size,
-            Arc::new(SlotImage::from_value(size, value, rgba)),
+            SlotImage::from_value(size, value, rgba),
         )
     }
 }
@@ -251,6 +311,7 @@ impl SlotImage {
         }
     }
 
+    /// Converts to and from grayscale and rgba.
     pub fn into_type(self, rgba: bool) -> Self {
         if self.is_rgba() == rgba {
             return self;

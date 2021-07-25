@@ -18,7 +18,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
         return Vec::new();
     };
 
-    let buffer_height = if let SlotImage::Gray(buf) = &*slot_data.image {
+    let buffer_height = if let SlotImage::Gray(buf) = &slot_data.image.get() {
         buf
     } else {
         return Vec::new();
@@ -48,10 +48,10 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
         }
     }
 
-    vec![Arc::new(SlotData::new(
+    vec![Arc::new(SlotData::from_slot_image(
         node.node_id,
         SlotId(0),
         size,
-        Arc::new(SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap()),
+        SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap(),
     ))]
 }

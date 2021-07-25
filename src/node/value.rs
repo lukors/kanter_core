@@ -18,6 +18,6 @@ pub(crate) fn process(node: &Node, value: f32) -> Vec<Arc<SlotData>> {
         Size::new(width, height),
         Arc::new(SlotImage::Gray(Arc::new(Box::new(
             ImageBuffer::from_raw(width, height, vec![value]).unwrap(),
-        )))),
+        ))).into()),
     ))]
 }
