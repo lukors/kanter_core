@@ -13,7 +13,7 @@ pub struct EmbeddedSlotData {
     pub slot_data_id: EmbeddedSlotDataId,
     pub slot_id: SlotId,
     pub size: Size,
-    pub image: Arc<SlotImageCache>,
+    pub(crate) image: Arc<SlotImageCache>,
 }
 
 impl EmbeddedSlotData {
@@ -22,7 +22,7 @@ impl EmbeddedSlotData {
             slot_data_id,
             slot_id: slot_data.slot_id,
             size: slot_data.size,
-            image: slot_data.image,
+            image: Arc::clone(&slot_data.image),
         }
     }
 }

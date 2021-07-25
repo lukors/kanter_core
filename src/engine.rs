@@ -101,7 +101,7 @@ impl Engine {
                     let slot_datas = message.slot_datas;
 
                     match slot_datas {
-                        Ok(mut slot_datas) => {
+                        Ok(slot_datas) => {
                             tex_pro.remove_nodes_data(node_id);
                             tex_pro.slot_datas.append(&mut slot_datas.into());
                         }
@@ -317,6 +317,7 @@ impl Engine {
             * size_of::<ChannelPixel>())
     }
 
+    /// Return a SlotData as u8.
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         Ok(self.slot_data(node_id, slot_id)?.image.get().to_u8())
     }
