@@ -141,12 +141,12 @@ impl SlotImage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SlotData {
     pub node_id: NodeId,
     pub slot_id: SlotId,
     pub size: Size,
-    pub(crate) image: RwLock<SlotImageCache>,
+    pub(crate) image: Arc<RwLock<SlotImageCache>>,
 }
 
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
@@ -190,7 +190,7 @@ pub type ChannelPixel = f32;
 // impl Eq for SlotData {}
 
 impl SlotData {
-    pub(crate) fn new(node_id: NodeId, slot_id: SlotId, size: Size, image: RwLock<SlotImageCache>) -> Self {
+    pub(crate) fn new(node_id: NodeId, slot_id: SlotId, size: Size, image: Arc<RwLock<SlotImageCache>>) -> Self {
         Self {
             node_id,
             slot_id,
@@ -216,7 +216,7 @@ impl SlotData {
             node_id,
             slot_id,
             size,
-            image: RwLock::new(image.into()),
+            image: Arc::new(RwLock::new(image.into())),
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::{
     error::{Result, TexProError},
-    node_graph::{Edge, NodeId, SlotId},
+    node_graph::Edge,
 };
 use crate::{node::*, slot_data::*};
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer};
@@ -128,7 +128,7 @@ pub(crate) fn resize_buffers(
         .map(|ref slot_data| {
             if slot_data.size != size {
                 let resized_image =
-                    match &slot_data.image.get() {
+                    match &slot_data.image() {
                         SlotImage::Gray(buf) => SlotImage::Gray(Arc::new(Box::new(
                             imageops::resize(&***buf, size.width, size.height, filter.into()),
                         ))),

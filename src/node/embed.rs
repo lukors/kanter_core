@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use crate::{error::{Result, TexProError}, node_graph::SlotId, slot_data::{Size, SlotData, SlotImageCache}};
 
@@ -13,7 +13,7 @@ pub struct EmbeddedSlotData {
     pub slot_data_id: EmbeddedSlotDataId,
     pub slot_id: SlotId,
     pub size: Size,
-    pub(crate) image: Arc<SlotImageCache>,
+    pub(crate) image: Arc<RwLock<SlotImageCache>>,
 }
 
 impl EmbeddedSlotData {

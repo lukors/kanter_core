@@ -1,4 +1,4 @@
-use std::{fmt, sync::Arc};
+use std::{fmt, sync::{Arc, RwLock}};
 
 use crate::{node::process_shared::slot_data_with_name, node_graph::SlotId, slot_data::{Buffer, Size, SlotData, SlotImage}};
 
@@ -45,22 +45,22 @@ pub(crate) fn process(
 ) -> Vec<Arc<SlotData>> {
     let (image_left, image_right) = {
         if let Some(slot_data_left) = slot_data_with_name(&slot_datas, &node, "left") {
-            let is_rgba = slot_data_left.image.is_rgba();
+            let is_rgba = slot_data_left.read().is_rgba();
 
             let image_right = {
                 if let Some(slot_data) = slot_data_with_name(&slot_datas, &node, "right") {
-                    slot_data.image.into_type(is_rgba)
+                    slot_data.read().into_type(is_rgba)
                 } else {
                     SlotImage::from_value(slot_data_left.size, 0.0, is_rgba).into()
                 }
             };
 
-            (Arc::clone(&slot_data_left.image), Arc::new(image_right))
+            (slot_data_left.read(), &image_right)
         } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
             let image_left =
-                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.is_rgba()).into();
+                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.read().is_rgba()).into();
 
-            (Arc::new(image_left), Arc::clone(&slot_data_right.image))
+            (&image_left, slot_data_right.read())
         } else {
             return Vec::new();
         }
@@ -92,7 +92,7 @@ pub(crate) fn process(
         node.node_id,
         SlotId(0),
         size,
-        Arc::new(slot_image.into()),
+        Arc::new(RwLock::new(slot_image.into())),
     ))]
 }
 

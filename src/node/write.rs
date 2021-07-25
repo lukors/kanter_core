@@ -8,7 +8,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], path: &Path) -> Result<Vec<A
 
         image::save_buffer(
             &path,
-            &image::RgbaImage::from_vec(width, height, slot_data.image.get().to_u8()).unwrap(),
+            &image::RgbaImage::from_vec(width, height, slot_data.image().to_u8()).unwrap(),
             width,
             height,
             image::ColorType::RGBA(8),
