@@ -1,7 +1,7 @@
 use crate::{error::*, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
-use std::{fmt, fs::File, io::Read, mem, sync::Arc};
+use std::{fmt, fs::File, io::Read, mem, sync::{Arc, RwLock}};
 
 #[derive(Debug)]
 pub(crate) enum SlotImageCache {
@@ -17,9 +17,9 @@ impl From<SlotImage> for SlotImageCache {
 
 impl SlotImageCache {
     // TODO: If self is Storage, this functions should turn it into Ram.
-    pub(crate) fn get(&self) -> &SlotImage {
+    pub(crate) fn get(&mut self) -> &SlotImage {
         match self {
-            Self::Ram(slot_image) => &slot_image,
+            Self::Ram(ref slot_image) => &slot_image,
             Self::Storage((size, rgba, file)) => {
                 unimplemented!()
                 // let mut buffer = Vec::<u8>::new();
@@ -141,12 +141,12 @@ impl SlotImage {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SlotData {
     pub node_id: NodeId,
     pub slot_id: SlotId,
     pub size: Size,
-    pub(crate) image: Arc<SlotImageCache>,
+    pub(crate) image: RwLock<SlotImageCache>,
 }
 
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
@@ -190,7 +190,7 @@ pub type ChannelPixel = f32;
 // impl Eq for SlotData {}
 
 impl SlotData {
-    pub(crate) fn new(node_id: NodeId, slot_id: SlotId, size: Size, image: Arc<SlotImageCache>) -> Self {
+    pub(crate) fn new(node_id: NodeId, slot_id: SlotId, size: Size, image: RwLock<SlotImageCache>) -> Self {
         Self {
             node_id,
             slot_id,
@@ -199,12 +199,24 @@ impl SlotData {
         }
     }
 
+    pub(crate) fn read(&self) -> &SlotImageCache {
+        &*self.image.read().unwrap()
+    }
+
+    pub(crate) fn write(&self) -> &mut SlotImageCache {
+        &mut *self.image.write().unwrap()
+    }
+
+    pub(crate) fn image(&self) -> &SlotImage {
+        self.write().get()
+    }
+
     pub fn from_slot_image(node_id: NodeId, slot_id: SlotId, size: Size, image: SlotImage) -> Self {
         Self {
             node_id,
             slot_id,
             size,
-            image: Arc::new(image.into()),
+            image: RwLock::new(image.into()),
         }
     }
 
