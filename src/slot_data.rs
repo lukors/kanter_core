@@ -10,7 +10,7 @@ use std::{
 };
 
 #[derive(Debug)]
-pub(crate) enum SlotImageCache {
+pub enum SlotImageCache {
     Ram(SlotImage),
     Storage((Size, bool, File)), // The bool is if it's an Rgba SlotImage, otherwise it's a Gray SlotImage.
 }
@@ -23,7 +23,7 @@ impl From<SlotImage> for SlotImageCache {
 
 impl SlotImageCache {
     // TODO: If self is Storage, this functions should turn it into Ram.
-    pub(crate) fn get(&mut self) -> &SlotImage {
+    pub fn get(&mut self) -> &SlotImage {
         match self {
             Self::Ram(ref slot_image) => &slot_image,
             Self::Storage((size, rgba, file)) => {
@@ -152,7 +152,7 @@ pub struct SlotData {
     pub node_id: NodeId,
     pub slot_id: SlotId,
     pub size: Size,
-    pub(crate) image: Arc<RwLock<SlotImageCache>>,
+    pub image: Arc<RwLock<SlotImageCache>>,
 }
 
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
@@ -210,7 +210,7 @@ impl SlotData {
         }
     }
 
-    pub(crate) fn image_cache(&self) -> Arc<RwLock<SlotImageCache>> {
+    pub fn image_cache(&self) -> Arc<RwLock<SlotImageCache>> {
         Arc::clone(&self.image)
     }
 
