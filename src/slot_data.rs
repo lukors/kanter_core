@@ -40,8 +40,8 @@ impl SlotImageCache {
         }
     }
 
-    pub(crate) fn into_type(&mut self, rgba: bool) -> Self {
-        Self::Ram((*self.get()).clone().into_type(rgba))
+    pub(crate) fn as_type(&mut self, rgba: bool) -> Self {
+        Self::Ram((*self.get()).clone().as_type(rgba))
     }
 
     pub(crate) fn is_rgba(&self) -> bool {
@@ -326,7 +326,7 @@ impl SlotImage {
     }
 
     /// Converts to and from grayscale and rgba.
-    pub fn into_type(&self, rgba: bool) -> Self {
+    pub fn as_type(&self, rgba: bool) -> Self {
         if self.is_rgba() == rgba {
             return self.clone();
         }

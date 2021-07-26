@@ -56,7 +56,7 @@ pub(crate) fn process(
 
             let image_right = {
                 if let Some(slot_data) = slot_data_with_name(&slot_datas, &node, "right") {
-                    slot_data.image_cache().write().unwrap().into_type(is_rgba)
+                    slot_data.image_cache().write().unwrap().as_type(is_rgba)
                 } else {
                     SlotImage::from_value(slot_data_left.size, 0.0, is_rgba).into()
                 }
