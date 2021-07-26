@@ -56,7 +56,7 @@ impl TextureProcessor {
         let result = if let Ok(engine) = self.engine.try_read() {
             if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
-                    Ok(engine.slot_data(node_id, slot_id)?.image().to_u8())
+                    Ok(engine.slot_data(node_id, slot_id)?.image_cache().write().unwrap().get().to_u8())
                 } else {
                     Err(TexProError::InvalidNodeId)
                 }

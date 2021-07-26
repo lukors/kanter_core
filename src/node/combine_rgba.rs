@@ -13,7 +13,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
         buffer_default: &Arc<Box<Buffer>>,
     ) -> Arc<Box<Buffer>> {
         if let Some(slot_data) = slot_data {
-            if let SlotImage::Gray(buf) = &slot_data.image() {
+            if let SlotImage::Gray(buf) = &*slot_data.image_cache().write().unwrap().get() {
                 Arc::clone(&buf)
             } else {
                 Arc::clone(&buffer_default)

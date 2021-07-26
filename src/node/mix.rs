@@ -1,6 +1,6 @@
 use std::{fmt, sync::{Arc, RwLock}};
 
-use crate::{node::process_shared::slot_data_with_name, node_graph::SlotId, slot_data::{Buffer, Size, SlotData, SlotImage}};
+use crate::{node::process_shared::slot_data_with_name, node_graph::SlotId, slot_data::{Buffer, Size, SlotData, SlotImage, SlotImageCache}};
 
 use super::Node;
 
@@ -43,32 +43,32 @@ pub(crate) fn process(
     node: &Node,
     mix_type: MixType,
 ) -> Vec<Arc<SlotData>> {
-    let (image_left, image_right) = {
+    let (image_left, image_right): (Arc<RwLock<SlotImageCache>>, Arc<RwLock<SlotImageCache>>) = {
         if let Some(slot_data_left) = slot_data_with_name(&slot_datas, &node, "left") {
-            let is_rgba = slot_data_left.read().is_rgba();
+            let is_rgba = slot_data_left.image.read().unwrap().is_rgba();
 
             let image_right = {
                 if let Some(slot_data) = slot_data_with_name(&slot_datas, &node, "right") {
-                    slot_data.read().into_type(is_rgba)
+                    slot_data.image_cache().write().unwrap().into_type(is_rgba)
                 } else {
                     SlotImage::from_value(slot_data_left.size, 0.0, is_rgba).into()
                 }
             };
 
-            (slot_data_left.read(), &image_right)
+            (Arc::clone(&slot_data_left.image), Arc::new(RwLock::new(image_right.into())))
         } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
             let image_left =
-                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.read().is_rgba()).into();
+                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.read().unwrap().is_rgba()).into();
 
-            (&image_left, slot_data_right.read())
+            (Arc::new(RwLock::new(image_left)), Arc::clone(&slot_data_right.image))
         } else {
             return Vec::new();
         }
     };
 
-    let size = image_left.size();
+    let size = image_left.read().unwrap().size();
 
-    let slot_image: SlotImage = match (&image_left.get(), &image_right.get()) {
+    let slot_image: SlotImage = match (image_left.write().unwrap().get(), image_right.write().unwrap().get()) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {
             SlotImage::Gray(Arc::new(Box::new(match mix_type {
                 MixType::Add => process_add_gray(left, right, size),

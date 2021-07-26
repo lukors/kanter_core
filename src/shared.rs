@@ -128,7 +128,7 @@ pub(crate) fn resize_buffers(
         .map(|ref slot_data| {
             if slot_data.size != size {
                 let resized_image =
-                    match &slot_data.image() {
+                    match &slot_data.image_cache().write().unwrap().get() {
                         SlotImage::Gray(buf) => SlotImage::Gray(Arc::new(Box::new(
                             imageops::resize(&***buf, size.width, size.height, filter.into()),
                         ))),

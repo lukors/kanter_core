@@ -9,7 +9,7 @@ use super::Node;
 
 pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
     if let Some(slot_data) = slot_datas.get(0) {
-        if let SlotImage::Rgba(buf) = &slot_data.image() {
+        if let SlotImage::Rgba(buf) = &slot_data.image_cache().write().unwrap().get() {
             let size = slot_datas[0].size;
             vec![
                 Arc::new(SlotData::from_slot_image(

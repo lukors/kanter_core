@@ -34,7 +34,7 @@ impl SlotImageCache {
         }
     }
 
-    pub(crate) fn into_type(&self, rgba: bool) -> Self {
+    pub(crate) fn into_type(&mut self, rgba: bool) -> Self {
         Self::Ram((*self.get()).clone().into_type(rgba))
     }
 
@@ -199,16 +199,8 @@ impl SlotData {
         }
     }
 
-    pub(crate) fn read(&self) -> &SlotImageCache {
-        &*self.image.read().unwrap()
-    }
-
-    pub(crate) fn write(&self) -> &mut SlotImageCache {
-        &mut *self.image.write().unwrap()
-    }
-
-    pub(crate) fn image(&self) -> &SlotImage {
-        self.write().get()
+    pub(crate) fn image_cache(&self) -> Arc<RwLock<SlotImageCache>> {
+        Arc::clone(&self.image)
     }
 
     pub fn from_slot_image(node_id: NodeId, slot_id: SlotId, size: Size, image: SlotImage) -> Self {
@@ -323,9 +315,9 @@ impl SlotImage {
     }
 
     /// Converts to and from grayscale and rgba.
-    pub fn into_type(self, rgba: bool) -> Self {
+    pub fn into_type(&self, rgba: bool) -> Self {
         if self.is_rgba() == rgba {
-            return self;
+            return self.clone();
         }
 
         let (width, height) = (self.size().width, self.size().height);
@@ -334,7 +326,7 @@ impl SlotImage {
             Self::Gray(buf) => Self::Rgba([
                 Arc::clone(&buf),
                 Arc::clone(&buf),
-                buf,
+                buf.clone(),
                 Arc::new(Box::new(
                     Buffer::from_raw(width, height, vec![1.0; (width * height) as usize]).unwrap(),
                 )),
