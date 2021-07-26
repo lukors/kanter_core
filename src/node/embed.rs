@@ -1,6 +1,10 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{error::{Result, TexProError}, node_graph::SlotId, slot_data::{Size, SlotData, SlotImageCache}};
+use crate::{
+    error::{Result, TexProError},
+    node_graph::SlotId,
+    slot_data::{Size, SlotData, SlotImageCache},
+};
 
 use super::Node;
 

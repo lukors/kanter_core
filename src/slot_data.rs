@@ -1,7 +1,13 @@
 use crate::{error::*, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
-use std::{fmt, fs::File, io::Read, mem, sync::{Arc, RwLock}};
+use std::{
+    fmt,
+    fs::File,
+    io::Read,
+    mem,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Debug)]
 pub(crate) enum SlotImageCache {
@@ -190,7 +196,12 @@ pub type ChannelPixel = f32;
 // impl Eq for SlotData {}
 
 impl SlotData {
-    pub(crate) fn new(node_id: NodeId, slot_id: SlotId, size: Size, image: Arc<RwLock<SlotImageCache>>) -> Self {
+    pub(crate) fn new(
+        node_id: NodeId,
+        slot_id: SlotId,
+        size: Size,
+        image: Arc<RwLock<SlotImageCache>>,
+    ) -> Self {
         Self {
             node_id,
             slot_id,

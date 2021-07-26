@@ -1,6 +1,13 @@
-use std::{fmt, sync::{Arc, RwLock}};
+use std::{
+    fmt,
+    sync::{Arc, RwLock},
+};
 
-use crate::{node::process_shared::slot_data_with_name, node_graph::SlotId, slot_data::{Buffer, Size, SlotData, SlotImage, SlotImageCache}};
+use crate::{
+    node::process_shared::slot_data_with_name,
+    node_graph::SlotId,
+    slot_data::{Buffer, Size, SlotData, SlotImage, SlotImageCache},
+};
 
 use super::Node;
 
@@ -55,12 +62,22 @@ pub(crate) fn process(
                 }
             };
 
-            (Arc::clone(&slot_data_left.image), Arc::new(RwLock::new(image_right.into())))
+            (
+                Arc::clone(&slot_data_left.image),
+                Arc::new(RwLock::new(image_right.into())),
+            )
         } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
-            let image_left =
-                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.read().unwrap().is_rgba()).into();
+            let image_left = SlotImage::from_value(
+                slot_data_right.size,
+                0.0,
+                slot_data_right.image.read().unwrap().is_rgba(),
+            )
+            .into();
 
-            (Arc::new(RwLock::new(image_left)), Arc::clone(&slot_data_right.image))
+            (
+                Arc::new(RwLock::new(image_left)),
+                Arc::clone(&slot_data_right.image),
+            )
         } else {
             return Vec::new();
         }
@@ -68,7 +85,10 @@ pub(crate) fn process(
 
     let size = image_left.read().unwrap().size();
 
-    let slot_image: SlotImage = match (image_left.write().unwrap().get(), image_right.write().unwrap().get()) {
+    let slot_image: SlotImage = match (
+        image_left.write().unwrap().get(),
+        image_right.write().unwrap().get(),
+    ) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {
             SlotImage::Gray(Arc::new(Box::new(match mix_type {
                 MixType::Add => process_add_gray(left, right, size),

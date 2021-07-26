@@ -16,8 +16,11 @@ pub(crate) fn process(node: &Node, value: f32) -> Vec<Arc<SlotData>> {
         node.node_id,
         SlotId(0),
         Size::new(width, height),
-        Arc::new(RwLock::new(SlotImage::Gray(Arc::new(Box::new(
-            ImageBuffer::from_raw(width, height, vec![value]).unwrap(),
-        ))).into())),
+        Arc::new(RwLock::new(
+            SlotImage::Gray(Arc::new(Box::new(
+                ImageBuffer::from_raw(width, height, vec![value]).unwrap(),
+            )))
+            .into(),
+        )),
     ))]
 }
