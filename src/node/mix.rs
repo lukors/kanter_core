@@ -64,7 +64,7 @@ pub(crate) fn process(
 
             (
                 Arc::clone(&slot_data_left.image),
-                Arc::new(RwLock::new(image_right.into())),
+                Arc::new(RwLock::new(image_right)),
             )
         } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
             let image_left = SlotImage::from_value(
