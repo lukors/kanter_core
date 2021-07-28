@@ -76,6 +76,64 @@ fn input_output() {
 
 #[test]
 #[timeout(20000)]
+fn storage_cache() {
+    let tex_pro = TextureProcessor::new();
+
+    // Creating two nodes with a size of 16 wide x 16 tall x 4 bytes = 1024 bytes.
+    let value_node_1 = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+    tex_pro
+        .node_with_id(value_node_1)
+        .as_mut()
+        .unwrap()
+        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
+
+    let value_node_2 = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+    tex_pro
+        .node_with_id(value_node_2)
+        .as_mut()
+        .unwrap()
+        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
+
+    let mix_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .unwrap();
+
+    let output_node = tex_pro
+        .add_node(Node::new(NodeType::OutputGray("out".into())))
+        .unwrap();
+
+    tex_pro
+        .connect(value_node_1, mix_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro
+        .connect(value_node_2, mix_node, SlotId(0), SlotId(1))
+        .unwrap();
+
+    tex_pro
+        .connect(mix_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.engine().write().unwrap().slot_data_ram_cap = 2100;
+    tex_pro.engine().write().unwrap().use_cache = true;
+    tex_pro.engine().write().unwrap().auto_update = true;
+
+    thread::sleep(std::time::Duration::from_millis(500));
+
+    assert!(!tex_pro
+        .engine()
+        .read()
+        .unwrap()
+        .slot_data(value_node_1, SlotId(0))
+        .unwrap()
+        .image_cache()
+        .read()
+        .unwrap()
+        .is_in_ram());
+}
+
+#[test]
+#[timeout(20000)]
 fn no_cache() {
     let tex_pro = TextureProcessor::new();
 

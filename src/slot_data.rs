@@ -40,6 +40,17 @@ impl SlotImageCache {
         }
     }
 
+    // pub(crate) fn store(&mut self) {
+    //     if
+    // }
+
+    pub fn is_in_ram(&self) -> bool {
+        match self {
+            Self::Ram(_) => true,
+            Self::Storage(_) => false,
+        }
+    }
+
     pub(crate) fn as_type(&mut self, rgba: bool) -> Self {
         Self::Ram((*self.get()).clone().as_type(rgba))
     }
