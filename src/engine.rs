@@ -227,10 +227,16 @@ impl Engine {
                     };
 
                     // PLAN
-                    // - Calculate how much space this node's SlotDatas will need into slot_data_bytes.
+                    // - Calculate how much space this node's SlotDatas will need into a new slot_data_bytes variable.
                     // - If all node_info.slot_data_bytes + slot_data_bytes > slot_data_ram_cap, then continue.
                     // - Add slot_data_bytes to `node_info.slot_data_bytes`.
                     // - Start the node.
+
+                    let slot_data_bytes = tex_pro.bytes_needed_for_node(node_id);
+                    if tex_pro.slot_data_bytes_total() + slot_data_bytes > tex_pro.slot_data_ram_cap
+                    {
+                        // Store enough stuff so the node can be calculated.
+                    }
 
                     assert_eq!(
                         edges.len(),
