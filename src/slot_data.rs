@@ -3,11 +3,13 @@ use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
-    fs::File,
-    io::Read,
+    fs::{self, File},
+    io::{Read, Write},
     mem,
+    path::Path,
     sync::{Arc, RwLock},
 };
+use tempfile::tempfile;
 
 #[derive(Debug)]
 pub enum SlotImageCache {
@@ -40,9 +42,39 @@ impl SlotImageCache {
         }
     }
 
-    // pub(crate) fn store(&mut self) {
-    //     if
-    // }
+    /// This function takes a path and a size, writes the file to the path and then converts itself
+    /// into a `Storage`.
+    pub(crate) fn store(&mut self, size: Size) -> Result<()> {
+        let mut file: File;
+        let mut rgba: bool;
+
+        if let Self::Ram(slot_image) = self {
+            file = tempfile()?;
+
+            match slot_image {
+                SlotImage::Gray(buf) => {
+                    for pixel in buf.iter() {
+                        file.write_all(&pixel.to_ne_bytes())?;
+                    }
+                    rgba = false
+                }
+                SlotImage::Rgba(bufs) => {
+                    for buf in bufs {
+                        for pixel in buf.iter() {
+                            file.write_all(&pixel.to_ne_bytes())?;
+                        }
+                    }
+                    rgba = true
+                }
+            }
+        } else {
+            return Ok(());
+        }
+
+        *self = Self::Storage((size, rgba, file));
+
+        Ok(())
+    }
 
     pub fn is_in_ram(&self) -> bool {
         match self {
@@ -219,6 +251,10 @@ impl SlotData {
             size,
             image,
         }
+    }
+
+    pub(crate) fn store(&self) -> Result<()> {
+        self.image_cache().write().unwrap().store(self.size)
     }
 
     pub fn image_cache(&self) -> Arc<RwLock<SlotImageCache>> {
