@@ -232,7 +232,7 @@ impl Engine {
                     // - Add slot_data_bytes to `node_info.slot_data_bytes`.
                     // - Start the node.
 
-                    let slot_data_bytes = tex_pro.bytes_needed_for_node(node_id);
+                    let slot_data_bytes = tex_pro.bytes_needed_for_node(node_id).unwrap();
                     if tex_pro.slot_data_bytes_total() + slot_data_bytes > tex_pro.slot_data_ram_cap
                     {
                         // Store enough stuff so the node can be calculated.
