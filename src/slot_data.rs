@@ -1,15 +1,9 @@
 use crate::{error::*, node_graph::*};
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt,
-    fs::{self, File},
-    io::{Read, Write},
-    mem,
-    path::Path,
-    sync::{Arc, RwLock},
-};
+use std::{fmt, fs::{self, File}, io::{Read, Write}, mem, path::Path, sync::{Arc, RwLock}};
 use tempfile::tempfile;
+use core::mem::size_of;
 
 #[derive(Debug)]
 pub enum SlotImageCache {
@@ -277,6 +271,10 @@ impl SlotData {
             size,
             SlotImage::from_value(size, value, rgba),
         )
+    }
+
+    pub fn bytes(&self) -> usize {
+        self.size.pixel_count() * size_of::<ChannelPixel>()
     }
 }
 
