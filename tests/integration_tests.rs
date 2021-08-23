@@ -76,7 +76,7 @@ fn input_output() {
 
 #[test]
 // #[timeout(20000)]
-fn storage_cache() {
+fn drive_cache() {
     let tex_pro = TextureProcessor::new();
 
     // Value nodes are 1x1 px right now, so take very little memory.
@@ -164,6 +164,30 @@ fn storage_cache() {
     assert!(!node_id_in_ram(&engine, mix_node_1));
     assert!(node_id_in_ram(&engine, mix_node_2));
     assert!(node_id_in_ram(&engine, mix_node_3));
+}
+
+#[test]
+// #[timeout(20000)]
+fn drive_get_stored() {
+    let tex_pro = TextureProcessor::new();
+
+    // A value node plugged into a mix node should be a total of 8 bytes.
+    let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+    let mix_node = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .unwrap();
+
+    tex_pro
+        .connect(value_node, mix_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    // Setting the slot_data_ram_cap at 4 bytes should result in the value node getting written
+    // to drive.
+    tex_pro.engine().write().unwrap().slot_data_ram_cap = 4;
+    tex_pro.engine().write().unwrap().use_cache = true;
+
+    tex_pro.engine().read().unwrap().slot_data(mix_node, SlotId(0)).unwrap();
+    tex_pro.engine().read().unwrap().slot_data(value_node, SlotId(0)).unwrap();
 }
 
 #[test]
