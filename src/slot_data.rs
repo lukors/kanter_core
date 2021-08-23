@@ -254,6 +254,7 @@ impl SlotData {
         }
     }
 
+    /// Stores the slot_data on drive.
     pub(crate) fn store(&self) -> Result<()> {
         self.image_cache().write().unwrap().store(self.size)
     }

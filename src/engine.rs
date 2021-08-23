@@ -206,24 +206,10 @@ impl Engine {
                             .collect::<Vec<Arc<SlotData>>>()
                     };
 
-                    // PLAN
-                    // - Calculate how much space this node's SlotDatas will need into a new slot_data_bytes variable.
-                    // - If all node_info.slot_data_bytes + slot_data_bytes > slot_data_ram_cap, then continue.
-                    // - Add slot_data_bytes to `node_info.slot_data_bytes`.
-                    // - Start the node.
-
                     let slot_data_bytes = tex_pro.bytes_needed_for_node(node_id).unwrap();
-                    dbg!(node_id);
-                    // dbg!(slot_data_bytes);
-                    // dbg!(tex_pro.slot_data_bytes_total() + slot_data_bytes);
                     while tex_pro.slot_data_bytes_total() + slot_data_bytes
                         > tex_pro.slot_data_ram_cap
                     {
-                        // dbg!(tex_pro.slot_data_bytes_total());
-                        // dbg!(slot_data_bytes);
-                        // dbg!(tex_pro.slot_data_ram_cap);
-                        // dbg!(tex_pro.slot_data_bytes_total() + slot_data_bytes > tex_pro.slot_data_ram_cap);
-                        // dbg!(tex_pro.node_slot_datas(node_id));
                         if let Some(node_in_ram) = tex_pro
                             .slot_datas
                             .iter()
@@ -231,13 +217,6 @@ impl Engine {
                         {
                             node_in_ram.store().unwrap();
                         }
-                        // for slot_data in tex_pro.node_slot_datas(node_id) {
-                        //     slot_data.store().unwrap();
-                        //     dbg!(slot_data);
-                        // }
-                        // Store enough stuff so the node can be calculated.
-
-                        // tex_pro.
                     }
 
                     assert_eq!(
