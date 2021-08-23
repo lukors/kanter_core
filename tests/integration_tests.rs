@@ -116,10 +116,6 @@ fn drive_cache() {
         .unwrap()
         .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
 
-    let output_node = tex_pro
-        .add_node(Node::new(NodeType::OutputGray("out".into())))
-        .unwrap();
-
     tex_pro
         .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
         .unwrap();
@@ -132,17 +128,11 @@ fn drive_cache() {
         .connect(mix_node_2, mix_node_3, SlotId(0), SlotId(0))
         .unwrap();
 
-    tex_pro
-        .connect(mix_node_3, output_node, SlotId(0), SlotId(0))
-        .unwrap();
-
     // Setting the slot_data_ram_cap at slightly above the size of one of the mix nodes should
     // result in the first mix node being written to disk when the graph is done processing.
     tex_pro.engine().write().unwrap().slot_data_ram_cap = 2500;
     tex_pro.engine().write().unwrap().use_cache = true;
-    tex_pro.engine().write().unwrap().auto_update = true;
-
-    thread::sleep(std::time::Duration::from_millis(1000));
+    tex_pro.slot_data(mix_node_3, SlotId(0)).unwrap();
 
     let engine = tex_pro.engine();
     let engine = engine.read().unwrap();
@@ -173,21 +163,33 @@ fn drive_get_stored() {
 
     // A value node plugged into a mix node should be a total of 8 bytes.
     let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-    let mix_node = tex_pro
+    let mix_node_1 = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .unwrap();
+    let mix_node_2 = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::default())))
         .unwrap();
 
     tex_pro
-        .connect(value_node, mix_node, SlotId(0), SlotId(0))
+        .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
         .unwrap();
 
     // Setting the slot_data_ram_cap at 4 bytes should result in the value node getting written
     // to drive.
-    tex_pro.engine().write().unwrap().slot_data_ram_cap = 4;
+    tex_pro.engine().write().unwrap().slot_data_ram_cap = 8;
     tex_pro.engine().write().unwrap().use_cache = true;
 
-    tex_pro.engine().read().unwrap().slot_data(mix_node, SlotId(0)).unwrap();
-    tex_pro.engine().read().unwrap().slot_data(value_node, SlotId(0)).unwrap();
+    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap();
+    tex_pro
+        .slot_data(value_node, SlotId(0))
+        .unwrap()
+        .image_cache()
+        .write()
+        .unwrap()
+        .get();
 }
 
 #[test]
