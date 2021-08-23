@@ -75,61 +75,95 @@ fn input_output() {
 }
 
 #[test]
-#[timeout(20000)]
+// #[timeout(20000)]
 fn storage_cache() {
     let tex_pro = TextureProcessor::new();
 
+    // Value nodes are 1x1 px right now, so take very little memory.
+    let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+
     // Creating two nodes with a size of 16 wide x 16 tall x 4 bytes = 1024 bytes.
-    let value_node_1 = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-    tex_pro
-        .node_with_id(value_node_1)
-        .as_mut()
-        .unwrap()
-        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
-
-    let value_node_2 = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-    tex_pro
-        .node_with_id(value_node_2)
-        .as_mut()
-        .unwrap()
-        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
-
-    let mix_node = tex_pro
+    let mix_node_1 = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::default())))
         .unwrap();
+    tex_pro
+        .engine()
+        .write()
+        .unwrap()
+        .node_with_id_mut(mix_node_1)
+        .unwrap()
+        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
+
+    let mix_node_2 = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .unwrap();
+    tex_pro
+        .engine()
+        .write()
+        .unwrap()
+        .node_with_id_mut(mix_node_2)
+        .unwrap()
+        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
+
+    let mix_node_3 = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .unwrap();
+    tex_pro
+        .engine()
+        .write()
+        .unwrap()
+        .node_with_id_mut(mix_node_3)
+        .unwrap()
+        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
 
     let output_node = tex_pro
         .add_node(Node::new(NodeType::OutputGray("out".into())))
         .unwrap();
 
     tex_pro
-        .connect(value_node_1, mix_node, SlotId(0), SlotId(0))
+        .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
         .unwrap();
 
     tex_pro
-        .connect(value_node_2, mix_node, SlotId(0), SlotId(1))
+        .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
         .unwrap();
 
     tex_pro
-        .connect(mix_node, output_node, SlotId(0), SlotId(0))
+        .connect(mix_node_2, mix_node_3, SlotId(0), SlotId(0))
         .unwrap();
 
-    tex_pro.engine().write().unwrap().slot_data_ram_cap = 2100;
+    tex_pro
+        .connect(mix_node_3, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    // Setting the slot_data_ram_cap at slightly above the size of one of the mix nodes should
+    // result in the first mix node being written to disk when the graph is done processing.
+    tex_pro.engine().write().unwrap().slot_data_ram_cap = 2500;
     tex_pro.engine().write().unwrap().use_cache = true;
     tex_pro.engine().write().unwrap().auto_update = true;
 
-    thread::sleep(std::time::Duration::from_millis(500));
+    thread::sleep(std::time::Duration::from_millis(1000));
 
-    assert!(!tex_pro
-        .engine()
-        .read()
-        .unwrap()
-        .slot_data(value_node_1, SlotId(0))
-        .unwrap()
-        .image_cache()
-        .read()
-        .unwrap()
-        .is_in_ram());
+    let engine = tex_pro.engine();
+    let engine = engine.read().unwrap();
+
+    fn node_id_in_ram(
+        engine: &std::sync::RwLockReadGuard<kanter_core::engine::Engine>,
+        node_id: NodeId,
+    ) -> bool {
+        engine
+            .slot_data(node_id, SlotId(0))
+            .unwrap()
+            .image_cache()
+            .read()
+            .unwrap()
+            .is_in_ram()
+    }
+
+    assert!(!node_id_in_ram(&engine, value_node));
+    assert!(!node_id_in_ram(&engine, mix_node_1));
+    assert!(node_id_in_ram(&engine, mix_node_2));
+    assert!(node_id_in_ram(&engine, mix_node_3));
 }
 
 #[test]

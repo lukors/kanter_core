@@ -132,10 +132,7 @@ impl Engine {
                         .node_state
                         .iter()
                         .filter(|(_, node_state)| {
-                            !matches!(
-                                node_state,
-                                NodeState::Processing | NodeState::Clean
-                            )
+                            !matches!(node_state, NodeState::Processing | NodeState::Clean)
                         })
                         .map(|(node_id, _)| *node_id)
                         .collect::<Vec<NodeId>>()
@@ -144,10 +141,7 @@ impl Engine {
                         .node_state
                         .iter()
                         .filter(|(_, node_state)| {
-                            matches!(
-                                node_state,
-                                NodeState::Requested | NodeState::Prioritised
-                            )
+                            matches!(node_state, NodeState::Requested | NodeState::Prioritised)
                         })
                         .map(|(node_id, _)| *node_id)
                         .collect::<Vec<NodeId>>()
@@ -219,13 +213,31 @@ impl Engine {
                     // - Start the node.
 
                     let slot_data_bytes = tex_pro.bytes_needed_for_node(node_id).unwrap();
-                    while tex_pro.slot_data_bytes_total() + slot_data_bytes > tex_pro.slot_data_ram_cap
+                    dbg!(node_id);
+                    // dbg!(slot_data_bytes);
+                    // dbg!(tex_pro.slot_data_bytes_total() + slot_data_bytes);
+                    while tex_pro.slot_data_bytes_total() + slot_data_bytes
+                        > tex_pro.slot_data_ram_cap
                     {
-                        dbg!("Storing...");
+                        // dbg!(tex_pro.slot_data_bytes_total());
+                        // dbg!(slot_data_bytes);
+                        // dbg!(tex_pro.slot_data_ram_cap);
+                        // dbg!(tex_pro.slot_data_bytes_total() + slot_data_bytes > tex_pro.slot_data_ram_cap);
+                        // dbg!(tex_pro.node_slot_datas(node_id));
+                        if let Some(node_in_ram) = tex_pro
+                            .slot_datas
+                            .iter()
+                            .find(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
+                        {
+                            node_in_ram.store().unwrap();
+                        }
+                        // for slot_data in tex_pro.node_slot_datas(node_id) {
+                        //     slot_data.store().unwrap();
+                        //     dbg!(slot_data);
+                        // }
                         // Store enough stuff so the node can be calculated.
 
                         // tex_pro.
-                        
                     }
 
                     assert_eq!(
@@ -293,7 +305,11 @@ impl Engine {
         //     .values()
         //     .map(|node_info| node_info.slot_data_bytes)
         //     .sum()
-        self.slot_datas().iter().map(|slot_data| slot_data.bytes()).sum()
+        self.slot_datas()
+            .iter()
+            .filter(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
+            .map(|slot_data| slot_data.bytes())
+            .sum()
     }
 
     fn bytes_needed_for_node(&self, node_id: NodeId) -> Result<usize> {
@@ -685,8 +701,7 @@ impl Engine {
         let node_id = self.node_graph.add_node(node)?;
 
         self.changed.insert(node_id);
-        self.node_state
-            .insert(node_id, NodeState::Dirty);
+        self.node_state.insert(node_id, NodeState::Dirty);
 
         Ok(node_id)
     }
@@ -803,8 +818,7 @@ impl Engine {
     pub(crate) fn reset_node_states(&mut self) {
         self.node_state.clear();
         for node_id in self.node_ids() {
-            self.node_state
-                .insert(node_id, NodeState::default());
+            self.node_state.insert(node_id, NodeState::default());
         }
     }
 

@@ -66,11 +66,17 @@ pub(crate) fn calculate_size(
         .all(|edge| edges.first().unwrap().input_id == edge.input_id));
 
     match policy {
-        ResizePolicy::MostPixels => slot_datas
-            .iter()
-            .max_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
-            .map(|node_data| node_data.size)
-            .unwrap(),
+        ResizePolicy::MostPixels => {
+            if slot_datas.is_empty() {
+                Size::new(1, 1)
+            } else {
+                slot_datas
+                    .iter()
+                    .max_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
+                    .map(|node_data| node_data.size)
+                    .unwrap()
+            }
+        }
         ResizePolicy::LeastPixels => slot_datas
             .iter()
             .min_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))

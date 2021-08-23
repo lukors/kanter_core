@@ -1,9 +1,16 @@
 use crate::{error::*, node_graph::*};
+use core::mem::size_of;
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
-use std::{fmt, fs::{self, File}, io::{Read, Write}, mem, path::Path, sync::{Arc, RwLock}};
+use std::{
+    fmt,
+    fs::{self, File},
+    io::{Read, Write},
+    mem,
+    path::Path,
+    sync::{Arc, RwLock},
+};
 use tempfile::tempfile;
-use core::mem::size_of;
 
 #[derive(Debug)]
 pub enum SlotImageCache {
@@ -40,7 +47,7 @@ impl SlotImageCache {
     /// into a `Storage`.
     pub(crate) fn store(&mut self, size: Size) -> Result<()> {
         let mut file: File;
-        let mut rgba: bool;
+        let rgba: bool;
 
         if let Self::Ram(slot_image) = self {
             file = tempfile()?;
