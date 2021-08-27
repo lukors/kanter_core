@@ -201,6 +201,65 @@ fn drive_get_stored() {
 
 #[test]
 #[timeout(20000)]
+fn drive_get_stored_rgba() {
+    const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
+    let tex_pro = TextureProcessor::new();
+
+    let rgba_node = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
+    let mut value_nodes: Vec<NodeId> = Vec::new();
+    for (i, val) in VAL.iter().enumerate() {
+        let new_node = tex_pro.add_node(Node::new(NodeType::Value(*val))).unwrap();
+        value_nodes.push(new_node);
+        tex_pro
+            .connect(new_node, rgba_node, SlotId(0), SlotId(i as u32))
+            .unwrap();
+    }
+
+    let mix_node_1 = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
+        .unwrap();
+    let mix_node_2 = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
+        .unwrap();
+
+    tex_pro
+        .connect(rgba_node, mix_node_1, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
+        .unwrap();
+
+    // Setting the slot_data_ram_cap at 4 bytes should result in the value node getting written
+    // to drive.
+    tex_pro.engine().write().unwrap().slot_data_ram_cap = 8;
+    tex_pro.engine().write().unwrap().use_cache = true;
+
+    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap();
+    let slot_image = tex_pro
+        .slot_data(rgba_node, SlotId(0))
+        .unwrap()
+        .image_cache();
+    let mut slot_image = slot_image.write().unwrap();
+    let slot_image = slot_image.get();
+
+    if let SlotImage::Rgba(buf) = slot_image {
+        let pixel = {
+            [
+                buf[0].pixels().next().unwrap().data[0],
+                buf[1].pixels().next().unwrap().data[0],
+                buf[2].pixels().next().unwrap().data[0],
+                buf[3].pixels().next().unwrap().data[0],
+            ]
+        };
+
+        assert_eq!(pixel, VAL);
+    } else {
+        panic!()
+    }
+}
+
+#[test]
+#[timeout(20000)]
 fn no_cache() {
     let tex_pro = TextureProcessor::new();
 
