@@ -157,7 +157,7 @@ fn drive_cache() {
 }
 
 #[test]
-// #[timeout(20000)]
+#[timeout(20000)]
 fn drive_get_stored() {
     let tex_pro = TextureProcessor::new();
 

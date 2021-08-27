@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     fs::{self, File},
-    io::{Read, Write},
+    io::{Read, Seek, SeekFrom, Write},
     mem,
     path::Path,
     sync::{Arc, RwLock},
@@ -25,20 +25,42 @@ impl From<SlotImage> for SlotImageCache {
 }
 
 impl SlotImageCache {
-    // TODO: If self is Storage, this functions should turn it into Ram.
     pub fn get(&mut self) -> &SlotImage {
         match self {
             Self::Ram(ref slot_image) => &slot_image,
             Self::Storage((size, rgba, file)) => {
-                unimplemented!()
-                // let mut buffer = Vec::<u8>::new();
+                let mut buffer_int: Vec<u8> = Vec::<u8>::new();
+                file.seek(SeekFrom::Start(0)).unwrap();
+                file.read_to_end(&mut buffer_int).unwrap();
 
-                // if rgba {
-                //     // file.
-                // } else {
-                //     file.read_to_end(&mut buffer);
-                //     Arc::new(Box::new(Buffer::from_raw(size.x, size.y, ).unwrap())),
-                // }
+                if *rgba {
+                    unimplemented!()
+                } else {
+                    let pixel_count = buffer_int.len() / size_of::<ChannelPixel>();
+                    let mut buffer_f32 = Vec::with_capacity(pixel_count);
+
+                    for i in 0..pixel_count {
+                        let loc = i * size_of::<ChannelPixel>();
+                        let bytes: [u8; 4] = [
+                            buffer_int[loc],
+                            buffer_int[loc + 1],
+                            buffer_int[loc + 2],
+                            buffer_int[loc + 3],
+                        ];
+                        let value = f32::from_ne_bytes(bytes);
+                        buffer_f32.push(value);
+                    }
+
+                    *self = Self::Ram(SlotImage::Gray(Arc::new(Box::new(
+                        Buffer::from_raw(size.width, size.height, buffer_f32).unwrap(),
+                    ))));
+
+                    if let Self::Ram(ref slot_image) = self {
+                        &slot_image
+                    } else {
+                        unreachable!() // Unreachable because self was just turned into a Self::Ram.
+                    }
+                }
             }
         }
     }
@@ -55,14 +77,14 @@ impl SlotImageCache {
             match slot_image {
                 SlotImage::Gray(buf) => {
                     for pixel in buf.iter() {
-                        file.write_all(&pixel.to_ne_bytes())?;
+                        file.write(&pixel.to_ne_bytes())?;
                     }
                     rgba = false
                 }
                 SlotImage::Rgba(bufs) => {
                     for buf in bufs {
                         for pixel in buf.iter() {
-                            file.write_all(&pixel.to_ne_bytes())?;
+                            file.write(&pixel.to_ne_bytes())?;
                         }
                     }
                     rgba = true
