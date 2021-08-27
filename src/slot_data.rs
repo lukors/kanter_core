@@ -34,7 +34,87 @@ impl SlotImageCache {
                 file.read_to_end(&mut buffer_int).unwrap();
 
                 if *rgba {
-                    unimplemented!()
+                    let component_count = buffer_int.len() / size_of::<ChannelPixel>();
+                    let pixel_count = component_count / 4;
+                    let mut buffers_f32: Vec<Vec<f32>> = vec![
+                        Vec::with_capacity(pixel_count),
+                        Vec::with_capacity(pixel_count),
+                        Vec::with_capacity(pixel_count),
+                        Vec::with_capacity(pixel_count),
+                    ];
+
+                    for i in 0..pixel_count {
+                        let loc = i * size_of::<ChannelPixel>();
+                        let bytes: [u8; 4] = [
+                            buffer_int[loc],
+                            buffer_int[loc + 1],
+                            buffer_int[loc + 2],
+                            buffer_int[loc + 3],
+                        ];
+                        let value = f32::from_ne_bytes(bytes);
+                        buffers_f32[3].push(value);
+                    }
+
+                    for i in pixel_count..pixel_count * 2 {
+                        let loc = i * size_of::<ChannelPixel>();
+                        let bytes: [u8; 4] = [
+                            buffer_int[loc],
+                            buffer_int[loc + 1],
+                            buffer_int[loc + 2],
+                            buffer_int[loc + 3],
+                        ];
+                        let value = f32::from_ne_bytes(bytes);
+                        buffers_f32[2].push(value);
+                    }
+
+                    for i in pixel_count * 2..pixel_count * 3 {
+                        let loc = i * size_of::<ChannelPixel>();
+                        let bytes: [u8; 4] = [
+                            buffer_int[loc],
+                            buffer_int[loc + 1],
+                            buffer_int[loc + 2],
+                            buffer_int[loc + 3],
+                        ];
+                        let value = f32::from_ne_bytes(bytes);
+                        buffers_f32[1].push(value);
+                    }
+
+                    for i in pixel_count * 3..pixel_count * 4 {
+                        let loc = i * size_of::<ChannelPixel>();
+                        let bytes: [u8; 4] = [
+                            buffer_int[loc],
+                            buffer_int[loc + 1],
+                            buffer_int[loc + 2],
+                            buffer_int[loc + 3],
+                        ];
+                        let value = f32::from_ne_bytes(bytes);
+                        buffers_f32[0].push(value);
+                    }
+
+                    *self = Self::Ram(SlotImage::Rgba([
+                        Arc::new(Box::new(
+                            Buffer::from_raw(size.width, size.height, buffers_f32.pop().unwrap())
+                                .unwrap(),
+                        )),
+                        Arc::new(Box::new(
+                            Buffer::from_raw(size.width, size.height, buffers_f32.pop().unwrap())
+                                .unwrap(),
+                        )),
+                        Arc::new(Box::new(
+                            Buffer::from_raw(size.width, size.height, buffers_f32.pop().unwrap())
+                                .unwrap(),
+                        )),
+                        Arc::new(Box::new(
+                            Buffer::from_raw(size.width, size.height, buffers_f32.pop().unwrap())
+                                .unwrap(),
+                        )),
+                    ]));
+
+                    if let Self::Ram(ref slot_image) = self {
+                        &slot_image
+                    } else {
+                        unreachable!() // Unreachable because self was just turned into a Self::Ram.
+                    }
                 } else {
                     let pixel_count = buffer_int.len() / size_of::<ChannelPixel>();
                     let mut buffer_f32 = Vec::with_capacity(pixel_count);
