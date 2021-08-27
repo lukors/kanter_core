@@ -4,7 +4,7 @@ use kanter_core::{
         ResizePolicy,
     },
     node_graph::{NodeGraph, NodeId, SlotId},
-    slot_data::Size,
+    slot_data::{Size, SlotImage},
     texture_processor::TextureProcessor,
 };
 use ntest::timeout;
@@ -159,15 +159,16 @@ fn drive_cache() {
 #[test]
 #[timeout(20000)]
 fn drive_get_stored() {
+    const VAL: f32 = 0.8;
     let tex_pro = TextureProcessor::new();
 
     // A value node plugged into a mix node should be a total of 8 bytes.
-    let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+    let value_node = tex_pro.add_node(Node::new(NodeType::Value(VAL))).unwrap();
     let mix_node_1 = tex_pro
-        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
         .unwrap();
     let mix_node_2 = tex_pro
-        .add_node(Node::new(NodeType::Mix(MixType::default())))
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
         .unwrap();
 
     tex_pro
@@ -183,13 +184,19 @@ fn drive_get_stored() {
     tex_pro.engine().write().unwrap().use_cache = true;
 
     tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap();
-    tex_pro
+    let slot_image = tex_pro
         .slot_data(value_node, SlotId(0))
         .unwrap()
-        .image_cache()
-        .write()
-        .unwrap()
-        .get();
+        .image_cache();
+    let mut slot_image = slot_image.write().unwrap();
+    let slot_image = slot_image.get();
+
+    if let SlotImage::Gray(buf) = slot_image {
+        let from_drive: f32 = buf.pixels().next().unwrap().data[0];
+        assert_eq!(from_drive, VAL);
+    } else {
+        panic!()
+    }
 }
 
 #[test]
