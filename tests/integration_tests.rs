@@ -215,7 +215,7 @@ fn drive_get_stored_rgba() {
 
     // RGBA node should be 4 channels * 4 bytes = 16 bytes
     let rgba_node = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
-    
+
     // 4 value nodes should be 4 channels * 4 bytes = 16 bytes
     let mut value_nodes: Vec<NodeId> = Vec::new();
     for (i, val) in VAL.iter().enumerate() {
@@ -248,10 +248,11 @@ fn drive_get_stored_rgba() {
 
     tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap(); // Calculates up to this node.
 
-    { // Assert that the right things are on drive and in RAM.
+    {
+        // Assert that the right things are on drive and in RAM.
         let engine = tex_pro.engine();
         let engine = engine.read().unwrap();
-    
+
         for node_id in value_nodes {
             assert!(!node_in_ram(&engine, node_id));
         }
@@ -260,8 +261,7 @@ fn drive_get_stored_rgba() {
         assert!(node_in_ram(&engine, mix_node_1));
         assert!(node_in_ram(&engine, mix_node_2));
     }
-    
-    
+
     let slot_image = tex_pro
         .slot_data(rgba_node, SlotId(0))
         .unwrap()

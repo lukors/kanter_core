@@ -3,7 +3,7 @@ use crate::{
     node::{
         embed::{EmbeddedSlotData, EmbeddedSlotDataId},
         node_type::process_node,
-        Node, Side,
+        Node, Side, SlotType,
     },
     node_graph::*,
     shared::calculate_size,
@@ -302,10 +302,21 @@ impl Engine {
             .collect::<Vec<Arc<SlotData>>>();
         let edges = self.node_graph.input_edges(node_id);
         let policy = node.resize_policy;
-        let output_slot_count = node.output_slots().len();
+
+        let channel_count: usize = node
+            .output_slots()
+            .iter()
+            .map(|slot| {
+                match slot.slot_type {
+                    SlotType::Gray => 1,
+                    SlotType::Rgba => 4,
+                    SlotType::GrayOrRgba => 4, // Assume it's RGBA if it can be.
+                }
+            })
+            .sum();
 
         Ok(calculate_size(&slot_datas, &edges, policy).pixel_count()
-            * output_slot_count
+            * channel_count
             * size_of::<ChannelPixel>())
     }
 
