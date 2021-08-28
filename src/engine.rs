@@ -206,15 +206,7 @@ impl Engine {
                             .collect::<Vec<Arc<SlotData>>>()
                     };
 
-                    while tex_pro.slot_data_bytes_total() > tex_pro.slot_data_ram_cap {
-                        if let Some(slot_data_in_ram) = tex_pro
-                            .slot_datas
-                            .iter()
-                            .find(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
-                        {
-                            slot_data_in_ram.store().unwrap();
-                        }
-                    }
+                    Self::store_to_drive(&tex_pro);
 
                     assert_eq!(
                         edges.len(),
@@ -261,6 +253,23 @@ impl Engine {
         }
     }
 
+    fn store_to_drive(engine: &RwLockWriteGuard<Engine>) {
+        println!("------");
+        for slot_data in engine.slot_datas.iter() {
+            println!("{}", slot_data);
+        }
+        
+        while engine.slot_data_bytes_total() > engine.slot_data_ram_cap {
+            if let Some(slot_data_in_ram) = engine
+                .slot_datas
+                .iter()
+                .find(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
+            {
+                slot_data_in_ram.store().unwrap();
+            }
+        }
+    }
+
     pub fn process_then_kill(&mut self) {
         self.one_shot = true;
         for node_id in self.node_graph.output_ids() {
@@ -268,54 +277,13 @@ impl Engine {
         }
     }
 
-    // fn total_slot_data_size(&self) -> usize {
-    //     self.slot_datas
-    //         .iter()
-    //         .map(|slot_data| slot_data.size.pixel_count())
-    //         .sum::<usize>()
-    //         * size_of::<ChannelPixel>()
-    // }
-
     fn slot_data_bytes_total(&self) -> usize {
-        // self.node_state
-        //     .values()
-        //     .map(|node_info| node_info.slot_data_bytes)
-        //     .sum()
         self.slot_datas()
             .iter()
             .filter(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
             .map(|slot_data| slot_data.bytes())
             .sum()
     }
-
-    // fn bytes_needed_for_node(&self, node_id: NodeId) -> Result<usize> {
-    //     let node = self.node_graph.node_with_id(node_id)?;
-
-    //     let slot_datas = self
-    //         .get_parents(node_id)
-    //         .iter()
-    //         .map(|node_id| self.node_slot_datas(*node_id))
-    //         .flatten()
-    //         .collect::<Vec<Arc<SlotData>>>();
-    //     let edges = self.node_graph.input_edges(node_id);
-    //     let policy = node.resize_policy;
-
-    //     let channel_count: usize = node
-    //         .output_slots()
-    //         .iter()
-    //         .map(|slot| {
-    //             match slot.slot_type {
-    //                 SlotType::Gray => 1,
-    //                 SlotType::Rgba => 4,
-    //                 SlotType::GrayOrRgba => 4, // Assume it's RGBA if it can be.
-    //             }
-    //         })
-    //         .sum();
-
-    //     Ok(calculate_size(&slot_datas, &edges, policy).pixel_count()
-    //         * channel_count
-    //         * size_of::<ChannelPixel>())
-    // }
 
     /// Return a SlotData as u8.
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
