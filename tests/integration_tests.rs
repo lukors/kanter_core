@@ -74,6 +74,19 @@ fn input_output() {
     assert!(images_equal(PATH_IN, PATH_OUT));
 }
 
+fn node_in_ram(
+    engine: &std::sync::RwLockReadGuard<kanter_core::engine::Engine>,
+    node_id: NodeId,
+) -> bool {
+    engine
+        .slot_data(node_id, SlotId(0))
+        .unwrap()
+        .image_cache()
+        .read()
+        .unwrap()
+        .is_in_ram()
+}
+
 #[test]
 // #[timeout(20000)]
 fn drive_cache() {
@@ -137,23 +150,10 @@ fn drive_cache() {
     let engine = tex_pro.engine();
     let engine = engine.read().unwrap();
 
-    fn node_id_in_ram(
-        engine: &std::sync::RwLockReadGuard<kanter_core::engine::Engine>,
-        node_id: NodeId,
-    ) -> bool {
-        engine
-            .slot_data(node_id, SlotId(0))
-            .unwrap()
-            .image_cache()
-            .read()
-            .unwrap()
-            .is_in_ram()
-    }
-
-    assert!(!node_id_in_ram(&engine, value_node));
-    assert!(!node_id_in_ram(&engine, mix_node_1));
-    assert!(node_id_in_ram(&engine, mix_node_2));
-    assert!(node_id_in_ram(&engine, mix_node_3));
+    assert!(!node_in_ram(&engine, value_node));
+    assert!(!node_in_ram(&engine, mix_node_1));
+    assert!(node_in_ram(&engine, mix_node_2));
+    assert!(node_in_ram(&engine, mix_node_3));
 }
 
 #[test]
@@ -162,7 +162,7 @@ fn drive_get_stored() {
     const VAL: f32 = 0.8;
     let tex_pro = TextureProcessor::new();
 
-    // A value node plugged into a mix node should be a total of 8 bytes.
+    // This value node + 2 mix nodes are 12 bytes total.
     let value_node = tex_pro.add_node(Node::new(NodeType::Value(VAL))).unwrap();
     let mix_node_1 = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::Add)))
@@ -178,12 +178,20 @@ fn drive_get_stored() {
         .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
         .unwrap();
 
-    // Setting the slot_data_ram_cap at 4 bytes should result in the value node getting written
+    // Setting the slot_data_ram_cap at 8 bytes should result in the value node getting written
     // to drive.
     tex_pro.engine().write().unwrap().slot_data_ram_cap = 8;
     tex_pro.engine().write().unwrap().use_cache = true;
 
     tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap();
+
+    let engine = tex_pro.engine();
+    let engine = engine.read().unwrap();
+
+    assert!(!node_in_ram(&engine, value_node));
+    assert!(node_in_ram(&engine, mix_node_1));
+    assert!(node_in_ram(&engine, mix_node_2));
+
     let slot_image = tex_pro
         .slot_data(value_node, SlotId(0))
         .unwrap()
@@ -205,7 +213,10 @@ fn drive_get_stored_rgba() {
     const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
     let tex_pro = TextureProcessor::new();
 
+    // RGBA node should be 4 channels * 4 bytes = 16 bytes
     let rgba_node = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
+    
+    // 4 value nodes should be 4 channels * 4 bytes = 16 bytes
     let mut value_nodes: Vec<NodeId> = Vec::new();
     for (i, val) in VAL.iter().enumerate() {
         let new_node = tex_pro.add_node(Node::new(NodeType::Value(*val))).unwrap();
@@ -215,6 +226,7 @@ fn drive_get_stored_rgba() {
             .unwrap();
     }
 
+    // 2 mix nodes should be 2 nodes * 4 channels * 4 bytes = 32 bytes
     let mix_node_1 = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::Add)))
         .unwrap();
@@ -229,12 +241,27 @@ fn drive_get_stored_rgba() {
         .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
         .unwrap();
 
-    // Setting the slot_data_ram_cap at 4 bytes should result in the value node getting written
+    // Setting the slot_data_ram_cap at 32 bytes should result in the RGBA node getting written
     // to drive.
-    tex_pro.engine().write().unwrap().slot_data_ram_cap = 8;
+    tex_pro.engine().write().unwrap().slot_data_ram_cap = 32;
     tex_pro.engine().write().unwrap().use_cache = true;
 
-    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap();
+    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap(); // Calculates up to this node.
+
+    { // Assert that the right things are on drive and in RAM.
+        let engine = tex_pro.engine();
+        let engine = engine.read().unwrap();
+    
+        for node_id in value_nodes {
+            assert!(!node_in_ram(&engine, node_id));
+        }
+
+        assert!(!node_in_ram(&engine, rgba_node));
+        assert!(node_in_ram(&engine, mix_node_1));
+        assert!(node_in_ram(&engine, mix_node_2));
+    }
+    
+    
     let slot_image = tex_pro
         .slot_data(rgba_node, SlotId(0))
         .unwrap()
