@@ -123,6 +123,8 @@ impl Engine {
                                 tex_pro.remove_nodes_data(parent);
                             }
                         }
+                    } else {
+                        Self::store_to_drive(&tex_pro);
                     }
                 }
 
@@ -205,9 +207,7 @@ impl Engine {
                             })
                             .collect::<Vec<Arc<SlotData>>>()
                     };
-
-                    Self::store_to_drive(&tex_pro);
-
+                    
                     assert_eq!(
                         edges.len(),
                         input_data.len(),
@@ -236,7 +236,6 @@ impl Engine {
                     });
                 }
 
-                // If the tex_pro is set to one_shot and all nodes are clean, shut it down.
                 if tex_pro.one_shot
                     && tex_pro
                         .node_state
@@ -254,11 +253,6 @@ impl Engine {
     }
 
     fn store_to_drive(engine: &RwLockWriteGuard<Engine>) {
-        println!("------");
-        for slot_data in engine.slot_datas.iter() {
-            println!("{}", slot_data);
-        }
-        
         while engine.slot_data_bytes_total() > engine.slot_data_ram_cap {
             if let Some(slot_data_in_ram) = engine
                 .slot_datas
@@ -266,6 +260,12 @@ impl Engine {
                 .find(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
             {
                 slot_data_in_ram.store().unwrap();
+            }
+
+            // Debug print
+            println!("\nTotal in RAM: {}", engine.slot_data_bytes_total());
+            for slot_data in engine.slot_datas.iter() {
+                println!("{}, NodeType: {:?}", slot_data, engine.node_graph.node_with_id(slot_data.node_id).unwrap().node_type);
             }
         }
     }
@@ -630,11 +630,31 @@ impl Engine {
 
     /// Gets any `SlotData`s associated with a given `NodeId`.
     pub fn node_slot_datas(&self, node_id: NodeId) -> Vec<Arc<SlotData>> {
-        self.slot_datas
-            .iter()
-            .filter(|nd| nd.node_id == node_id)
-            .map(|nd| Arc::clone(&nd))
-            .collect()
+        let mut output: Vec<Arc<SlotData>> = Vec::new();
+        
+        // CURRENTLY: Gotta create a "get slot image" function that essentially does what's in this
+        // for loop. That function should be the only possible way to get the contents of an image.
+        // This ensures that if an image is ever gotten, it will be moved to the back of the queue.
+        //
+        // Might want to look at the engine processing function to see what that does when getting
+        // the image data.
+        //
+        // The commented code below should probably be uncommented, not thrown away.
+        for i in 0..self.slot_datas.len() {
+            if self.slot_datas.get(i).unwrap().node_id == node_id {
+                let slot_data = self.slot_datas.remove(i).unwrap();
+                self.slot_datas.push_back(Arc::clone(&slot_data));
+                output.push(slot_data);
+            }
+        }
+
+        output
+        
+        // self.slot_datas
+        //     .iter()
+        //     .filter(|nd| nd.node_id == node_id)
+        //     .map(|nd| Arc::clone(&nd))
+        //     .collect()
     }
 
     pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {

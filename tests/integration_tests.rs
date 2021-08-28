@@ -89,58 +89,7 @@ fn node_in_ram(
 
 #[test]
 #[timeout(20000)]
-fn drive_get_stored_gray() {
-    const VAL: f32 = 0.8;
-    let tex_pro = TextureProcessor::new();
-
-    // This value node + 2 mix nodes are 12 bytes total.
-    let value_node = tex_pro.add_node(Node::new(NodeType::Value(VAL))).unwrap();
-    let mix_node_1 = tex_pro
-        .add_node(Node::new(NodeType::Mix(MixType::Add)))
-        .unwrap();
-    let mix_node_2 = tex_pro
-        .add_node(Node::new(NodeType::Mix(MixType::Add)))
-        .unwrap();
-
-    tex_pro
-        .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
-        .unwrap();
-    tex_pro
-        .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
-        .unwrap();
-
-    // Setting the slot_data_ram_cap at 4 bytes should result in the value node getting written
-    // to drive.
-    tex_pro.engine().write().unwrap().slot_data_ram_cap = 4;
-    tex_pro.engine().write().unwrap().use_cache = true;
-
-    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap(); // Calculates up to this node.
-
-    let engine = tex_pro.engine();
-    let engine = engine.read().unwrap();
-
-    assert!(!node_in_ram(&engine, value_node));
-    assert!(node_in_ram(&engine, mix_node_1));
-    assert!(node_in_ram(&engine, mix_node_2));
-
-    let slot_image = tex_pro
-        .slot_data(value_node, SlotId(0))
-        .unwrap()
-        .image_cache();
-    let mut slot_image = slot_image.write().unwrap();
-    let slot_image = slot_image.get();
-
-    if let SlotImage::Gray(buf) = slot_image {
-        let from_drive: f32 = buf.pixels().next().unwrap().data[0];
-        assert_eq!(from_drive, VAL);
-    } else {
-        panic!()
-    }
-}
-
-#[test]
-#[timeout(20000)]
-fn drive_get_stored_rgba() {
+fn drive_cache() {
     const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
     let tex_pro = TextureProcessor::new();
 
@@ -182,38 +131,60 @@ fn drive_get_stored_rgba() {
     {
         // Assert that the right things are on drive and in RAM.
         let engine = tex_pro.engine();
-        let engine = engine.read().unwrap();
+        let engine = engine.write().unwrap();
+
+        for node_id in &value_nodes {
+            assert!(!node_in_ram(&engine, *node_id));
+        }
+
+        assert!(!node_in_ram(&engine, rgba_node));
+        assert!(!node_in_ram(&engine, mix_node_1));
+        assert!(node_in_ram(&engine, mix_node_2));
+    }
+
+    
+    {
+        let slot_image = tex_pro
+            .slot_data(rgba_node, SlotId(0))
+            .unwrap()
+            .image_cache();
+        let mut slot_image = slot_image.write().unwrap();
+        let slot_image = slot_image.get();
+
+        if let SlotImage::Rgba(buf) = slot_image {
+            let pixel = {
+                [
+                    buf[0].pixels().next().unwrap().data[0],
+                    buf[1].pixels().next().unwrap().data[0],
+                    buf[2].pixels().next().unwrap().data[0],
+                    buf[3].pixels().next().unwrap().data[0],
+                ]
+            };
+
+            assert_eq!(pixel, VAL);
+        } else {
+            panic!()
+        }
+    }
+
+    // Test if the right thing happens when a slot_data on drive is retrieved.
+
+    // Loads this slot_data into RAM.
+    tex_pro.slot_data(rgba_node, SlotId(0)).unwrap();
+    {
+        let engine = tex_pro.engine();
+        let engine = engine.write().unwrap();
 
         for node_id in value_nodes {
             assert!(!node_in_ram(&engine, node_id));
         }
-
-        assert!(!node_in_ram(&engine, rgba_node));
-        assert!(node_in_ram(&engine, mix_node_1));
-        assert!(node_in_ram(&engine, mix_node_2));
+        
+        assert!(node_in_ram(&engine, rgba_node));
+        assert!(!node_in_ram(&engine, mix_node_1));
+        assert!(!node_in_ram(&engine, mix_node_2));
     }
 
-    let slot_image = tex_pro
-        .slot_data(rgba_node, SlotId(0))
-        .unwrap()
-        .image_cache();
-    let mut slot_image = slot_image.write().unwrap();
-    let slot_image = slot_image.get();
-
-    if let SlotImage::Rgba(buf) = slot_image {
-        let pixel = {
-            [
-                buf[0].pixels().next().unwrap().data[0],
-                buf[1].pixels().next().unwrap().data[0],
-                buf[2].pixels().next().unwrap().data[0],
-                buf[3].pixels().next().unwrap().data[0],
-            ]
-        };
-
-        assert_eq!(pixel, VAL);
-    } else {
-        panic!()
-    }
+    // The slot_data should now be at the back of the queue.
 }
 
 #[test]
