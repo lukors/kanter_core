@@ -88,77 +88,8 @@ fn node_in_ram(
 }
 
 #[test]
-// #[timeout(20000)]
-fn drive_cache() {
-    let tex_pro = TextureProcessor::new();
-
-    // Value nodes are 1x1 px right now, so take very little memory.
-    let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-
-    // Creating two nodes with a size of 16 wide x 16 tall x 4 bytes = 1024 bytes.
-    let mix_node_1 = tex_pro
-        .add_node(Node::new(NodeType::Mix(MixType::default())))
-        .unwrap();
-    tex_pro
-        .engine()
-        .write()
-        .unwrap()
-        .node_with_id_mut(mix_node_1)
-        .unwrap()
-        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
-
-    let mix_node_2 = tex_pro
-        .add_node(Node::new(NodeType::Mix(MixType::default())))
-        .unwrap();
-    tex_pro
-        .engine()
-        .write()
-        .unwrap()
-        .node_with_id_mut(mix_node_2)
-        .unwrap()
-        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
-
-    let mix_node_3 = tex_pro
-        .add_node(Node::new(NodeType::Mix(MixType::default())))
-        .unwrap();
-    tex_pro
-        .engine()
-        .write()
-        .unwrap()
-        .node_with_id_mut(mix_node_3)
-        .unwrap()
-        .resize_policy = ResizePolicy::SpecificSize(Size::new(16, 16));
-
-    tex_pro
-        .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
-        .unwrap();
-
-    tex_pro
-        .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
-        .unwrap();
-
-    tex_pro
-        .connect(mix_node_2, mix_node_3, SlotId(0), SlotId(0))
-        .unwrap();
-
-    // Setting the slot_data_ram_cap at slightly above the size of one of the mix nodes should
-    // result in the first mix node being written to disk when the graph is done processing.
-    tex_pro.engine().write().unwrap().slot_data_ram_cap = 2500;
-    tex_pro.engine().write().unwrap().use_cache = true;
-    tex_pro.slot_data(mix_node_3, SlotId(0)).unwrap();
-
-    let engine = tex_pro.engine();
-    let engine = engine.read().unwrap();
-
-    assert!(!node_in_ram(&engine, value_node));
-    assert!(!node_in_ram(&engine, mix_node_1));
-    assert!(node_in_ram(&engine, mix_node_2));
-    assert!(node_in_ram(&engine, mix_node_3));
-}
-
-#[test]
 #[timeout(20000)]
-fn drive_get_stored() {
+fn drive_get_stored_gray() {
     const VAL: f32 = 0.8;
     let tex_pro = TextureProcessor::new();
 
@@ -178,12 +109,12 @@ fn drive_get_stored() {
         .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
         .unwrap();
 
-    // Setting the slot_data_ram_cap at 8 bytes should result in the value node getting written
+    // Setting the slot_data_ram_cap at 4 bytes should result in the value node getting written
     // to drive.
-    tex_pro.engine().write().unwrap().slot_data_ram_cap = 8;
+    tex_pro.engine().write().unwrap().slot_data_ram_cap = 4;
     tex_pro.engine().write().unwrap().use_cache = true;
 
-    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap();
+    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap(); // Calculates up to this node.
 
     let engine = tex_pro.engine();
     let engine = engine.read().unwrap();
@@ -241,9 +172,9 @@ fn drive_get_stored_rgba() {
         .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
         .unwrap();
 
-    // Setting the slot_data_ram_cap at 32 bytes should result in the RGBA node getting written
+    // Setting the slot_data_ram_cap at 16 bytes should result in the RGBA node getting written
     // to drive.
-    tex_pro.engine().write().unwrap().slot_data_ram_cap = 32;
+    tex_pro.engine().write().unwrap().slot_data_ram_cap = 16;
     tex_pro.engine().write().unwrap().use_cache = true;
 
     tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap(); // Calculates up to this node.

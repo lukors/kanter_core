@@ -206,16 +206,13 @@ impl Engine {
                             .collect::<Vec<Arc<SlotData>>>()
                     };
 
-                    let slot_data_bytes = tex_pro.bytes_needed_for_node(node_id).unwrap();
-                    while tex_pro.slot_data_bytes_total() + slot_data_bytes
-                        > tex_pro.slot_data_ram_cap
-                    {
-                        if let Some(node_in_ram) = tex_pro
+                    while tex_pro.slot_data_bytes_total() > tex_pro.slot_data_ram_cap {
+                        if let Some(slot_data_in_ram) = tex_pro
                             .slot_datas
                             .iter()
                             .find(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
                         {
-                            node_in_ram.store().unwrap();
+                            slot_data_in_ram.store().unwrap();
                         }
                     }
 
@@ -291,34 +288,34 @@ impl Engine {
             .sum()
     }
 
-    fn bytes_needed_for_node(&self, node_id: NodeId) -> Result<usize> {
-        let node = self.node_graph.node_with_id(node_id)?;
+    // fn bytes_needed_for_node(&self, node_id: NodeId) -> Result<usize> {
+    //     let node = self.node_graph.node_with_id(node_id)?;
 
-        let slot_datas = self
-            .get_parents(node_id)
-            .iter()
-            .map(|node_id| self.node_slot_datas(*node_id))
-            .flatten()
-            .collect::<Vec<Arc<SlotData>>>();
-        let edges = self.node_graph.input_edges(node_id);
-        let policy = node.resize_policy;
+    //     let slot_datas = self
+    //         .get_parents(node_id)
+    //         .iter()
+    //         .map(|node_id| self.node_slot_datas(*node_id))
+    //         .flatten()
+    //         .collect::<Vec<Arc<SlotData>>>();
+    //     let edges = self.node_graph.input_edges(node_id);
+    //     let policy = node.resize_policy;
 
-        let channel_count: usize = node
-            .output_slots()
-            .iter()
-            .map(|slot| {
-                match slot.slot_type {
-                    SlotType::Gray => 1,
-                    SlotType::Rgba => 4,
-                    SlotType::GrayOrRgba => 4, // Assume it's RGBA if it can be.
-                }
-            })
-            .sum();
+    //     let channel_count: usize = node
+    //         .output_slots()
+    //         .iter()
+    //         .map(|slot| {
+    //             match slot.slot_type {
+    //                 SlotType::Gray => 1,
+    //                 SlotType::Rgba => 4,
+    //                 SlotType::GrayOrRgba => 4, // Assume it's RGBA if it can be.
+    //             }
+    //         })
+    //         .sum();
 
-        Ok(calculate_size(&slot_datas, &edges, policy).pixel_count()
-            * channel_count
-            * size_of::<ChannelPixel>())
-    }
+    //     Ok(calculate_size(&slot_datas, &edges, policy).pixel_count()
+    //         * channel_count
+    //         * size_of::<ChannelPixel>())
+    // }
 
     /// Return a SlotData as u8.
     pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {

@@ -3,7 +3,7 @@ use core::mem::size_of;
 use image::{ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt,
+    fmt::{self, Display},
     fs::{self, File},
     io::{Read, Seek, SeekFrom, Write},
     mem,
@@ -21,6 +21,12 @@ pub enum SlotImageCache {
 impl From<SlotImage> for SlotImageCache {
     fn from(slot_image: SlotImage) -> Self {
         Self::Ram(slot_image)
+    }
+}
+
+impl Display for SlotImageCache {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.is_in_ram())
     }
 }
 
@@ -293,14 +299,6 @@ impl SlotImage {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct SlotData {
-    pub node_id: NodeId,
-    pub slot_id: SlotId,
-    pub size: Size,
-    pub image: Arc<RwLock<SlotImageCache>>,
-}
-
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
 pub type BoxBuffer = Box<Buffer>;
 
@@ -340,6 +338,28 @@ pub type ChannelPixel = f32;
 // }
 
 // impl Eq for SlotData {}
+
+#[derive(Clone, Debug)]
+pub struct SlotData {
+    pub node_id: NodeId,
+    pub slot_id: SlotId,
+    pub size: Size,
+    pub image: Arc<RwLock<SlotImageCache>>,
+}
+
+impl Display for SlotData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "NodeId: {}, SlotId: {}, Size: {}, Bytes: {}, In RAM: {}",
+            self.node_id,
+            self.slot_id,
+            self.size,
+            self.bytes(),
+            self.image.read().unwrap()
+        )
+    }
+}
 
 impl SlotData {
     pub(crate) fn new(
@@ -383,8 +403,16 @@ impl SlotData {
         )
     }
 
+    pub fn channel_count(&self) -> usize {
+        if self.image.read().unwrap().is_rgba() {
+            4
+        } else {
+            1
+        }
+    }
+
     pub fn bytes(&self) -> usize {
-        self.size.pixel_count() * size_of::<ChannelPixel>()
+        self.size.pixel_count() * size_of::<ChannelPixel>() * self.channel_count()
     }
 }
 
