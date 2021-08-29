@@ -192,6 +192,14 @@ impl SlotImageCache {
         }
     }
 
+    pub fn channel_count(&self) -> usize {
+        if self.is_rgba() {
+            4
+        } else {
+            1
+        }
+    }
+
     pub(crate) fn as_type(&mut self, rgba: bool) -> Self {
         Self::Ram((*self.get()).clone().as_type(rgba))
     }
@@ -404,11 +412,7 @@ impl SlotData {
     }
 
     pub fn channel_count(&self) -> usize {
-        if self.image.read().unwrap().is_rgba() {
-            4
-        } else {
-            1
-        }
+        self.image.read().unwrap().channel_count()
     }
 
     pub fn bytes(&self) -> usize {
@@ -509,6 +513,8 @@ impl SlotImage {
     }
 
     /// Converts to and from grayscale and rgba.
+    ///
+    /// Note: This should probably be replaced by From implementations.
     pub fn as_type(&self, rgba: bool) -> Self {
         if self.is_rgba() == rgba {
             return self.clone();

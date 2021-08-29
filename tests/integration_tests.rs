@@ -8,7 +8,7 @@ use kanter_core::{
     texture_processor::TextureProcessor,
 };
 use ntest::timeout;
-use std::{fs::create_dir, path::Path, sync::Arc, thread};
+use std::{fs::create_dir, path::Path, sync::Arc, thread, time::Duration};
 
 const DIR_OUT: &str = "out";
 const DIR_CMP: &str = &"data/test_compare";
@@ -43,7 +43,7 @@ fn input_output() {
     const PATH_IN: &str = IMAGE_2;
     const PATH_OUT: &str = &"out/input_output.png";
 
-    let tex_pro = TextureProcessor::new();
+    let mut tex_pro = TextureProcessor::new();
 
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
@@ -78,13 +78,7 @@ fn node_in_ram(
     engine: &std::sync::RwLockReadGuard<kanter_core::engine::Engine>,
     node_id: NodeId,
 ) -> bool {
-    engine
-        .slot_data(node_id, SlotId(0))
-        .unwrap()
-        .image_cache()
-        .read()
-        .unwrap()
-        .is_in_ram()
+    engine.slot_in_ram(node_id, SlotId(0)).unwrap()
 }
 
 #[test]
@@ -131,18 +125,17 @@ fn drive_cache() {
     {
         // Assert that the right things are on drive and in RAM.
         let engine = tex_pro.engine();
-        let engine = engine.write().unwrap();
+        let engine = engine.read().unwrap();
 
         for node_id in &value_nodes {
-            assert!(!node_in_ram(&engine, *node_id));
+            assert!(!engine.slot_in_ram(*node_id, SlotId(0)).unwrap());
         }
 
-        assert!(!node_in_ram(&engine, rgba_node));
-        assert!(!node_in_ram(&engine, mix_node_1));
-        assert!(node_in_ram(&engine, mix_node_2));
+        assert!(!engine.slot_in_ram(rgba_node, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_ram(mix_node_1, SlotId(0)).unwrap());
+        assert!(engine.slot_in_ram(mix_node_2, SlotId(0)).unwrap());
     }
 
-    
     {
         let slot_image = tex_pro
             .slot_data(rgba_node, SlotId(0))
@@ -167,21 +160,28 @@ fn drive_cache() {
         }
     }
 
-    // Test if the right thing happens when a slot_data on drive is retrieved.
-
+    // Test if the right thing happens when a slot_data on drive is retrieved...
     // Loads this slot_data into RAM.
-    tex_pro.slot_data(rgba_node, SlotId(0)).unwrap();
+    tex_pro
+        .slot_data(rgba_node, SlotId(0))
+        .unwrap()
+        .image
+        .write()
+        .unwrap()
+        .get();
+
+    thread::sleep(Duration::from_millis(500));
     {
         let engine = tex_pro.engine();
-        let engine = engine.write().unwrap();
+        let engine = engine.read().unwrap();
 
         for node_id in value_nodes {
-            assert!(!node_in_ram(&engine, node_id));
+            assert!(!engine.slot_in_ram(node_id, SlotId(0)).unwrap());
         }
-        
-        assert!(node_in_ram(&engine, rgba_node));
-        assert!(!node_in_ram(&engine, mix_node_1));
-        assert!(!node_in_ram(&engine, mix_node_2));
+
+        assert!(engine.slot_in_ram(rgba_node, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_ram(mix_node_1, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_ram(mix_node_2, SlotId(0)).unwrap());
     }
 
     // The slot_data should now be at the back of the queue.
@@ -207,9 +207,9 @@ fn no_cache() {
 
     assert!(tex_pro
         .engine()
-        .read()
+        .write()
         .unwrap()
-        .slot_data(value_node, SlotId(0))
+        .slot_data_requeue(value_node, SlotId(0))
         .is_err());
 }
 
@@ -234,16 +234,16 @@ fn use_cache() {
 
     assert!(tex_pro
         .engine()
-        .read()
+        .write()
         .unwrap()
-        .slot_data(value_node, SlotId(0))
+        .slot_data_requeue(value_node, SlotId(0))
         .is_ok());
 }
 
 #[test]
 #[timeout(20000)]
 fn request_empty_buffer() {
-    let tex_pro = TextureProcessor::new();
+    let mut tex_pro = TextureProcessor::new();
 
     let mix_node = tex_pro
         .add_node(Node::new(NodeType::Mix(MixType::default())))
@@ -382,7 +382,7 @@ fn mix_node_single_input_2() {
     const PATH_OUT: &str = &"out/mix_node_single_input_2.png";
     const PATH_CMP: &str = &"data/test_compare/mix_node_single_input_2.png";
 
-    let tex_pro = TextureProcessor::new();
+    let mut tex_pro = TextureProcessor::new();
 
     let value_node = tex_pro
         .add_node(Node::new(NodeType::Image(path_in.clone().into())))
@@ -448,7 +448,7 @@ fn embedded_node_data() {
     let node_data = tex_pro_1.node_slot_data(tp1_output_node).unwrap();
 
     // Second graph
-    let tex_pro_2 = TextureProcessor::new();
+    let mut tex_pro_2 = TextureProcessor::new();
 
     let tp2_output_node = tex_pro_2
         .add_node(Node::new(NodeType::OutputRgba("out".into())))
@@ -547,7 +547,7 @@ fn separate_node() {
 #[test]
 #[timeout(20000)]
 fn irregular_sizes() {
-    let tex_pro = TextureProcessor::new();
+    let mut tex_pro = TextureProcessor::new();
 
     let input_1 = tex_pro
         .add_node(Node::new(NodeType::Image(HEART_128.into())))
@@ -767,7 +767,12 @@ fn save_and_compare(tex_pro: TextureProcessor, node_id: NodeId, name: &str) {
     save_and_compare_size(tex_pro, node_id, (256, 256), name);
 }
 
-fn save_and_compare_size(tex_pro: TextureProcessor, node_id: NodeId, size: (u32, u32), name: &str) {
+fn save_and_compare_size(
+    mut tex_pro: TextureProcessor,
+    node_id: NodeId,
+    size: (u32, u32),
+    name: &str,
+) {
     let (path_out, path_cmp) = build_paths(name);
 
     ensure_out_dir();
@@ -970,7 +975,7 @@ fn graph_node_rgba() {
         .unwrap();
 
     // Texture Processor
-    let tex_pro = TextureProcessor::new();
+    let mut tex_pro = TextureProcessor::new();
 
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
@@ -1038,7 +1043,7 @@ fn graph_node_gray() {
         .unwrap();
 
     // Texture Processor
-    let tex_pro = TextureProcessor::new();
+    let mut tex_pro = TextureProcessor::new();
 
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))

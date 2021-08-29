@@ -46,18 +46,18 @@ impl TextureProcessor {
         Arc::clone(&self.engine)
     }
 
-    pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        self.wait_for_state_read(node_id, NodeState::Clean)?
+    pub fn buffer_rgba(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+        self.wait_for_state_write(node_id, NodeState::Clean)?
             .buffer_rgba(node_id, slot_id)
     }
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
     pub fn try_buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        let result = if let Ok(engine) = self.engine.try_read() {
+        let result = if let Ok(mut engine) = self.engine.try_write() {
             if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
                     Ok(engine
-                        .slot_data(node_id, slot_id)?
+                        .slot_data_requeue(node_id, slot_id)?
                         .image_cache()
                         .write()
                         .unwrap()
@@ -104,14 +104,14 @@ impl TextureProcessor {
             .push(node_data);
     }
 
-    pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
-        self.engine.read().unwrap().slot_datas()
-    }
+    // pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
+    //     self.engine.read().unwrap().slot_datas()
+    // }
 
     pub fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
         Ok(self
-            .wait_for_state_read(node_id, NodeState::Clean)?
-            .node_slot_datas(node_id))
+            .wait_for_state_write(node_id, NodeState::Clean)?
+            .node_slot_datas(node_id)?)
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {
@@ -169,13 +169,13 @@ impl TextureProcessor {
 
     pub fn node_slot_data(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
         Ok(self
-            .wait_for_state_read(node_id, NodeState::Clean)?
-            .node_slot_datas(node_id))
+            .wait_for_state_write(node_id, NodeState::Clean)?
+            .node_slot_datas(node_id)?)
     }
 
     pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
-        self.wait_for_state_read(node_id, NodeState::Clean)?
-            .slot_data(node_id, slot_id)
+        self.wait_for_state_write(node_id, NodeState::Clean)?
+            .slot_data_requeue(node_id, slot_id)
     }
 
     pub fn wait_for_state_write(
@@ -223,7 +223,7 @@ impl TextureProcessor {
 
         loop {
             if let Ok(engine) = self.engine.try_read() {
-                if let Ok(size) = engine.get_slot_data_size(node_id, slot_id) {
+                if let Ok(size) = engine.slot_data_size(node_id, slot_id) {
                     return Ok(size);
                 }
             }
@@ -237,7 +237,7 @@ impl TextureProcessor {
         // at an actual `SlotData`.
         self.engine.write().unwrap().request(node_id)?;
         let engine = self.engine.try_read()?;
-        engine.get_slot_data_size(node_id, slot_id)
+        engine.slot_data_size(node_id, slot_id)
     }
 
     pub fn connect(
