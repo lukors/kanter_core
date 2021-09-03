@@ -5,3 +5,4 @@ pub mod node_graph;
 mod shared;
 pub mod slot_data;
 pub mod texture_processor;
+pub mod transient_buffer;
