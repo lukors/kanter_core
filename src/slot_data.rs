@@ -322,6 +322,12 @@ impl fmt::Display for Size {
     }
 }
 
+impl From<(u32, u32)> for Size {
+    fn from(other: (u32, u32)) -> Self {
+        Size::new(other.0, other.1)
+    }
+}
+
 impl Size {
     pub fn new(width: u32, height: u32) -> Self {
         Size { width, height }
