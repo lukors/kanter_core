@@ -212,33 +212,6 @@ impl Engine {
                             .collect::<Vec<Arc<SlotData>>>()
                     };
 
-                    // let input_data = {
-                    //     edges
-                    //         .iter()
-                    //         .map(|edge| {
-                    //             let output = tex_pro
-                    //                 .slot_datas
-                    //                 .iter()
-                    //                 .find(|slot_data| {
-                    //                     slot_data.slot_id == edge.output_slot
-                    //                         && slot_data.node_id == edge.output_id
-                    //                 })
-                    //                 .cloned();
-
-                    //             output.unwrap_or({
-                    //                 Arc::new(SlotData::from_slot_image(
-                    //                     edge.output_id,
-                    //                     edge.output_slot,
-                    //                     Size::new(1, 1),
-                    //                     SlotImage::Gray(Arc::new(Box::new(
-                    //                         ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
-                    //                     ))),
-                    //                 ))
-                    //             })
-                    //         })
-                    //         .collect::<Vec<Arc<SlotData>>>()
-                    // };
-
                     assert_eq!(
                         edges.len(),
                         input_data.len(),
@@ -283,48 +256,12 @@ impl Engine {
         }
     }
 
-    // fn store_on_drive(engine: &RwLockWriteGuard<Engine>) {
-    //     while engine.slot_data_bytes_total() > engine.slot_data_ram_cap {
-    //         if let Some(slot_data_in_ram) = engine
-    //             .slot_datas
-    //             .iter()
-    //             .find(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
-    //         {
-    //             slot_data_in_ram.store().unwrap();
-    //         }
-
-    //         // engine.print_queue();
-    //     }
-    // }
-
-    // pub fn print_queue(&self) {
-    //     println!("\nTotal in RAM: {}", self.slot_data_bytes_total());
-    //     for slot_data in self.slot_datas.iter() {
-    //         println!(
-    //             "{}, NodeType: {:?}",
-    //             slot_data,
-    //             self.node_graph
-    //                 .node_with_id(slot_data.node_id)
-    //                 .unwrap()
-    //                 .node_type
-    //         );
-    //     }
-    // }
-
     pub fn process_then_kill(&mut self) {
         self.one_shot = true;
         for node_id in self.node_graph.output_ids() {
             self.request(node_id).unwrap();
         }
     }
-
-    // pub fn slot_data_bytes_total(&self) -> usize {
-    //     self.slot_datas
-    //         .iter()
-    //         .filter(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
-    //         .map(|slot_data| slot_data.bytes())
-    //         .sum()
-    // }
 
     /// Return a SlotData as u8.
     pub fn buffer_rgba(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
@@ -593,23 +530,6 @@ impl Engine {
         Ok((node_ids_on_way, node_ids_with_state))
     }
 
-    /// Returns the `Size` of the `SlotData` for the given `NodeId` and `SlotId`.
-    // pub fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
-    //     if self.node_state(node_id)? == NodeState::Clean {
-    //         if let Some(node_data) = self
-    //             .slot_datas
-    //             .iter()
-    //             .find(|nd| nd.node_id == node_id && nd.slot_id == slot_id)
-    //         {
-    //             Ok(node_data.size)
-    //         } else {
-    //             Err(TexProError::InvalidBufferCount)
-    //         }
-    //     } else {
-    //         Err(TexProError::NodeDirty)
-    //     }
-    // }
-
     /// Embeds a `SlotData` in the `TextureProcessor` with an associated `EmbeddedNodeDataId`.
     /// The `EmbeddedNodeDataId` can be referenced using the assigned `EmbeddedNodeDataId` in a
     /// `NodeType::NodeData` node. This is useful when you want to transfer and use 'NodeData'
@@ -737,28 +657,6 @@ impl Engine {
 
         Ok(slot_data.from_self())
     }
-
-    /// Returns the given `SlotData` and moves it to the back of the cache queue.
-    ///
-    /// This should be used when the `SlotData`s `SlotImageCache` might get retrieved. Doing that
-    /// loads the `SlotImageCache` into RAM, and then it is important that it is at the back of the
-    /// queue, otherwise it risks getting stored on the drive again earlier than it should.
-    // pub fn slot_data(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
-    //     let slot_data_index = self
-    //         .slot_datas
-    //         .iter()
-    //         .enumerate()
-    //         .find(|(_, slot_data)| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
-    //         .ok_or(TexProError::NoSlotData)?
-    //         .0;
-    //     let slot_data = self
-    //         .slot_datas
-    //         .remove(slot_data_index)
-    //         .ok_or(TexProError::Generic)?;
-    //     self.slot_datas.push_back(Arc::clone(&slot_data));
-
-    //     Ok(slot_data)
-    // }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
         let node_id = self.node_graph.add_node_with_id(node, node_id)?;

@@ -11,213 +11,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-// #[derive(Debug)]
-// pub enum SlotImageCache {
-//     Ram(SlotImage),
-//     Storage((Size, bool, File)), // The bool is if it's an Rgba SlotImage, otherwise it's a Gray SlotImage.
-// }
-
-// impl From<SlotImage> for SlotImageCache {
-//     fn from(slot_image: SlotImage) -> Self {
-//         Self::Ram(slot_image)
-//     }
-// }
-
-// impl Display for SlotImageCache {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "{}", self.is_in_ram())
-//     }
-// }
-
-// impl SlotImageCache {
-//     pub fn get(&mut self) -> &SlotImage {
-//         match self {
-//             Self::Ram(ref slot_image) => &slot_image,
-//             Self::Storage((size, rgba, file)) => {
-//                 let mut buffer_int: Vec<u8> = Vec::<u8>::new();
-//                 file.seek(SeekFrom::Start(0)).unwrap();
-//                 file.read_to_end(&mut buffer_int).unwrap();
-
-//                 if *rgba {
-//                     let component_count = buffer_int.len() / size_of::<ChannelPixel>();
-//                     let pixel_count = component_count / 4;
-//                     let mut buffers_f32: Vec<Vec<f32>> = vec![
-//                         Vec::with_capacity(pixel_count),
-//                         Vec::with_capacity(pixel_count),
-//                         Vec::with_capacity(pixel_count),
-//                         Vec::with_capacity(pixel_count),
-//                     ];
-
-//                     for i in 0..pixel_count {
-//                         let loc = i * size_of::<ChannelPixel>();
-//                         let bytes: [u8; 4] = [
-//                             buffer_int[loc],
-//                             buffer_int[loc + 1],
-//                             buffer_int[loc + 2],
-//                             buffer_int[loc + 3],
-//                         ];
-//                         let value = f32::from_ne_bytes(bytes);
-//                         buffers_f32[3].push(value);
-//                     }
-
-//                     for i in pixel_count..pixel_count * 2 {
-//                         let loc = i * size_of::<ChannelPixel>();
-//                         let bytes: [u8; 4] = [
-//                             buffer_int[loc],
-//                             buffer_int[loc + 1],
-//                             buffer_int[loc + 2],
-//                             buffer_int[loc + 3],
-//                         ];
-//                         let value = f32::from_ne_bytes(bytes);
-//                         buffers_f32[2].push(value);
-//                     }
-
-//                     for i in pixel_count * 2..pixel_count * 3 {
-//                         let loc = i * size_of::<ChannelPixel>();
-//                         let bytes: [u8; 4] = [
-//                             buffer_int[loc],
-//                             buffer_int[loc + 1],
-//                             buffer_int[loc + 2],
-//                             buffer_int[loc + 3],
-//                         ];
-//                         let value = f32::from_ne_bytes(bytes);
-//                         buffers_f32[1].push(value);
-//                     }
-
-//                     for i in pixel_count * 3..pixel_count * 4 {
-//                         let loc = i * size_of::<ChannelPixel>();
-//                         let bytes: [u8; 4] = [
-//                             buffer_int[loc],
-//                             buffer_int[loc + 1],
-//                             buffer_int[loc + 2],
-//                             buffer_int[loc + 3],
-//                         ];
-//                         let value = f32::from_ne_bytes(bytes);
-//                         buffers_f32[0].push(value);
-//                     }
-
-//                     *self = Self::Ram(SlotImage::Rgba([
-//                         Arc::new(Box::new(
-//                             Buffer::from_raw(size.width, size.height, buffers_f32.pop().unwrap())
-//                                 .unwrap(),
-//                         )),
-//                         Arc::new(Box::new(
-//                             Buffer::from_raw(size.width, size.height, buffers_f32.pop().unwrap())
-//                                 .unwrap(),
-//                         )),
-//                         Arc::new(Box::new(
-//                             Buffer::from_raw(size.width, size.height, buffers_f32.pop().unwrap())
-//                                 .unwrap(),
-//                         )),
-//                         Arc::new(Box::new(
-//                             Buffer::from_raw(size.width, size.height, buffers_f32.pop().unwrap())
-//                                 .unwrap(),
-//                         )),
-//                     ]));
-
-//                     if let Self::Ram(ref slot_image) = self {
-//                         &slot_image
-//                     } else {
-//                         unreachable!() // Unreachable because self was just turned into a Self::Ram.
-//                     }
-//                 } else {
-//                     let pixel_count = buffer_int.len() / size_of::<ChannelPixel>();
-//                     let mut buffer_f32 = Vec::with_capacity(pixel_count);
-
-//                     for i in 0..pixel_count {
-//                         let loc = i * size_of::<ChannelPixel>();
-//                         let bytes: [u8; 4] = [
-//                             buffer_int[loc],
-//                             buffer_int[loc + 1],
-//                             buffer_int[loc + 2],
-//                             buffer_int[loc + 3],
-//                         ];
-//                         let value = f32::from_ne_bytes(bytes);
-//                         buffer_f32.push(value);
-//                     }
-
-//                     *self = Self::Ram(SlotImage::Gray(Arc::new(Box::new(
-//                         Buffer::from_raw(size.width, size.height, buffer_f32).unwrap(),
-//                     ))));
-
-//                     if let Self::Ram(ref slot_image) = self {
-//                         &slot_image
-//                     } else {
-//                         unreachable!() // Unreachable because self was just turned into a Self::Ram.
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     /// This function takes a path and a size, writes the file to the path and then converts itself
-//     /// into a `Storage`.
-//     pub(crate) fn store(&mut self, size: Size) -> Result<()> {
-//         let mut file: File;
-//         let rgba: bool;
-
-//         if let Self::Ram(slot_image) = self {
-//             file = tempfile()?;
-
-//             match slot_image {
-//                 SlotImage::Gray(buf) => {
-//                     for pixel in buf.iter() {
-//                         file.write(&pixel.to_ne_bytes())?;
-//                     }
-//                     rgba = false
-//                 }
-//                 SlotImage::Rgba(bufs) => {
-//                     for buf in bufs {
-//                         for pixel in buf.iter() {
-//                             file.write(&pixel.to_ne_bytes())?;
-//                         }
-//                     }
-//                     rgba = true
-//                 }
-//             }
-//         } else {
-//             return Ok(());
-//         }
-
-//         *self = Self::Storage((size, rgba, file));
-
-//         Ok(())
-//     }
-
-//     pub fn is_in_ram(&self) -> bool {
-//         match self {
-//             Self::Ram(_) => true,
-//             Self::Storage(_) => false,
-//         }
-//     }
-
-//     pub fn channel_count(&self) -> usize {
-//         if self.is_rgba() {
-//             4
-//         } else {
-//             1
-//         }
-//     }
-
-//     pub(crate) fn as_type(&mut self, rgba: bool) -> Self {
-//         Self::Ram((*self.get()).clone().as_type(rgba))
-//     }
-
-//     pub(crate) fn is_rgba(&self) -> bool {
-//         match self {
-//             Self::Ram(slot_image) => slot_image.is_rgba(),
-//             Self::Storage((_, is_rgba, _)) => *is_rgba,
-//         }
-//     }
-
-//     pub(crate) fn size(&self) -> Size {
-//         match self {
-//             Self::Ram(slot_image) => slot_image.size(),
-//             Self::Storage((size, _, _)) => *size,
-//         }
-//     }
-// }
-
 #[derive(Debug, Clone)]
 pub enum SlotImage {
     Gray(Arc<TransientBufferContainer>),
@@ -506,19 +299,6 @@ impl Size {
 
 pub type ChannelPixel = f32;
 
-// impl PartialEq for SlotData {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.size == other.size
-//             && self
-//                 .data
-//                 .pixels()
-//                 .zip(other.data.pixels())
-//                 .all(|(p1, p2)| p1 == p2)
-//     }
-// }
-
-// impl Eq for SlotData {}
-
 #[derive(Clone, Debug)]
 pub struct SlotData {
     pub node_id: NodeId,
@@ -531,12 +311,10 @@ impl Display for SlotData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NodeId: {}, SlotId: {}, Size: {}", //, Bytes: {}, In RAM: {}",
+            "NodeId: {}, SlotId: {}, Size: {}",
             self.node_id,
             self.slot_id,
             self.size,
-            // self.bytes(),
-            // self.image.read().unwrap()
         )
     }
 }
@@ -559,41 +337,6 @@ impl SlotData {
             self.image.from_self(),
         )
     }
-
-    // Stores the slot_data on drive.
-    // pub(crate) fn store(&self) -> Result<()> {
-    //     self.image_cache().write().unwrap().store(self.size)
-    // }
-
-    // pub fn image_cache(&self) -> Arc<RwLock<SlotImageCache>> {
-    //     Arc::clone(&self.image)
-    // }
-
-    // pub fn from_slot_image(node_id: NodeId, slot_id: SlotId, size: Size, image: SlotImage) -> Self {
-    //     Self {
-    //         node_id,
-    //         slot_id,
-    //         size,
-    //         image,
-    //     }
-    // }
-
-    // pub fn from_value(size: Size, value: ChannelPixel, rgba: bool) -> Self {
-    //     Self::new(
-    //         NodeId(0),
-    //         SlotId(0),
-    //         size,
-    //         SlotImage::from_value(size, value, rgba),
-    //     )
-    // }
-
-    // pub fn channel_count(&self) -> usize {
-    //     self.image.read().unwrap().channel_count()
-    // }
-
-    // pub fn bytes(&self) -> usize {
-    //     self.size.pixel_count() * size_of::<ChannelPixel>() * self.channel_count()
-    // }
 }
 
 trait SrgbColorSpace {
