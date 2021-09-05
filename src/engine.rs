@@ -702,13 +702,14 @@ impl Engine {
         Ok(self.slot_data(node_id, slot_id)?.size)
     }
 
-    // pub fn slot_in_ram(&self, node_id: NodeId, slot_id: SlotId) -> Result<bool> {
-    //     Ok(self
-    //         .slot_data(node_id, slot_id)?
-    //         .image
-    //         .read()?
-    //         .is_in_ram())
-    // }
+    pub fn slot_in_memory(&self, node_id: NodeId, slot_id: SlotId) -> Result<bool> {
+        Ok(self
+            .slot_data(node_id, slot_id)?
+            .image
+            .bufs()
+            .iter()
+            .all(|buf| buf.transient_buffer_sneaky().read().unwrap().in_memory()))
+    }
 
     /// This is only accessible to the crate on purpose. Cloning the `Arc<SlotData>` from the
     /// outside could very easily cause a memory leak if the `Arc<SlotData>` is used in another

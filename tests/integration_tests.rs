@@ -84,6 +84,12 @@ fn input_output() {
 #[test]
 #[timeout(20_000)]
 fn drive_cache() {
+    fn calculate_slot(tex_pro: &TextureProcessor, node_id: NodeId, slot_id: SlotId) {
+        for buf in tex_pro.slot_data(node_id, slot_id).unwrap().image.bufs() {
+            buf.transient_buffer().write().unwrap().buffer().unwrap();
+        }
+    }
+
     const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
     let tex_pro = TextureProcessor::new();
 
@@ -120,37 +126,66 @@ fn drive_cache() {
     tex_pro.engine().write().unwrap().set_memory_threshold(16);
     tex_pro.engine().write().unwrap().use_cache = true;
 
-    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap(); // Calculates up to this node.
-
+    calculate_slot(&tex_pro, mix_node_2, SlotId(0));
+    thread::sleep(Duration::from_millis(500));
     {
         // Assert that the right things are on drive and in RAM.
         let engine = tex_pro.engine();
         let engine = engine.read().unwrap();
 
         for node_id in &value_nodes {
-            assert!(!engine.slot_in_ram(*node_id, SlotId(0)).unwrap());
+            assert!(!engine.slot_in_memory(*node_id, SlotId(0)).unwrap());
         }
 
-        assert!(!engine.slot_in_ram(rgba_node, SlotId(0)).unwrap());
-        assert!(!engine.slot_in_ram(mix_node_1, SlotId(0)).unwrap());
-        assert!(engine.slot_in_ram(mix_node_2, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_memory(rgba_node, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
+        assert!(engine.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
     }
 
     {
-        let slot_image = tex_pro
-            .slot_data(rgba_node, SlotId(0))
-            .unwrap()
-            .image_cache();
-        let mut slot_image = slot_image.write().unwrap();
-        let slot_image = slot_image.get();
-
-        if let SlotImage::Rgba(buf) = slot_image {
+        if let SlotImage::Rgba(bufs) = &tex_pro.slot_data(rgba_node, SlotId(0)).unwrap().image {
             let pixel = {
                 [
-                    buf[0].pixels().next().unwrap().data[0],
-                    buf[1].pixels().next().unwrap().data[0],
-                    buf[2].pixels().next().unwrap().data[0],
-                    buf[3].pixels().next().unwrap().data[0],
+                    bufs[0]
+                        .transient_buffer()
+                        .write()
+                        .unwrap()
+                        .buffer()
+                        .unwrap()
+                        .pixels()
+                        .next()
+                        .unwrap()
+                        .data[0],
+                    bufs[1]
+                        .transient_buffer()
+                        .write()
+                        .unwrap()
+                        .buffer()
+                        .unwrap()
+                        .pixels()
+                        .next()
+                        .unwrap()
+                        .data[0],
+                    bufs[2]
+                        .transient_buffer()
+                        .write()
+                        .unwrap()
+                        .buffer()
+                        .unwrap()
+                        .pixels()
+                        .next()
+                        .unwrap()
+                        .data[0],
+                    bufs[3]
+                        .transient_buffer()
+                        .write()
+                        .unwrap()
+                        .buffer()
+                        .unwrap()
+                        .pixels()
+                        .next()
+                        .unwrap()
+                        .data[0],
                 ]
             };
 
@@ -162,13 +197,7 @@ fn drive_cache() {
 
     // Test if the right thing happens when a slot_data on drive is retrieved...
     // Loads this slot_data into RAM.
-    tex_pro
-        .slot_data(rgba_node, SlotId(0))
-        .unwrap()
-        .image
-        .write()
-        .unwrap()
-        .get();
+    calculate_slot(&tex_pro, rgba_node, SlotId(0));
 
     thread::sleep(Duration::from_millis(500));
     {
@@ -176,15 +205,13 @@ fn drive_cache() {
         let engine = engine.read().unwrap();
 
         for node_id in value_nodes {
-            assert!(!engine.slot_in_ram(node_id, SlotId(0)).unwrap());
+            assert!(engine.slot_in_memory(node_id, SlotId(0)).unwrap());
         }
 
-        assert!(engine.slot_in_ram(rgba_node, SlotId(0)).unwrap());
-        assert!(!engine.slot_in_ram(mix_node_1, SlotId(0)).unwrap());
-        assert!(!engine.slot_in_ram(mix_node_2, SlotId(0)).unwrap());
+        assert!(engine.slot_in_memory(rgba_node, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
     }
-
-    // The slot_data should now be at the back of the queue.
 }
 
 #[test]

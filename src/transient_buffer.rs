@@ -1,5 +1,7 @@
+use image::DecodingResult;
 use std::{
     collections::VecDeque,
+    fmt::{self, Display},
     fs::File,
     io::{Read, Seek, SeekFrom, Write},
     mem::size_of,
@@ -59,8 +61,8 @@ impl TransientBuffer {
         }
     }
 
-    /// Ensures the `TransientBuffer` is in storage.
-    pub fn to_storage(&mut self) -> Result<()> {
+    /// Ensures the `TransientBuffer` is in storage, returns true if it was moved.
+    pub fn to_storage(&mut self) -> Result<bool> {
         if let Self::Memory(box_buffer) = self {
             let mut file = tempfile()?;
 
@@ -69,13 +71,15 @@ impl TransientBuffer {
             }
 
             *self = Self::Storage(file, box_buffer.dimensions().into());
-        }
 
-        Ok(())
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
-    /// Ensures the `TransientBuffer` is in memory.
-    pub fn to_memory(&mut self) -> Result<()> {
+    /// Ensures the `TransientBuffer` is in memory, returns true if it was moved.
+    pub fn to_memory(&mut self) -> Result<bool> {
         if let Self::Storage(file, size) = self {
             let buffer_f32: Vec<f32> = {
                 let buffer_int: Vec<u8> = {
@@ -105,9 +109,11 @@ impl TransientBuffer {
                 Buffer::from_raw(size.width, size.height, buffer_f32)
                     .ok_or(TexProError::Generic)?,
             ));
-        }
 
-        Ok(())
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 
@@ -135,6 +141,15 @@ impl TransientBufferContainer {
 
     pub fn transient_buffer(&self) -> &RwLock<TransientBuffer> {
         self.retrieved.store(true, Ordering::Relaxed);
+        self.transient_buffer
+            .write()
+            .expect("Lock poisoned")
+            .to_memory()
+            .expect("Could not move to memory");
+        &self.transient_buffer
+    }
+
+    pub(crate) fn transient_buffer_sneaky(&self) -> &RwLock<TransientBuffer> {
         &self.transient_buffer
     }
 
@@ -151,6 +166,36 @@ impl TransientBufferContainer {
 pub(crate) struct TransientBufferQueue {
     queue: VecDeque<Arc<TransientBufferContainer>>,
     pub memory_threshold: usize,
+}
+
+impl Display for TransientBufferQueue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let bytes_memory = self.bytes_memory();
+        let bytes_storage = self.bytes_storage();
+        let bytes_total = bytes_memory + bytes_storage;
+
+        let top = format!(
+            "Thres: {thr}\nTotal: {tot}\nStora: {sto}\nMemor: {mem}",
+            thr = self.memory_threshold,
+            tot = bytes_total,
+            mem = bytes_memory,
+            sto = bytes_storage
+        );
+
+        let queue = self
+            .queue
+            .iter()
+            .map(|arc_tbc| {
+                let tbc = arc_tbc.transient_buffer.read().unwrap();
+                let location = if tbc.in_memory() { "MEM" } else { "STO" };
+                let bytes = tbc.bytes();
+                format!("{} {:5} {:p}", location, bytes, *arc_tbc)
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        write!(f, "{}\n{}", top, queue)
+    }
 }
 
 impl TransientBufferQueue {
@@ -200,20 +245,26 @@ impl TransientBufferQueue {
                 continue;
             }
 
-            if self.queue[i].transient_buffer.read()?.in_memory() {
-                bytes_in_memory += self.queue[i].transient_buffer.read()?.bytes();
+            if self.queue[i].retrieved.swap(false, Ordering::Relaxed) {
+                if let Some(removed) = self.queue.remove(i) {
+                    removed.transient_buffer.write()?.to_memory()?;
+                    self.queue.push_back(removed);
+                }
             }
 
-            if self.queue[i].retrieved.swap(false, Ordering::Relaxed) {
-                self.queue.swap(i, self.queue.len() - 1);
+            if self.queue[i].transient_buffer.read()?.in_memory() {
+                bytes_in_memory += self.queue[i].transient_buffer.read()?.bytes();
             }
         }
 
         let mut i: usize = 0;
         while bytes_in_memory > self.memory_threshold {
             if let Some(tbuf_container) = self.queue.get(i) {
-                tbuf_container.transient_buffer.write()?.to_storage()?;
-                bytes_in_memory -= tbuf_container.transient_buffer.read()?.bytes();
+                let transient_buffer = &tbuf_container.transient_buffer;
+
+                if transient_buffer.write()?.to_storage()? {
+                    bytes_in_memory -= transient_buffer.read()?.bytes();
+                }
             } else {
                 return Ok(());
             }
@@ -222,5 +273,23 @@ impl TransientBufferQueue {
         }
 
         Ok(())
+    }
+
+    pub fn bytes_memory(&self) -> usize {
+        self.queue
+            .iter()
+            .map(|tbc| tbc.transient_buffer.read().unwrap())
+            .filter(|tb| tb.in_memory())
+            .map(|tb| tb.bytes())
+            .sum()
+    }
+
+    pub fn bytes_storage(&self) -> usize {
+        self.queue
+            .iter()
+            .map(|tbc| tbc.transient_buffer.read().unwrap())
+            .filter(|tb| !tb.in_memory())
+            .map(|tb| tb.bytes())
+            .sum()
     }
 }
