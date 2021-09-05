@@ -37,7 +37,7 @@ fn images_equal<P: AsRef<Path>, Q: AsRef<Path>>(path_1: P, path_2: Q) -> bool {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn input_output() {
     const SIZE: u32 = 256;
     const PATH_IN: &str = IMAGE_2;
@@ -81,167 +81,167 @@ fn input_output() {
 //     engine.slot_in_ram(node_id, SlotId(0)).unwrap()
 // }
 
-// #[test]
-// #[timeout(20000)]
-// fn drive_cache() {
-//     const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
-//     let tex_pro = TextureProcessor::new();
+#[test]
+#[timeout(20_000)]
+fn drive_cache() {
+    const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
+    let tex_pro = TextureProcessor::new();
 
-//     // RGBA node should be 4 channels * 4 bytes = 16 bytes
-//     let rgba_node = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
+    // RGBA node should be 4 channels * 4 bytes = 16 bytes
+    let rgba_node = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
 
-//     // 4 value nodes should be 4 channels * 4 bytes = 16 bytes
-//     let mut value_nodes: Vec<NodeId> = Vec::new();
-//     for (i, val) in VAL.iter().enumerate() {
-//         let new_node = tex_pro.add_node(Node::new(NodeType::Value(*val))).unwrap();
-//         value_nodes.push(new_node);
-//         tex_pro
-//             .connect(new_node, rgba_node, SlotId(0), SlotId(i as u32))
-//             .unwrap();
-//     }
+    // 4 value nodes should be 4 channels * 4 bytes = 16 bytes
+    let mut value_nodes: Vec<NodeId> = Vec::new();
+    for (i, val) in VAL.iter().enumerate() {
+        let new_node = tex_pro.add_node(Node::new(NodeType::Value(*val))).unwrap();
+        value_nodes.push(new_node);
+        tex_pro
+            .connect(new_node, rgba_node, SlotId(0), SlotId(i as u32))
+            .unwrap();
+    }
 
-//     // 2 mix nodes should be 2 nodes * 4 channels * 4 bytes = 32 bytes
-//     let mix_node_1 = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Add)))
-//         .unwrap();
-//     let mix_node_2 = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Add)))
-//         .unwrap();
+    // 2 mix nodes should be 2 nodes * 4 channels * 4 bytes = 32 bytes
+    let mix_node_1 = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
+        .unwrap();
+    let mix_node_2 = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
+        .unwrap();
 
-//     tex_pro
-//         .connect(rgba_node, mix_node_1, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
-//         .unwrap();
+    tex_pro
+        .connect(rgba_node, mix_node_1, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
+        .unwrap();
 
-//     // Setting the slot_data_ram_cap at 16 bytes should result in the RGBA node getting written
-//     // to drive.
-//     tex_pro.engine().write().unwrap().slot_data_ram_cap = 16;
-//     tex_pro.engine().write().unwrap().use_cache = true;
+    // Setting the slot_data_ram_cap at 16 bytes should result in the RGBA node getting written
+    // to drive.
+    tex_pro.engine().write().unwrap().set_memory_threshold(16);
+    tex_pro.engine().write().unwrap().use_cache = true;
 
-//     tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap(); // Calculates up to this node.
+    tex_pro.slot_data(mix_node_2, SlotId(0)).unwrap(); // Calculates up to this node.
 
-//     {
-//         // Assert that the right things are on drive and in RAM.
-//         let engine = tex_pro.engine();
-//         let engine = engine.read().unwrap();
+    {
+        // Assert that the right things are on drive and in RAM.
+        let engine = tex_pro.engine();
+        let engine = engine.read().unwrap();
 
-//         for node_id in &value_nodes {
-//             assert!(!engine.slot_in_ram(*node_id, SlotId(0)).unwrap());
-//         }
+        for node_id in &value_nodes {
+            assert!(!engine.slot_in_ram(*node_id, SlotId(0)).unwrap());
+        }
 
-//         assert!(!engine.slot_in_ram(rgba_node, SlotId(0)).unwrap());
-//         assert!(!engine.slot_in_ram(mix_node_1, SlotId(0)).unwrap());
-//         assert!(engine.slot_in_ram(mix_node_2, SlotId(0)).unwrap());
-//     }
+        assert!(!engine.slot_in_ram(rgba_node, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_ram(mix_node_1, SlotId(0)).unwrap());
+        assert!(engine.slot_in_ram(mix_node_2, SlotId(0)).unwrap());
+    }
 
-//     {
-//         let slot_image = tex_pro
-//             .slot_data(rgba_node, SlotId(0))
-//             .unwrap()
-//             .image_cache();
-//         let mut slot_image = slot_image.write().unwrap();
-//         let slot_image = slot_image.get();
+    {
+        let slot_image = tex_pro
+            .slot_data(rgba_node, SlotId(0))
+            .unwrap()
+            .image_cache();
+        let mut slot_image = slot_image.write().unwrap();
+        let slot_image = slot_image.get();
 
-//         if let SlotImage::Rgba(buf) = slot_image {
-//             let pixel = {
-//                 [
-//                     buf[0].pixels().next().unwrap().data[0],
-//                     buf[1].pixels().next().unwrap().data[0],
-//                     buf[2].pixels().next().unwrap().data[0],
-//                     buf[3].pixels().next().unwrap().data[0],
-//                 ]
-//             };
+        if let SlotImage::Rgba(buf) = slot_image {
+            let pixel = {
+                [
+                    buf[0].pixels().next().unwrap().data[0],
+                    buf[1].pixels().next().unwrap().data[0],
+                    buf[2].pixels().next().unwrap().data[0],
+                    buf[3].pixels().next().unwrap().data[0],
+                ]
+            };
 
-//             assert_eq!(pixel, VAL);
-//         } else {
-//             panic!()
-//         }
-//     }
+            assert_eq!(pixel, VAL);
+        } else {
+            panic!()
+        }
+    }
 
-//     // Test if the right thing happens when a slot_data on drive is retrieved...
-//     // Loads this slot_data into RAM.
-//     tex_pro
-//         .slot_data(rgba_node, SlotId(0))
-//         .unwrap()
-//         .image
-//         .write()
-//         .unwrap()
-//         .get();
+    // Test if the right thing happens when a slot_data on drive is retrieved...
+    // Loads this slot_data into RAM.
+    tex_pro
+        .slot_data(rgba_node, SlotId(0))
+        .unwrap()
+        .image
+        .write()
+        .unwrap()
+        .get();
 
-//     thread::sleep(Duration::from_millis(500));
-//     {
-//         let engine = tex_pro.engine();
-//         let engine = engine.read().unwrap();
+    thread::sleep(Duration::from_millis(500));
+    {
+        let engine = tex_pro.engine();
+        let engine = engine.read().unwrap();
 
-//         for node_id in value_nodes {
-//             assert!(!engine.slot_in_ram(node_id, SlotId(0)).unwrap());
-//         }
+        for node_id in value_nodes {
+            assert!(!engine.slot_in_ram(node_id, SlotId(0)).unwrap());
+        }
 
-//         assert!(engine.slot_in_ram(rgba_node, SlotId(0)).unwrap());
-//         assert!(!engine.slot_in_ram(mix_node_1, SlotId(0)).unwrap());
-//         assert!(!engine.slot_in_ram(mix_node_2, SlotId(0)).unwrap());
-//     }
+        assert!(engine.slot_in_ram(rgba_node, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_ram(mix_node_1, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_ram(mix_node_2, SlotId(0)).unwrap());
+    }
 
-//     // The slot_data should now be at the back of the queue.
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn no_cache() {
-//     let tex_pro = TextureProcessor::new();
-
-//     let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(value_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     tex_pro.engine().write().unwrap().auto_update = true;
-
-//     thread::sleep(std::time::Duration::from_secs(1));
-
-//     assert!(tex_pro
-//         .engine()
-//         .write()
-//         .unwrap()
-//         .slot_data_requeue(value_node, SlotId(0))
-//         .is_err());
-// }
-
-// #[test]
-// #[timeout(20000)]
-// fn use_cache() {
-//     let tex_pro = TextureProcessor::new();
-
-//     let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(value_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     tex_pro.engine().write().unwrap().use_cache = true;
-//     tex_pro.engine().write().unwrap().auto_update = true;
-
-//     thread::sleep(std::time::Duration::from_secs(1));
-
-//     assert!(tex_pro
-//         .engine()
-//         .write()
-//         .unwrap()
-//         .slot_data_requeue(value_node, SlotId(0))
-//         .is_ok());
-// }
+    // The slot_data should now be at the back of the queue.
+}
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
+fn no_cache() {
+    let tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+    let output_node = tex_pro
+        .add_node(Node::new(NodeType::OutputGray("out".into())))
+        .unwrap();
+
+    tex_pro
+        .connect(value_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.engine().write().unwrap().auto_update = true;
+
+    thread::sleep(std::time::Duration::from_secs(1));
+
+    assert!(tex_pro
+        .engine()
+        .write()
+        .unwrap()
+        .slot_data_new(value_node, SlotId(0))
+        .is_err());
+}
+
+#[test]
+#[timeout(20_000)]
+fn use_cache() {
+    let tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+    let output_node = tex_pro
+        .add_node(Node::new(NodeType::OutputGray("out".into())))
+        .unwrap();
+
+    tex_pro
+        .connect(value_node, output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    tex_pro.engine().write().unwrap().use_cache = true;
+    tex_pro.engine().write().unwrap().auto_update = true;
+
+    thread::sleep(std::time::Duration::from_secs(1));
+
+    assert!(tex_pro
+        .engine()
+        .write()
+        .unwrap()
+        .slot_data_new(value_node, SlotId(0))
+        .is_ok());
+}
+
+#[test]
+#[timeout(20_000)]
 fn request_empty_buffer() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -350,7 +350,7 @@ fn input_output_intercept() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn mix_node_single_input() {
     let tex_pro = TextureProcessor::new();
 
@@ -375,7 +375,7 @@ fn mix_node_single_input() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn mix_node_single_input_2() {
     const SIZE: u32 = 256;
     let path_in = IMAGE_2.to_string();
@@ -417,7 +417,7 @@ fn mix_node_single_input_2() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn unconnected() {
     let tex_pro = TextureProcessor::new();
 
@@ -427,7 +427,7 @@ fn unconnected() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn embedded_node_data() {
     let path_cmp = IMAGE_1.to_string();
     let path_out = "out/embedded_node_data.png".to_string();
@@ -483,7 +483,7 @@ fn embedded_node_data() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn repeat_process() {
     let tex_pro = TextureProcessor::new();
 
@@ -500,7 +500,7 @@ fn repeat_process() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn separate_node() {
     let tex_pro = TextureProcessor::new();
 
@@ -545,7 +545,7 @@ fn separate_node() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn irregular_sizes() {
     let mut tex_pro = TextureProcessor::new();
 
@@ -595,7 +595,7 @@ fn irregular_sizes() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn unconnected_node() {
     let tex_pro = TextureProcessor::new();
 
@@ -611,7 +611,7 @@ fn unconnected_node() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn remove_node() {
     let tex_pro = TextureProcessor::new();
 
@@ -644,7 +644,7 @@ fn connect_invalid_slot() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn value_node() {
     let tex_pro = TextureProcessor::new();
 
@@ -707,13 +707,13 @@ fn resize_policy_test(
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn resize_policy_least_pixels() {
     resize_policy_test(ResizePolicy::LeastPixels, HEART_128, HEART_256, (128, 128));
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn resize_policy_largest_axes() {
     resize_policy_test(
         ResizePolicy::LargestAxes,
@@ -724,19 +724,19 @@ fn resize_policy_largest_axes() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn resize_policy_smallest_axes() {
     resize_policy_test(ResizePolicy::SmallestAxes, HEART_WIDE, HEART_TALL, (64, 64));
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn resize_policy_most_pixels() {
     resize_policy_test(ResizePolicy::MostPixels, HEART_128, HEART_256, (256, 256));
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn resize_policy_specific_size() {
     resize_policy_test(
         ResizePolicy::SpecificSize(Size::new(256, 256)),
@@ -747,7 +747,7 @@ fn resize_policy_specific_size() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn resize_policy_specific_slot() {
     resize_policy_test(
         ResizePolicy::SpecificSlot(SlotId(1)),
@@ -801,7 +801,7 @@ fn build_paths(name: &str) -> (String, String) {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn invert_graph_node() {
     // Nested invert graph
     let mut invert_graph = NodeGraph::new();
@@ -872,7 +872,7 @@ fn invert_graph_node() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn invert_graph_node_export() {
     // Nested invert graph
     let mut invert_graph = NodeGraph::new();
@@ -907,7 +907,7 @@ fn invert_graph_node_export() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn invert_graph_node_import() {
     // Nested invert graph
     let invert_graph = NodeGraph::from_path("data/invert_graph.json".into()).unwrap();
@@ -953,7 +953,7 @@ fn invert_graph_node_import() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn graph_node_rgba() {
     let (path_out, path_cmp) = build_paths("graph_node_rgba.png");
 
@@ -1021,7 +1021,7 @@ fn graph_node_rgba() {
 
 /// Grayscale passthrough node.
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn graph_node_gray() {
     let (path_out, path_cmp) = build_paths("graph_node_gray.png");
 
@@ -1097,7 +1097,7 @@ fn graph_node_gray() {
 
 #[test]
 #[should_panic]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn wrong_slot_type() {
     let tex_pro = TextureProcessor::new();
 
@@ -1113,7 +1113,7 @@ fn wrong_slot_type() {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn height_to_normal_node() {
     // Texture Processor
     let tex_pro = TextureProcessor::new();
@@ -1204,59 +1204,59 @@ fn mix_node_test_rgba(mix_type: MixType, name: &str) {
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn add_node_gray() {
     mix_node_test_gray(MixType::Add, "add_node_gray.png");
 }
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn add_node_rgba() {
     mix_node_test_rgba(MixType::Add, "add_node_rgba.png");
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn subtract_node_gray() {
     mix_node_test_gray(MixType::Subtract, "subtract_node_gray.png");
 }
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn subtract_node_rgba() {
     mix_node_test_rgba(MixType::Subtract, "subtract_node_rgba.png");
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn multiply_node_gray() {
     mix_node_test_gray(MixType::Multiply, "multiply_node_gray.png");
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn multiply_node_rgba() {
     mix_node_test_rgba(MixType::Multiply, "multiply_node_rgba.png");
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn divide_node_gray() {
     mix_node_test_gray(MixType::Divide, "divide_node_gray.png");
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn divide_node_rgba() {
     mix_node_test_rgba(MixType::Divide, "divide_node_rgba.png");
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn pow_node_gray() {
     mix_node_test_gray(MixType::Pow, "pow_node_gray.png");
 }
 
 #[test]
-#[timeout(20000)]
+#[timeout(20_000)]
 fn pow_node_rgba() {
     mix_node_test_rgba(MixType::Pow, "pow_node_rgba.png");
 }

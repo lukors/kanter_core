@@ -115,14 +115,21 @@ impl TransientBuffer {
 #[derive(Debug)]
 pub struct TransientBufferContainer {
     retrieved: AtomicBool,
-    transient_buffer: RwLock<TransientBuffer>,
+    transient_buffer: Arc<RwLock<TransientBuffer>>,
 }
 
 impl TransientBufferContainer {
-    pub fn new(transient_buffer: RwLock<TransientBuffer>) -> Self {
+    pub fn new(transient_buffer: Arc<RwLock<TransientBuffer>>) -> Self {
         Self {
             retrieved: AtomicBool::new(false),
             transient_buffer,
+        }
+    }
+
+    pub fn from_self(&self) -> Self {
+        Self {
+            retrieved: AtomicBool::new(false),
+            transient_buffer: Arc::clone(&self.transient_buffer),
         }
     }
 
@@ -143,14 +150,14 @@ impl TransientBufferContainer {
 #[derive(Default)]
 pub(crate) struct TransientBufferQueue {
     queue: VecDeque<Arc<TransientBufferContainer>>,
-    pub memory_limit: usize,
+    pub memory_threshold: usize,
 }
 
 impl TransientBufferQueue {
     pub fn new(memory_limit: usize) -> Self {
         Self {
             queue: VecDeque::new(),
-            memory_limit,
+            memory_threshold: memory_limit,
         }
     }
 
@@ -203,7 +210,7 @@ impl TransientBufferQueue {
         }
 
         let mut i: usize = 0;
-        while bytes_in_memory > self.memory_limit {
+        while bytes_in_memory > self.memory_threshold {
             if let Some(tbuf_container) = self.queue.get(i) {
                 tbuf_container.transient_buffer.write()?.to_storage()?;
                 bytes_in_memory -= tbuf_container.transient_buffer.read()?.bytes();

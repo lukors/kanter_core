@@ -202,9 +202,9 @@ impl Engine {
                                         edge.output_slot,
                                         Size::new(1, 1),
                                         SlotImage::Gray(Arc::new(TransientBufferContainer::new(
-                                            RwLock::new(TransientBuffer::new(Box::new(
+                                            Arc::new(RwLock::new(TransientBuffer::new(Box::new(
                                                 ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
-                                            ))),
+                                            )))),
                                         ))),
                                     ))
                                 }
@@ -330,6 +330,14 @@ impl Engine {
     pub fn buffer_rgba(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         // Ok((*self.slot_data(node_id, slot_id)?.image.read().unwrap()).get().to_u8())
         Ok(self.slot_data(node_id, slot_id)?.image.to_u8()?)
+    }
+
+    pub fn memory_threshold(&self) -> usize {
+        self.transient_buffer_queue.memory_threshold
+    }
+
+    pub fn set_memory_threshold(&mut self, threshold: usize) {
+        self.transient_buffer_queue.memory_threshold = threshold;
     }
 
     /// Return all changed `NodeId`s.
@@ -702,6 +710,9 @@ impl Engine {
     //         .is_in_ram())
     // }
 
+    /// This is only accessible to the crate on purpose. Cloning the `Arc<SlotData>` from the
+    /// outside could very easily cause a memory leak if the `Arc<SlotData>` is used in another
+    /// `Engine`.
     pub(crate) fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
         Ok(Arc::clone(
             self.slot_datas
@@ -709,6 +720,21 @@ impl Engine {
                 .find(|slot_data| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
                 .ok_or(TexProError::NoSlotData)?,
         ))
+    }
+
+    /// This function creates a new `SlotData` from the one in the given slot.
+    /// It returns a new totally independent `SlotData`. The reason for this is that if you were
+    /// able to clone the `Arc<SlotData>`, it would be very tempting to do so and then put it in
+    /// another `Engine`. However, that would cause a memory leak as both `Engine`s would be
+    /// holding a reference to the same `Arc`, so it would never be dropped.
+    pub fn slot_data_new(&self, node_id: NodeId, slot_id: SlotId) -> Result<SlotData> {
+        let slot_data = self
+            .slot_datas
+            .iter()
+            .find(|slot_data| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
+            .ok_or(TexProError::NoSlotData)?;
+
+        Ok(slot_data.from_self())
     }
 
     /// Returns the given `SlotData` and moves it to the back of the cache queue.

@@ -17,10 +17,10 @@ pub(crate) fn process(node: &Node, value: f32) -> Vec<Arc<SlotData>> {
         node.node_id,
         SlotId(0),
         Size::new(width, height),
-        SlotImage::Gray(Arc::new(TransientBufferContainer::new(RwLock::new(
-            TransientBuffer::new(Box::new(
+        SlotImage::Gray(Arc::new(TransientBufferContainer::new(Arc::new(
+            RwLock::new(TransientBuffer::new(Box::new(
                 ImageBuffer::from_raw(width, height, vec![value]).unwrap(),
-            )),
+            ))),
         )))),
     ))]
 }

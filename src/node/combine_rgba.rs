@@ -28,7 +28,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
     if let Some(slot_data) = slot_datas.get(0) {
         let size = slot_data.size;
 
-        let buffer_default = Arc::new(TransientBufferContainer::new(RwLock::new(
+        let buffer_default = Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
             TransientBuffer::new(Box::new(
                 Buffer::from_raw(
                     size.width,
@@ -37,7 +37,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
                 )
                 .unwrap(),
             )),
-        )));
+        ))));
 
         vec![Arc::new(SlotData::new(
             node.node_id,

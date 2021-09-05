@@ -136,8 +136,8 @@ pub(crate) fn resize_buffers(
             if slot_data.size != size {
                 let resized_image = match &slot_data.image {
                     SlotImage::Gray(buf) => {
-                        SlotImage::Gray(Arc::new(TransientBufferContainer::new(RwLock::new(
-                            TransientBuffer::new(Box::new(imageops::resize(
+                        SlotImage::Gray(Arc::new(TransientBufferContainer::new(Arc::new(
+                            RwLock::new(TransientBuffer::new(Box::new(imageops::resize(
                                 buf.transient_buffer()
                                     .write()
                                     .expect("Lock poisoned")
@@ -146,11 +146,11 @@ pub(crate) fn resize_buffers(
                                 size.width,
                                 size.height,
                                 filter.into(),
-                            ))),
+                            )))),
                         ))))
                     }
                     SlotImage::Rgba(bufs) => SlotImage::Rgba([
-                        Arc::new(TransientBufferContainer::new(RwLock::new(
+                        Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                             TransientBuffer::new(Box::new(imageops::resize(
                                 bufs[0]
                                     .transient_buffer()
@@ -162,8 +162,8 @@ pub(crate) fn resize_buffers(
                                 size.height,
                                 filter.into(),
                             ))),
-                        ))),
-                        Arc::new(TransientBufferContainer::new(RwLock::new(
+                        )))),
+                        Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                             TransientBuffer::new(Box::new(imageops::resize(
                                 bufs[1]
                                     .transient_buffer()
@@ -175,8 +175,8 @@ pub(crate) fn resize_buffers(
                                 size.height,
                                 filter.into(),
                             ))),
-                        ))),
-                        Arc::new(TransientBufferContainer::new(RwLock::new(
+                        )))),
+                        Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                             TransientBuffer::new(Box::new(imageops::resize(
                                 bufs[2]
                                     .transient_buffer()
@@ -188,8 +188,8 @@ pub(crate) fn resize_buffers(
                                 size.height,
                                 filter.into(),
                             ))),
-                        ))),
-                        Arc::new(TransientBufferContainer::new(RwLock::new(
+                        )))),
+                        Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                             TransientBuffer::new(Box::new(imageops::resize(
                                 bufs[3]
                                     .transient_buffer()
@@ -201,7 +201,7 @@ pub(crate) fn resize_buffers(
                                 size.height,
                                 filter.into(),
                             ))),
-                        ))),
+                        )))),
                     ]),
                 };
 
@@ -228,7 +228,7 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
         buffers: &mut Vec<BoxBuffer>,
         default: f32,
     ) -> Arc<TransientBufferContainer> {
-        Arc::new(TransientBufferContainer::new(RwLock::new(
+        Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
             TransientBuffer::new(
                 buffers
                     .pop()
@@ -244,7 +244,7 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
                     })
                     .unwrap(),
             ),
-        )))
+        ))))
     }
 
     let image = image::open(path)?;
@@ -255,7 +255,7 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
     match buffers.len() {
         0 => Err(TexProError::InvalidBufferCount),
         1 => Ok(SlotImage::Gray(Arc::new(TransientBufferContainer::new(
-            RwLock::new(TransientBuffer::new(buffers.pop().unwrap())),
+            Arc::new(RwLock::new(TransientBuffer::new(buffers.pop().unwrap()))),
         )))),
         _ => {
             let (a, b, g, r) = (

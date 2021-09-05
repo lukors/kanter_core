@@ -234,37 +234,37 @@ impl SlotImage {
     pub fn from_value(size: Size, value: ChannelPixel, rgba: bool) -> Self {
         if rgba {
             Self::Rgba([
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(
                         Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()])
                             .unwrap(),
                     )),
-                ))),
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                )))),
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(
                         Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()])
                             .unwrap(),
                     )),
-                ))),
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                )))),
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(
                         Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()])
                             .unwrap(),
                     )),
-                ))),
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                )))),
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(
                         Buffer::from_raw(size.width, size.height, vec![1.0; size.pixel_count()])
                             .unwrap(),
                     )),
-                ))),
+                )))),
             ])
         } else {
-            Self::Gray(Arc::new(TransientBufferContainer::new(RwLock::new(
-                TransientBuffer::new(Box::new(
+            Self::Gray(Arc::new(TransientBufferContainer::new(Arc::new(
+                RwLock::new(TransientBuffer::new(Box::new(
                     Buffer::from_raw(size.width, size.height, vec![value; size.pixel_count()])
                         .unwrap(),
-                )),
+                ))),
             ))))
         }
     }
@@ -278,18 +278,18 @@ impl SlotImage {
         buffers.reverse();
 
         Ok(Self::Rgba([
-            Arc::new(TransientBufferContainer::new(RwLock::new(
+            Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                 TransientBuffer::new(Box::new(buffers.pop().unwrap())),
-            ))),
-            Arc::new(TransientBufferContainer::new(RwLock::new(
+            )))),
+            Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                 TransientBuffer::new(Box::new(buffers.pop().unwrap())),
-            ))),
-            Arc::new(TransientBufferContainer::new(RwLock::new(
+            )))),
+            Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                 TransientBuffer::new(Box::new(buffers.pop().unwrap())),
-            ))),
-            Arc::new(TransientBufferContainer::new(RwLock::new(
+            )))),
+            Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                 TransientBuffer::new(Box::new(buffers.pop().unwrap())),
-            ))),
+            )))),
         ]))
     }
 
@@ -307,6 +307,18 @@ impl SlotImage {
         Self::from_buffers_rgba(&mut buffers)
     }
 
+    pub fn from_self(&self) -> Self {
+        match self {
+            Self::Gray(buf) => Self::Gray(Arc::new(buf.from_self())),
+            Self::Rgba(bufs) => Self::Rgba([
+                Arc::new(bufs[0].from_self()),
+                Arc::new(bufs[1].from_self()),
+                Arc::new(bufs[2].from_self()),
+                Arc::new(bufs[3].from_self()),
+            ]),
+        }
+    }
+
     pub fn size(&self) -> Result<Size> {
         Ok(match self {
             Self::Gray(buf) => Size::new(buf.size()?.width, buf.size()?.height),
@@ -317,18 +329,18 @@ impl SlotImage {
     pub fn is_rgba(&self) -> bool {
         mem::discriminant(self)
             == mem::discriminant(&Self::Rgba([
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(Buffer::from_raw(0, 0, Vec::new()).unwrap())),
-                ))),
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                )))),
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(Buffer::from_raw(0, 0, Vec::new()).unwrap())),
-                ))),
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                )))),
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(Buffer::from_raw(0, 0, Vec::new()).unwrap())),
-                ))),
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                )))),
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(Buffer::from_raw(0, 0, Vec::new()).unwrap())),
-                ))),
+                )))),
             ]))
     }
 
@@ -422,12 +434,12 @@ impl SlotImage {
                 Arc::clone(&buf),
                 Arc::clone(&buf),
                 Arc::clone(&buf),
-                Arc::new(TransientBufferContainer::new(RwLock::new(
+                Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(
                         Buffer::from_raw(width, height, vec![1.0; (width * height) as usize])
                             .unwrap(),
                     )),
-                ))),
+                )))),
             ]),
             Self::Rgba(bufs) => {
                 let (mut buf_r, mut buf_g, mut buf_b) = (
@@ -437,13 +449,17 @@ impl SlotImage {
                 );
                 let (buf_r, buf_g, buf_b) = (buf_r.buffer()?, buf_g.buffer()?, buf_b.buffer()?);
 
-                Self::Gray(Arc::new(TransientBufferContainer::new(RwLock::new(
-                    TransientBuffer::new(Box::new(Buffer::from_fn(width, height, |x, y| {
-                        Luma([(buf_r.get_pixel(x, y).data[0]
-                            + buf_g.get_pixel(x, y).data[0]
-                            + buf_b.get_pixel(x, y).data[0])
-                            / 3.])
-                    }))),
+                Self::Gray(Arc::new(TransientBufferContainer::new(Arc::new(
+                    RwLock::new(TransientBuffer::new(Box::new(Buffer::from_fn(
+                        width,
+                        height,
+                        |x, y| {
+                            Luma([(buf_r.get_pixel(x, y).data[0]
+                                + buf_g.get_pixel(x, y).data[0]
+                                + buf_b.get_pixel(x, y).data[0])
+                                / 3.])
+                        },
+                    )))),
                 ))))
             }
         })
@@ -533,6 +549,15 @@ impl SlotData {
             size,
             image,
         }
+    }
+
+    pub fn from_self(&self) -> Self {
+        Self::new(
+            self.node_id,
+            self.slot_id,
+            self.size,
+            self.image.from_self(),
+        )
     }
 
     // Stores the slot_data on drive.
