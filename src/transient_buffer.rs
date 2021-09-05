@@ -198,7 +198,7 @@ impl TransientBufferQueue {
             }
 
             if self.queue[i].retrieved.swap(false, Ordering::Relaxed) {
-                self.queue.swap(i, self.queue.len());
+                self.queue.swap(i, self.queue.len() - 1);
             }
         }
 
