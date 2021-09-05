@@ -12,7 +12,7 @@ use tempfile::tempfile;
 
 use crate::{
     error::{Result, TexProError},
-    slot_data::{Buffer, ChannelPixel, Size},
+    slot_data::{Buffer, ChannelPixel, Size, SlotData},
 };
 
 /// A buffer that can be either in memory or in storage, getting it puts it in memory.
@@ -140,6 +140,7 @@ impl TransientBufferContainer {
     }
 }
 
+#[derive(Default)]
 pub(crate) struct TransientBufferQueue {
     queue: VecDeque<Arc<TransientBufferContainer>>,
     pub memory_limit: usize,
@@ -153,18 +154,27 @@ impl TransientBufferQueue {
         }
     }
 
-    pub fn add_buffer(
-        &mut self,
-        transient_buffer_container: Arc<TransientBufferContainer>,
-    ) -> Result<()> {
-        if transient_buffer_container
-            .transient_buffer
-            .read()?
-            .in_memory()
+    pub fn add_buffer(&mut self, tbuf_container: Arc<TransientBufferContainer>) -> Result<()> {
+        if self
+            .queue
+            .iter()
+            .any(|tbc| Arc::ptr_eq(tbc, &tbuf_container))
         {
-            self.queue.push_back(transient_buffer_container);
+            return Ok(());
+        }
+
+        if tbuf_container.transient_buffer.read()?.in_memory() {
+            self.queue.push_back(tbuf_container);
         } else {
-            self.queue.push_front(transient_buffer_container);
+            self.queue.push_front(tbuf_container);
+        }
+
+        Ok(())
+    }
+
+    pub fn add_slot_data(&mut self, slot_data: &Arc<SlotData>) -> Result<()> {
+        for buf in slot_data.image.bufs() {
+            self.add_buffer(buf)?
         }
 
         Ok(())

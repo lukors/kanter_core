@@ -7,7 +7,7 @@ use crate::{
     },
     node_graph::*,
     slot_data::*,
-    transient_buffer::{TransientBuffer, TransientBufferContainer},
+    transient_buffer::{TransientBuffer, TransientBufferContainer, TransientBufferQueue},
 };
 use image::ImageBuffer;
 use std::{
@@ -45,7 +45,7 @@ pub struct Engine {
     one_shot: bool,
     pub auto_update: bool,
     pub use_cache: bool,
-    pub slot_data_ram_cap: usize,
+    transient_buffer_queue: TransientBufferQueue,
 }
 
 impl Engine {
@@ -60,7 +60,7 @@ impl Engine {
             one_shot: false,
             auto_update: false,
             use_cache: false,
-            slot_data_ram_cap: 1_073_742_000, // 1 Gib
+            transient_buffer_queue: TransientBufferQueue::new(1_073_742_000), // 1 Gib
         }
     }
 
@@ -80,10 +80,16 @@ impl Engine {
                 // Handle messages received from node processing threads.
                 for message in recv.try_iter() {
                     let node_id = message.node_id;
-                    let slot_datas = message.slot_datas;
 
-                    match slot_datas {
+                    match message.slot_datas {
                         Ok(slot_datas) => {
+                            for slot_data in &slot_datas {
+                                tex_pro
+                                    .transient_buffer_queue
+                                    .add_slot_data(slot_data)
+                                    .expect("failed to add TransientBuffer to queue");
+                            }
+
                             tex_pro.remove_nodes_data(node_id);
                             tex_pro.slot_datas.append(&mut slot_datas.into());
                         }
@@ -122,9 +128,12 @@ impl Engine {
                     }
                 }
 
-                // if tex_pro.use_cache {
-                //     Self::store_on_drive(&tex_pro);
-                // }
+                if tex_pro.use_cache {
+                    tex_pro
+                        .transient_buffer_queue
+                        .update()
+                        .expect("Failed TransientBufferQueue update");
+                }
 
                 // Get requested nodes
                 let requested = if tex_pro.auto_update {

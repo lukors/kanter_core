@@ -448,6 +448,13 @@ impl SlotImage {
             }
         })
     }
+
+    pub fn bufs(&self) -> Vec<Arc<TransientBufferContainer>> {
+        match self {
+            Self::Gray(buf) => vec![Arc::clone(&buf)],
+            Self::Rgba(bufs) => bufs.to_vec(),
+        }
+    }
 }
 
 pub type Buffer = ImageBuffer<Luma<ChannelPixel>, Vec<ChannelPixel>>;
