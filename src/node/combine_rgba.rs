@@ -4,11 +4,12 @@ use crate::{
     node_graph::SlotId,
     slot_data::{Buffer, SlotData, SlotImage},
     transient_buffer::{TransientBuffer, TransientBufferContainer},
+    error::Result,
 };
 
 use super::Node;
 
-pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
+pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<Arc<SlotData>>> {
     fn rgba_slot_data_to_buffer(
         slot_data: Option<&Arc<SlotData>>,
         buffer_default: &Arc<TransientBufferContainer>,
@@ -26,7 +27,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
     }
 
     if let Some(slot_data) = slot_datas.get(0) {
-        let size = slot_data.size;
+        let size = slot_data.size()?;
 
         let buffer_default = Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
             TransientBuffer::new(Box::new(
@@ -39,18 +40,17 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
             )),
         ))));
 
-        vec![Arc::new(SlotData::new(
+        Ok(vec![Arc::new(SlotData::new(
             node.node_id,
             SlotId(0),
-            size,
             SlotImage::Rgba([
                 rgba_slot_data_to_buffer(slot_datas.get(0), &buffer_default),
                 rgba_slot_data_to_buffer(slot_datas.get(1), &buffer_default),
                 rgba_slot_data_to_buffer(slot_datas.get(2), &buffer_default),
                 rgba_slot_data_to_buffer(slot_datas.get(3), &buffer_default),
             ]),
-        ))]
+        ))])
     } else {
-        Vec::new()
+        Ok(Vec::new())
     }
 }

@@ -19,7 +19,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
         return Ok(Vec::new());
     };
 
-    let size = slot_data.size;
+    let size = slot_data.size()?;
     let (width, height) = (size.width, size.height);
     let pixel_distance_x = 1. / width as f32;
     let pixel_distance_y = 1. / height as f32;
@@ -59,7 +59,6 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
     Ok(vec![Arc::new(SlotData::new(
         node.node_id,
         SlotId(0),
-        size,
         SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap(),
     ))])
 }

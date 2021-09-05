@@ -1,4 +1,3 @@
-use image::DecodingResult;
 use std::{
     collections::VecDeque,
     fmt::{self, Display},

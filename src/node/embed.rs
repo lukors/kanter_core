@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     error::{Result, TexProError},
     node_graph::SlotId,
-    slot_data::{Size, SlotData, SlotImage},
+    slot_data::{SlotData, SlotImage},
 };
 
 use super::Node;
@@ -16,7 +16,6 @@ pub struct EmbeddedSlotDataId(pub u32);
 pub struct EmbeddedSlotData {
     pub slot_data_id: EmbeddedSlotDataId,
     pub slot_id: SlotId,
-    pub size: Size,
     pub(crate) image: SlotImage,
 }
 
@@ -25,7 +24,6 @@ impl EmbeddedSlotData {
         Self {
             slot_data_id,
             slot_id: slot_data.slot_id,
-            size: slot_data.size,
             image: slot_data.image.clone(),
         }
     }
@@ -43,7 +41,6 @@ pub(crate) fn process(
         Ok(vec![Arc::new(SlotData::new(
             node.node_id,
             SlotId(0),
-            enode_data.size,
             enode_data.image.clone(),
         ))])
     } else {

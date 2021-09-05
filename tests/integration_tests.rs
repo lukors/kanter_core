@@ -724,7 +724,7 @@ fn resize_policy_test(
         .connect(image_node_2, mix_node, SlotId(0), SlotId(1))
         .unwrap();
 
-    let actual_size = tex_pro.node_slot_data(mix_node).unwrap()[0].size;
+    let actual_size = tex_pro.node_slot_data(mix_node).unwrap()[0].size().unwrap();
     let expected_size = Size::new(expected_size.0, expected_size.1);
     assert_eq!(
         actual_size, expected_size,

@@ -303,7 +303,6 @@ pub type ChannelPixel = f32;
 pub struct SlotData {
     pub node_id: NodeId,
     pub slot_id: SlotId,
-    pub size: Size, // Can be removed and taken from the SlotImage instead.
     pub image: SlotImage,
 }
 
@@ -314,17 +313,16 @@ impl Display for SlotData {
             "NodeId: {}, SlotId: {}, Size: {}",
             self.node_id,
             self.slot_id,
-            self.size,
+            self.size().unwrap(),
         )
     }
 }
 
 impl SlotData {
-    pub fn new(node_id: NodeId, slot_id: SlotId, size: Size, image: SlotImage) -> Self {
+    pub fn new(node_id: NodeId, slot_id: SlotId, image: SlotImage) -> Self {
         Self {
             node_id,
             slot_id,
-            size,
             image,
         }
     }
@@ -333,9 +331,12 @@ impl SlotData {
         Self::new(
             self.node_id,
             self.slot_id,
-            self.size,
             self.image.from_self(),
         )
+    }
+
+    pub fn size(&self) -> Result<Size> {
+        self.image.size()
     }
 }
 

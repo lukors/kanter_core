@@ -4,7 +4,8 @@ use crate::{error::Result, slot_data::SlotData};
 
 pub(crate) fn process(slot_datas: &[Arc<SlotData>], path: &Path) -> Result<Vec<Arc<SlotData>>> {
     if let Some(slot_data) = slot_datas.get(0) {
-        let (width, height) = (slot_data.size.width, slot_data.size.height);
+        let size = slot_data.size()?;
+        let (width, height) = (size.width, size.height);
 
         image::save_buffer(
             &path,

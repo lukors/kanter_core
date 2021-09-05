@@ -63,8 +63,8 @@ fn process_node_internal(
         NodeType::Value(val) => value::process(&node, val),
         NodeType::Mix(mix_type) => mix::process(&slot_datas, &node, mix_type)?,
         NodeType::HeightToNormal => height_to_normal::process(&slot_datas, &node)?,
-        NodeType::SeparateRgba => separate_rgba::process(&slot_datas, &node),
-        NodeType::CombineRgba => combine_rgba::process(&slot_datas, &node),
+        NodeType::SeparateRgba => separate_rgba::process(&slot_datas, &node)?,
+        NodeType::CombineRgba => combine_rgba::process(&slot_datas, &node)?,
     })
 }
 
@@ -184,7 +184,6 @@ fn assign_slot_ids(slot_datas: &[Arc<SlotData>], edges: &[Edge]) -> Vec<Arc<Slot
             Arc::new(SlotData::new(
                 edge.input_id,
                 edge.input_slot,
-                slot_data.size,
                 slot_data.image.clone(),
             ))
         })

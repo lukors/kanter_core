@@ -200,7 +200,6 @@ impl Engine {
                                     Arc::new(SlotData::new(
                                         edge.output_id,
                                         edge.output_slot,
-                                        Size::new(1, 1),
                                         SlotImage::Gray(Arc::new(TransientBufferContainer::new(
                                             Arc::new(RwLock::new(TransientBuffer::new(Box::new(
                                                 ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
@@ -619,7 +618,7 @@ impl Engine {
     }
 
     pub fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
-        Ok(self.slot_data(node_id, slot_id)?.size)
+        Ok(self.slot_data(node_id, slot_id)?.size()?)
     }
 
     pub fn slot_in_memory(&self, node_id: NodeId, slot_id: SlotId) -> Result<bool> {

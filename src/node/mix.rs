@@ -60,14 +60,14 @@ pub(crate) fn process(
                 if let Some(slot_data) = slot_data_with_name(&slot_datas, &node, "right") {
                     slot_data.image.as_type(is_rgba)?
                 } else {
-                    SlotImage::from_value(slot_data_left.size, 0.0, is_rgba)
+                    SlotImage::from_value(slot_data_left.size()?, 0.0, is_rgba)
                 }
             };
 
             (slot_data_left.image.clone(), image_right)
         } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
             let image_left =
-                SlotImage::from_value(slot_data_right.size, 0.0, slot_data_right.image.is_rgba())
+                SlotImage::from_value(slot_data_right.size()?, 0.0, slot_data_right.image.is_rgba())
                     .into();
 
             (image_left, slot_data_right.image.clone())
@@ -128,7 +128,6 @@ pub(crate) fn process(
     Ok(vec![Arc::new(SlotData::new(
         node.node_id,
         SlotId(0),
-        size,
         slot_image,
     ))])
 }

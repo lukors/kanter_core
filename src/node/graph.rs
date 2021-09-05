@@ -24,7 +24,6 @@ pub(crate) fn process(
         tex_pro.input_slot_datas_push(Arc::new(SlotData::new(
             NodeId(slot_data.slot_id.0),
             SlotId(0),
-            slot_data.size,
             slot_data.image.clone(),
         )));
     }
@@ -35,7 +34,6 @@ pub(crate) fn process(
             let output_node_data = SlotData::new(
                 node.node_id,
                 SlotId(output_node_id.0),
-                slot_data.size,
                 slot_data.image.clone(),
             );
             output.push(Arc::new(output_node_data));

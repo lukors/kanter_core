@@ -73,23 +73,23 @@ pub(crate) fn calculate_size(
             } else {
                 slot_datas
                     .iter()
-                    .max_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
-                    .map(|node_data| node_data.size)
+                    .max_by(|a, b| a.size().unwrap().pixel_count().cmp(&b.size().unwrap().pixel_count()))
+                    .map(|node_data| node_data.size().unwrap())
                     .unwrap()
             }
         }
         ResizePolicy::LeastPixels => slot_datas
             .iter()
-            .min_by(|a, b| a.size.pixel_count().cmp(&b.size.pixel_count()))
-            .map(|node_data| node_data.size)
+            .min_by(|a, b| a.size().unwrap().pixel_count().cmp(&b.size().unwrap().pixel_count()))
+            .map(|node_data| node_data.size().unwrap())
             .unwrap(),
         ResizePolicy::LargestAxes => slot_datas.iter().fold(Size::new(0, 0), |a, b| {
-            Size::new(max(a.width, b.size.width), max(a.height, b.size.height))
+            Size::new(max(a.width, b.size().unwrap().width), max(a.height, b.size().unwrap().height))
         }),
         ResizePolicy::SmallestAxes => slot_datas
             .iter()
             .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
-                Size::new(min(a.width, b.size.width), min(a.height, b.size.height))
+                Size::new(min(a.width, b.size().unwrap().width), min(a.height, b.size().unwrap().height))
             }),
         ResizePolicy::SpecificSlot(slot_id) => {
             let mut edges = edges.to_vec();
@@ -107,7 +107,7 @@ pub(crate) fn calculate_size(
                         node_data.slot_id == edge.output_slot && node_data.node_id == edge.output_id
                     })
                     .expect("Couldn't find a buffer with the given `NodeId` while resizing")
-                    .size
+                    .size().unwrap()
             } else {
                 // TODO: This should fall back to the size of the graph here. Graphs don't have a size
                 // when this is written.
@@ -133,7 +133,7 @@ pub(crate) fn resize_buffers(
     let output: Vec<Arc<SlotData>> = slot_datas
         .iter()
         .map(|ref slot_data| {
-            if slot_data.size != size {
+            if slot_data.size().unwrap() != size {
                 let resized_image = match &slot_data.image {
                     SlotImage::Gray(buf) => {
                         SlotImage::Gray(Arc::new(TransientBufferContainer::new(Arc::new(
@@ -208,7 +208,6 @@ pub(crate) fn resize_buffers(
                 Arc::new(SlotData::new(
                     slot_data.node_id,
                     slot_data.slot_id,
-                    size,
                     resized_image,
                 ))
             } else {
