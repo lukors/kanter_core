@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
+    error::{Result, TexProError},
     node::process_shared::{slot_data_with_name, Sampling},
     node_graph::SlotId,
     slot_data::{Buffer, SlotData, SlotImage},
@@ -11,11 +12,11 @@ use super::Node;
 use image::{ImageBuffer, Luma};
 use nalgebra::{Cross, Norm, Vector3};
 
-pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<SlotData>> {
+pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<Arc<SlotData>>> {
     let slot_data = if let Some(slot_data) = slot_data_with_name(slot_datas, node, "input") {
         slot_data
     } else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
 
     let size = slot_data.size;
@@ -30,13 +31,16 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
     ];
 
     {
-        let slot_image_cache = slot_data.image_cache();
-        let mut slot_image_cache = slot_image_cache.write().unwrap();
-        let buffer_height = if let SlotImage::Gray(buf) = slot_image_cache.get() {
-            buf
+        // let slot_image_cache = slot_data.image_cache();
+        // let mut slot_image_cache = slot_image_cache.write().unwrap();
+        let buffer_height = if let SlotImage::Gray(buf) = &slot_data.image {
+            buf.transient_buffer().write()?.buffer()?;
+            buf.transient_buffer().read()?
         } else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
+
+        let buffer_height = buffer_height.buffer_read().ok_or(TexProError::Generic)?;
 
         for (x, y, px) in buffer_height.enumerate_pixels() {
             let sample_up = buffer_height.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
@@ -52,10 +56,10 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Vec<Arc<Slot
         }
     }
 
-    vec![Arc::new(SlotData::from_slot_image(
+    Ok(vec![Arc::new(SlotData::new(
         node.node_id,
         SlotId(0),
         size,
         SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap(),
-    ))]
+    ))])
 }

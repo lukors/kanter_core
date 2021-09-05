@@ -53,16 +53,10 @@ impl TextureProcessor {
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
     pub fn try_buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        let result = if let Ok(mut engine) = self.engine.try_write() {
+        let result = if let Ok(engine) = self.engine.try_write() {
             if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
-                    Ok(engine
-                        .slot_data_requeue(node_id, slot_id)?
-                        .image_cache()
-                        .write()
-                        .unwrap()
-                        .get()
-                        .to_u8())
+                    Ok(engine.slot_data(node_id, slot_id)?.image.to_u8()?)
                 } else {
                     Err(TexProError::InvalidNodeId)
                 }
@@ -175,7 +169,7 @@ impl TextureProcessor {
 
     pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
         self.wait_for_state_write(node_id, NodeState::Clean)?
-            .slot_data_requeue(node_id, slot_id)
+            .slot_data(node_id, slot_id)
     }
 
     pub fn wait_for_state_write(

@@ -1,13 +1,14 @@
 use crate::{
     error::{Result, TexProError},
     node_graph::Edge,
+    transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 use crate::{node::*, slot_data::*};
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer};
 use std::{
     cmp::{max, min},
     path::Path,
-    sync::Arc,
+    sync::{Arc, RwLock},
     u32,
 };
 
@@ -133,40 +134,78 @@ pub(crate) fn resize_buffers(
         .iter()
         .map(|ref slot_data| {
             if slot_data.size != size {
-                let resized_image =
-                    match &slot_data.image_cache().write().unwrap().get() {
-                        SlotImage::Gray(buf) => SlotImage::Gray(Arc::new(Box::new(
-                            imageops::resize(&***buf, size.width, size.height, filter.into()),
+                let resized_image = match &slot_data.image {
+                    SlotImage::Gray(buf) => {
+                        SlotImage::Gray(Arc::new(TransientBufferContainer::new(RwLock::new(
+                            TransientBuffer::new(Box::new(imageops::resize(
+                                buf.transient_buffer()
+                                    .write()
+                                    .expect("Lock poisoned")
+                                    .buffer()
+                                    .expect("Lock poisoned"),
+                                size.width,
+                                size.height,
+                                filter.into(),
+                            ))),
+                        ))))
+                    }
+                    SlotImage::Rgba(bufs) => SlotImage::Rgba([
+                        Arc::new(TransientBufferContainer::new(RwLock::new(
+                            TransientBuffer::new(Box::new(imageops::resize(
+                                bufs[0]
+                                    .transient_buffer()
+                                    .write()
+                                    .expect("Lock poisoned")
+                                    .buffer()
+                                    .expect("Lock poisoned"),
+                                size.width,
+                                size.height,
+                                filter.into(),
+                            ))),
                         ))),
-                        SlotImage::Rgba(bufs) => SlotImage::Rgba([
-                            Arc::new(Box::new(imageops::resize(
-                                &**bufs[0],
+                        Arc::new(TransientBufferContainer::new(RwLock::new(
+                            TransientBuffer::new(Box::new(imageops::resize(
+                                bufs[1]
+                                    .transient_buffer()
+                                    .write()
+                                    .expect("Lock poisoned")
+                                    .buffer()
+                                    .expect("Lock poisoned"),
                                 size.width,
                                 size.height,
                                 filter.into(),
                             ))),
-                            Arc::new(Box::new(imageops::resize(
-                                &**bufs[1],
+                        ))),
+                        Arc::new(TransientBufferContainer::new(RwLock::new(
+                            TransientBuffer::new(Box::new(imageops::resize(
+                                bufs[2]
+                                    .transient_buffer()
+                                    .write()
+                                    .expect("Lock poisoned")
+                                    .buffer()
+                                    .expect("Lock poisoned"),
                                 size.width,
                                 size.height,
                                 filter.into(),
                             ))),
-                            Arc::new(Box::new(imageops::resize(
-                                &**bufs[2],
+                        ))),
+                        Arc::new(TransientBufferContainer::new(RwLock::new(
+                            TransientBuffer::new(Box::new(imageops::resize(
+                                bufs[3]
+                                    .transient_buffer()
+                                    .write()
+                                    .expect("Lock poisoned")
+                                    .buffer()
+                                    .expect("Lock poisoned"),
                                 size.width,
                                 size.height,
                                 filter.into(),
                             ))),
-                            Arc::new(Box::new(imageops::resize(
-                                &**bufs[3],
-                                size.width,
-                                size.height,
-                                filter.into(),
-                            ))),
-                        ]),
-                    };
+                        ))),
+                    ]),
+                };
 
-                Arc::new(SlotData::from_slot_image(
+                Arc::new(SlotData::new(
                     slot_data.node_id,
                     slot_data.slot_id,
                     size,
@@ -188,22 +227,24 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
         height: u32,
         buffers: &mut Vec<BoxBuffer>,
         default: f32,
-    ) -> Arc<BoxBuffer> {
-        Arc::new(
-            buffers
-                .pop()
-                .or_else(|| {
-                    Some(Box::new(
-                        ImageBuffer::from_raw(
-                            width,
-                            height,
-                            vec![default; (width * height) as usize],
-                        )
-                        .unwrap(),
-                    ))
-                })
-                .unwrap(),
-        )
+    ) -> Arc<TransientBufferContainer> {
+        Arc::new(TransientBufferContainer::new(RwLock::new(
+            TransientBuffer::new(
+                buffers
+                    .pop()
+                    .or_else(|| {
+                        Some(Box::new(
+                            ImageBuffer::from_raw(
+                                width,
+                                height,
+                                vec![default; (width * height) as usize],
+                            )
+                            .unwrap(),
+                        ))
+                    })
+                    .unwrap(),
+            ),
+        )))
     }
 
     let image = image::open(path)?;
@@ -213,7 +254,9 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
 
     match buffers.len() {
         0 => Err(TexProError::InvalidBufferCount),
-        1 => Ok(SlotImage::Gray(Arc::new(buffers.pop().unwrap()))),
+        1 => Ok(SlotImage::Gray(Arc::new(TransientBufferContainer::new(
+            RwLock::new(TransientBuffer::new(buffers.pop().unwrap())),
+        )))),
         _ => {
             let (a, b, g, r) = (
                 pop_vec_to_arc_buffer(width, height, &mut buffers, 0.0),

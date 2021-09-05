@@ -1,9 +1,9 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::{
     error::{Result, TexProError},
     node_graph::SlotId,
-    slot_data::{Size, SlotData, SlotImageCache},
+    slot_data::{Size, SlotData, SlotImage},
 };
 
 use super::Node;
@@ -17,7 +17,7 @@ pub struct EmbeddedSlotData {
     pub slot_data_id: EmbeddedSlotDataId,
     pub slot_id: SlotId,
     pub size: Size,
-    pub(crate) image: Arc<RwLock<SlotImageCache>>,
+    pub(crate) image: SlotImage,
 }
 
 impl EmbeddedSlotData {
@@ -26,7 +26,7 @@ impl EmbeddedSlotData {
             slot_data_id,
             slot_id: slot_data.slot_id,
             size: slot_data.size,
-            image: Arc::clone(&slot_data.image),
+            image: slot_data.image.clone(),
         }
     }
 }
@@ -44,7 +44,7 @@ pub(crate) fn process(
             node.node_id,
             SlotId(0),
             enode_data.size,
-            Arc::clone(&enode_data.image),
+            enode_data.image.clone(),
         ))])
     } else {
         Err(TexProError::NodeProcessing)

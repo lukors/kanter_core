@@ -25,7 +25,7 @@ pub(crate) fn process(
             NodeId(slot_data.slot_id.0),
             SlotId(0),
             slot_data.size,
-            Arc::clone(&slot_data.image),
+            slot_data.image.clone(),
         )));
     }
 
@@ -36,7 +36,7 @@ pub(crate) fn process(
                 node.node_id,
                 SlotId(output_node_id.0),
                 slot_data.size,
-                Arc::clone(&slot_data.image),
+                slot_data.image.clone(),
             );
             output.push(Arc::new(output_node_data));
         }

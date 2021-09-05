@@ -1,7 +1,4 @@
-use std::{
-    path::Path,
-    sync::{Arc, RwLock},
-};
+use std::{path::Path, sync::Arc};
 
 use crate::{error::Result, node_graph::SlotId, shared::read_slot_image, slot_data::SlotData};
 
@@ -12,7 +9,7 @@ pub(crate) fn process(node: &Node, path: &Path) -> Result<Vec<Arc<SlotData>>> {
     Ok(vec![Arc::new(SlotData::new(
         node.node_id,
         SlotId(0),
-        slot_image.size(),
-        Arc::new(RwLock::new(slot_image.into())),
+        slot_image.size()?,
+        slot_image,
     ))])
 }

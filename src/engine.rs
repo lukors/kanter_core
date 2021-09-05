@@ -7,6 +7,7 @@ use crate::{
     },
     node_graph::*,
     slot_data::*,
+    transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 use image::ImageBuffer;
 use std::{
@@ -121,9 +122,9 @@ impl Engine {
                     }
                 }
 
-                if tex_pro.use_cache {
-                    Self::store_on_drive(&tex_pro);
-                }
+                // if tex_pro.use_cache {
+                //     Self::store_on_drive(&tex_pro);
+                // }
 
                 // Get requested nodes
                 let requested = if tex_pro.auto_update {
@@ -183,16 +184,18 @@ impl Engine {
                             .iter()
                             .map(|edge| {
                                 if let Ok(slot_data) =
-                                    tex_pro.slot_data_requeue(edge.output_id, edge.output_slot)
+                                    tex_pro.slot_data(edge.output_id, edge.output_slot)
                                 {
                                     Arc::clone(&slot_data)
                                 } else {
-                                    Arc::new(SlotData::from_slot_image(
+                                    Arc::new(SlotData::new(
                                         edge.output_id,
                                         edge.output_slot,
                                         Size::new(1, 1),
-                                        SlotImage::Gray(Arc::new(Box::new(
-                                            ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
+                                        SlotImage::Gray(Arc::new(TransientBufferContainer::new(
+                                            RwLock::new(TransientBuffer::new(Box::new(
+                                                ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
+                                            ))),
                                         ))),
                                     ))
                                 }
@@ -271,33 +274,33 @@ impl Engine {
         }
     }
 
-    fn store_on_drive(engine: &RwLockWriteGuard<Engine>) {
-        while engine.slot_data_bytes_total() > engine.slot_data_ram_cap {
-            if let Some(slot_data_in_ram) = engine
-                .slot_datas
-                .iter()
-                .find(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
-            {
-                slot_data_in_ram.store().unwrap();
-            }
+    // fn store_on_drive(engine: &RwLockWriteGuard<Engine>) {
+    //     while engine.slot_data_bytes_total() > engine.slot_data_ram_cap {
+    //         if let Some(slot_data_in_ram) = engine
+    //             .slot_datas
+    //             .iter()
+    //             .find(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
+    //         {
+    //             slot_data_in_ram.store().unwrap();
+    //         }
 
-            // engine.print_queue();
-        }
-    }
+    //         // engine.print_queue();
+    //     }
+    // }
 
-    pub fn print_queue(&self) {
-        println!("\nTotal in RAM: {}", self.slot_data_bytes_total());
-        for slot_data in self.slot_datas.iter() {
-            println!(
-                "{}, NodeType: {:?}",
-                slot_data,
-                self.node_graph
-                    .node_with_id(slot_data.node_id)
-                    .unwrap()
-                    .node_type
-            );
-        }
-    }
+    // pub fn print_queue(&self) {
+    //     println!("\nTotal in RAM: {}", self.slot_data_bytes_total());
+    //     for slot_data in self.slot_datas.iter() {
+    //         println!(
+    //             "{}, NodeType: {:?}",
+    //             slot_data,
+    //             self.node_graph
+    //                 .node_with_id(slot_data.node_id)
+    //                 .unwrap()
+    //                 .node_type
+    //         );
+    //     }
+    // }
 
     pub fn process_then_kill(&mut self) {
         self.one_shot = true;
@@ -306,24 +309,18 @@ impl Engine {
         }
     }
 
-    pub fn slot_data_bytes_total(&self) -> usize {
-        self.slot_datas
-            .iter()
-            .filter(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
-            .map(|slot_data| slot_data.bytes())
-            .sum()
-    }
+    // pub fn slot_data_bytes_total(&self) -> usize {
+    //     self.slot_datas
+    //         .iter()
+    //         .filter(|slot_data| slot_data.image_cache().read().unwrap().is_in_ram())
+    //         .map(|slot_data| slot_data.bytes())
+    //         .sum()
+    // }
 
     /// Return a SlotData as u8.
     pub fn buffer_rgba(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         // Ok((*self.slot_data(node_id, slot_id)?.image.read().unwrap()).get().to_u8())
-        Ok(self
-            .slot_data_requeue(node_id, slot_id)?
-            .image_cache()
-            .write()
-            .unwrap()
-            .get()
-            .to_u8())
+        Ok(self.slot_data(node_id, slot_id)?.image.to_u8()?)
     }
 
     /// Return all changed `NodeId`s.
@@ -643,28 +640,28 @@ impl Engine {
     // }
 
     /// Gets all output `SlotData`s in this `TextureProcessor`.
-    pub(crate) fn slot_datas_output(&mut self) -> Result<Vec<Arc<SlotData>>> {
-        let mut output = Vec::new();
+    // pub(crate) fn slot_datas_output(&mut self) -> Result<Vec<Arc<SlotData>>> {
+    //     let mut output = Vec::new();
 
-        let slot_data_ids: Vec<(NodeId, SlotId)> = self
-            .slot_datas
-            .iter()
-            .filter(|slot_data| {
-                if let Ok(node) = self.node_graph.node_with_id(slot_data.node_id) {
-                    node.node_type.is_output()
-                } else {
-                    false
-                }
-            })
-            .map(|slot_data| (slot_data.node_id, slot_data.slot_id))
-            .collect();
+    //     let slot_data_ids: Vec<(NodeId, SlotId)> = self
+    //         .slot_datas
+    //         .iter()
+    //         .filter(|slot_data| {
+    //             if let Ok(node) = self.node_graph.node_with_id(slot_data.node_id) {
+    //                 node.node_type.is_output()
+    //             } else {
+    //                 false
+    //             }
+    //         })
+    //         .map(|slot_data| (slot_data.node_id, slot_data.slot_id))
+    //         .collect();
 
-        for (node_id, slot_id) in slot_data_ids {
-            output.push(self.slot_data_requeue(node_id, slot_id)?);
-        }
+    //     for (node_id, slot_id) in slot_data_ids {
+    //         output.push(self.slot_data(node_id, slot_id)?);
+    //     }
 
-        Ok(output)
-    }
+    //     Ok(output)
+    // }
 
     /// Gets any `SlotData`s associated with a given `NodeId`.
     pub(crate) fn node_slot_datas(&mut self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
@@ -678,29 +675,25 @@ impl Engine {
             .collect();
 
         for slot_id in slot_ids {
-            output.push(self.slot_data_requeue(node_id, slot_id)?);
+            output.push(self.slot_data(node_id, slot_id)?);
         }
 
         Ok(output)
     }
 
     pub fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
-        Ok(self.slot_data_keep_queue(node_id, slot_id)?.size)
+        Ok(self.slot_data(node_id, slot_id)?.size)
     }
 
-    pub fn slot_in_ram(&self, node_id: NodeId, slot_id: SlotId) -> Result<bool> {
-        Ok(self
-            .slot_data_keep_queue(node_id, slot_id)?
-            .image
-            .read()?
-            .is_in_ram())
-    }
+    // pub fn slot_in_ram(&self, node_id: NodeId, slot_id: SlotId) -> Result<bool> {
+    //     Ok(self
+    //         .slot_data(node_id, slot_id)?
+    //         .image
+    //         .read()?
+    //         .is_in_ram())
+    // }
 
-    /// Returns the given `SlotData` without moving it to the back of the cache queue.
-    ///
-    /// This should be used when the `SlotData`s ` `SlotImageCache` has no risk of getting
-    /// retrieved.
-    fn slot_data_keep_queue(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
+    pub(crate) fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
         Ok(Arc::clone(
             self.slot_datas
                 .iter()
@@ -714,22 +707,22 @@ impl Engine {
     /// This should be used when the `SlotData`s `SlotImageCache` might get retrieved. Doing that
     /// loads the `SlotImageCache` into RAM, and then it is important that it is at the back of the
     /// queue, otherwise it risks getting stored on the drive again earlier than it should.
-    pub fn slot_data_requeue(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
-        let slot_data_index = self
-            .slot_datas
-            .iter()
-            .enumerate()
-            .find(|(_, slot_data)| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
-            .ok_or(TexProError::NoSlotData)?
-            .0;
-        let slot_data = self
-            .slot_datas
-            .remove(slot_data_index)
-            .ok_or(TexProError::Generic)?;
-        self.slot_datas.push_back(Arc::clone(&slot_data));
+    // pub fn slot_data(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
+    //     let slot_data_index = self
+    //         .slot_datas
+    //         .iter()
+    //         .enumerate()
+    //         .find(|(_, slot_data)| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
+    //         .ok_or(TexProError::NoSlotData)?
+    //         .0;
+    //     let slot_data = self
+    //         .slot_datas
+    //         .remove(slot_data_index)
+    //         .ok_or(TexProError::Generic)?;
+    //     self.slot_datas.push_back(Arc::clone(&slot_data));
 
-        Ok(slot_data)
-    }
+    //     Ok(slot_data)
+    // }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
         let node_id = self.node_graph.add_node_with_id(node, node_id)?;
