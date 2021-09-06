@@ -13,7 +13,7 @@ use image::ImageBuffer;
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
     thread,
@@ -45,11 +45,20 @@ pub struct Engine {
     one_shot: bool,
     pub auto_update: bool,
     pub use_cache: bool,
-    transient_buffer_queue: TransientBufferQueue,
+    add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
+    pub memory_threshold: Arc<AtomicUsize>,
 }
 
 impl Engine {
     pub fn new() -> Self {
+        let mut transient_buffer_queue = TransientBufferQueue::new(1_073_742_000); // 1 Gib
+        let add_buffer_queue = Arc::clone(&transient_buffer_queue.incoming_buffers);
+        let memory_threshold = Arc::clone(&transient_buffer_queue.memory_threshold);
+
+        thread::spawn(move || {
+            transient_buffer_queue.thread_loop();
+        });
+
         Self {
             node_graph: NodeGraph::new(),
             slot_datas: VecDeque::new(),
@@ -60,7 +69,8 @@ impl Engine {
             one_shot: false,
             auto_update: false,
             use_cache: false,
-            transient_buffer_queue: TransientBufferQueue::new(1_073_742_000), // 1 Gib
+            add_buffer_queue,
+            memory_threshold,
         }
     }
 
@@ -84,10 +94,10 @@ impl Engine {
                     match message.slot_datas {
                         Ok(slot_datas) => {
                             for slot_data in &slot_datas {
-                                tex_pro
-                                    .transient_buffer_queue
-                                    .add_slot_data(slot_data)
-                                    .expect("failed to add TransientBuffer to queue");
+                                TransientBufferQueue::add_slot_data(
+                                    &tex_pro.add_buffer_queue,
+                                    slot_data,
+                                );
                             }
 
                             tex_pro.remove_nodes_data(node_id);
@@ -126,13 +136,6 @@ impl Engine {
                             }
                         }
                     }
-                }
-
-                if tex_pro.use_cache {
-                    tex_pro
-                        .transient_buffer_queue
-                        .update()
-                        .expect("Failed TransientBufferQueue update");
                 }
 
                 // Get requested nodes
@@ -268,13 +271,13 @@ impl Engine {
         Ok(self.slot_data(node_id, slot_id)?.image.to_u8()?)
     }
 
-    pub fn memory_threshold(&self) -> usize {
-        self.transient_buffer_queue.memory_threshold
-    }
+    // pub fn memory_threshold(&self) -> usize {
+    //     self.transient_buffer_queue.memory_threshold
+    // }
 
-    pub fn set_memory_threshold(&mut self, threshold: usize) {
-        self.transient_buffer_queue.memory_threshold = threshold;
-    }
+    // pub fn set_memory_threshold(&mut self, threshold: usize) {
+    //     self.transient_buffer_queue.memory_threshold = threshold;
+    // }
 
     /// Return all changed `NodeId`s.
     pub fn changed_consume(&mut self) -> Vec<NodeId> {

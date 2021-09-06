@@ -8,7 +8,13 @@ use kanter_core::{
     texture_processor::TextureProcessor,
 };
 use ntest::timeout;
-use std::{fs::create_dir, path::Path, sync::Arc, thread, time::Duration};
+use std::{
+    fs::create_dir,
+    path::Path,
+    sync::{atomic::Ordering, Arc},
+    thread,
+    time::Duration,
+};
 
 const DIR_OUT: &str = "out";
 const DIR_CMP: &str = &"data/test_compare";
@@ -88,7 +94,7 @@ fn calculate_slot(tex_pro: &TextureProcessor, node_id: NodeId, slot_id: SlotId) 
         .image
         .bufs()
     {
-        buf.transient_buffer();
+        let _ = buf.transient_buffer();
     }
 }
 
@@ -148,7 +154,12 @@ fn drive_cache() {
 
     // Setting the slot_data_ram_cap at 16 bytes should result in the RGBA node getting written
     // to drive.
-    tex_pro.engine().write().unwrap().set_memory_threshold(16);
+    tex_pro
+        .engine()
+        .read()
+        .unwrap()
+        .memory_threshold
+        .store(16, Ordering::Relaxed);
     tex_pro.engine().write().unwrap().use_cache = true;
 
     calculate_slot(&tex_pro, mix_node_2, SlotId(0));
