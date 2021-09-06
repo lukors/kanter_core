@@ -127,7 +127,6 @@ pub(crate) fn resize_buffers(
     if slot_datas.is_empty() {
         return Ok(slot_datas.into());
     }
-
     let size = calculate_size(slot_datas, edges, policy);
 
     let output: Vec<Arc<SlotData>> = slot_datas

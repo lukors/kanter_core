@@ -76,6 +76,31 @@ impl TextureProcessor {
         result
     }
 
+    /// Tries to get the output of a node. If it can't it submits a request for it.
+    pub fn try_buffer_srgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+        let result = if let Ok(engine) = self.engine.try_write() {
+            if let Ok(node_state) = engine.node_state(node_id) {
+                if node_state == NodeState::Clean {
+                    Ok(engine.slot_data(node_id, slot_id)?.image.to_u8_srgb()?)
+                } else {
+                    Err(TexProError::InvalidNodeId)
+                }
+            } else {
+                Err(TexProError::InvalidNodeId)
+            }
+        } else {
+            Err(TexProError::UnableToLock)
+        };
+
+        if result.is_err() {
+            // This is blocking, should probably make requests go through an
+            // `RwLock<BTreeSet<NodeId>>`.
+            self.engine.write().unwrap().request(node_id)?
+        }
+
+        result
+    }
+
     pub fn process_then_kill(&self) {
         self.engine.write().unwrap().process_then_kill();
     }
@@ -102,10 +127,16 @@ impl TextureProcessor {
     //     self.engine.read().unwrap().slot_datas()
     // }
 
-    pub fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
+    pub(crate) fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
         Ok(self
             .wait_for_state_write(node_id, NodeState::Clean)?
             .node_slot_datas(node_id)?)
+    }
+
+    pub fn node_slot_datas_new(&self, node_id: NodeId) -> Result<Vec<SlotData>> {
+        Ok(self
+            .wait_for_state_write(node_id, NodeState::Clean)?
+            .node_slot_datas_new(node_id)?)
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {
@@ -161,15 +192,9 @@ impl TextureProcessor {
             .disconnect_slot(node_id, side, slot_id)
     }
 
-    pub fn node_slot_data(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
-        Ok(self
-            .wait_for_state_write(node_id, NodeState::Clean)?
-            .node_slot_datas(node_id)?)
-    }
-
-    pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
+    pub fn slot_data_new(&self, node_id: NodeId, slot_id: SlotId) -> Result<SlotData> {
         self.wait_for_state_write(node_id, NodeState::Clean)?
-            .slot_data(node_id, slot_id)
+            .slot_data_new(node_id, slot_id)
     }
 
     pub fn wait_for_state_write(
@@ -210,9 +235,6 @@ impl TextureProcessor {
 
     /// Returns the size of a given `SlotData`.
     pub fn await_slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
-        // This mgiht be able to work without any actual existing `SlotData`. It might be possible
-        // to calculate what the output size would be if the `SlotData` existed, without looking
-        // at an actual `SlotData`.
         self.engine.write().unwrap().prioritise(node_id)?;
 
         loop {

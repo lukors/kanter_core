@@ -617,7 +617,24 @@ impl Engine {
         Ok(output)
     }
 
-    pub fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
+    pub fn node_slot_datas_new(&mut self, node_id: NodeId) -> Result<Vec<SlotData>> {
+        let mut output: Vec<SlotData> = Vec::new();
+
+        let slot_ids: Vec<SlotId> = self
+            .slot_datas
+            .iter()
+            .filter(|slot_data| slot_data.node_id == node_id)
+            .map(|slot_data| slot_data.slot_id)
+            .collect();
+
+        for slot_id in slot_ids {
+            output.push(self.slot_data_new(node_id, slot_id)?);
+        }
+
+        Ok(output)
+    }
+
+    pub(crate) fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
         Ok(self.slot_data(node_id, slot_id)?.size()?)
     }
 

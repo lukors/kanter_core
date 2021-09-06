@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    error::{Result, TexProError},
+    error::Result,
     node::process_shared::{slot_data_with_name, Sampling},
     node_graph::SlotId,
     slot_data::{Buffer, SlotData, SlotImage},
@@ -40,7 +40,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
             return Ok(Vec::new());
         };
 
-        let buffer_height = buffer_height.buffer_read().ok_or(TexProError::Generic)?;
+        let buffer_height = buffer_height.buffer_read()?;
 
         for (x, y, px) in buffer_height.enumerate_pixels() {
             let sample_up = buffer_height.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];

@@ -81,15 +81,35 @@ fn input_output() {
 //     engine.slot_in_ram(node_id, SlotId(0)).unwrap()
 // }
 
+fn calculate_slot(tex_pro: &TextureProcessor, node_id: NodeId, slot_id: SlotId) {
+    for buf in tex_pro.slot_data_new(node_id, slot_id).unwrap().image.bufs() {
+        buf.transient_buffer().write().unwrap().buffer().unwrap();
+    }
+}
+
+#[test]
+// #[timeout(1_000)]
+fn deadlock() {
+    let tex_pro = TextureProcessor::new();
+
+    let value_node = tex_pro.add_node(Node::new(NodeType::Value(0.0))).unwrap();
+    let mix_node_1 = tex_pro
+        .add_node(Node::new(NodeType::Mix(MixType::Add)))
+        .unwrap();
+
+    tex_pro
+        .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
+        .unwrap();
+    tex_pro
+        .connect(value_node, mix_node_1, SlotId(0), SlotId(1))
+        .unwrap();
+
+    tex_pro.slot_data_new(mix_node_1, SlotId(0)).unwrap();
+}
+
 #[test]
 #[timeout(20_000)]
 fn drive_cache() {
-    fn calculate_slot(tex_pro: &TextureProcessor, node_id: NodeId, slot_id: SlotId) {
-        for buf in tex_pro.slot_data(node_id, slot_id).unwrap().image.bufs() {
-            buf.transient_buffer().write().unwrap().buffer().unwrap();
-        }
-    }
-
     const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
     let tex_pro = TextureProcessor::new();
 
@@ -143,7 +163,7 @@ fn drive_cache() {
     }
 
     {
-        if let SlotImage::Rgba(bufs) = &tex_pro.slot_data(rgba_node, SlotId(0)).unwrap().image {
+        if let SlotImage::Rgba(bufs) = &tex_pro.slot_data_new(rgba_node, SlotId(0)).unwrap().image {
             let pixel = {
                 [
                     bufs[0]
@@ -472,7 +492,7 @@ fn embedded_node_data() {
         .connect(tp1_input_node, tp1_output_node, SlotId(0), SlotId(0))
         .unwrap();
 
-    let node_data = tex_pro_1.node_slot_data(tp1_output_node).unwrap();
+    let node_data = tex_pro_1.slot_data_new(tp1_output_node, SlotId(0)).unwrap();
 
     // Second graph
     let mut tex_pro_2 = TextureProcessor::new();
@@ -482,7 +502,7 @@ fn embedded_node_data() {
         .unwrap();
 
     let end_id = tex_pro_2
-        .embed_slot_data_with_id(Arc::clone(&node_data[0]), EmbeddedSlotDataId(0))
+        .embed_slot_data_with_id(Arc::new(node_data), EmbeddedSlotDataId(0))
         .unwrap();
     let input = tex_pro_2
         .add_node(Node::new(NodeType::Embed(end_id)))
@@ -724,7 +744,7 @@ fn resize_policy_test(
         .connect(image_node_2, mix_node, SlotId(0), SlotId(1))
         .unwrap();
 
-    let actual_size = tex_pro.node_slot_data(mix_node).unwrap()[0].size().unwrap();
+    let actual_size = tex_pro.await_slot_data_size(mix_node, SlotId(0)).unwrap();
     let expected_size = Size::new(expected_size.0, expected_size.1);
     assert_eq!(
         actual_size, expected_size,

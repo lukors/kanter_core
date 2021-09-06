@@ -1,14 +1,4 @@
-use std::{
-    collections::VecDeque,
-    fmt::{self, Display},
-    fs::File,
-    io::{Read, Seek, SeekFrom, Write},
-    mem::size_of,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, RwLock,
-    },
-};
+use std::{collections::VecDeque, fmt::{self, Display}, fs::File, io::{Read, Seek, SeekFrom, Write}, mem::size_of, sync::{Arc, RwLock, RwLockReadGuard, atomic::{AtomicBool, Ordering}}, thread, time::Duration};
 use tempfile::tempfile;
 
 use crate::{
@@ -20,7 +10,7 @@ use crate::{
 #[derive(Debug)]
 pub enum TransientBuffer {
     Memory(Box<Buffer>),
-    Storage(File, Size),
+    Storage(File, Size, AtomicBool),
 }
 
 impl TransientBuffer {
@@ -31,21 +21,21 @@ impl TransientBuffer {
     /// Makes sure the `TransientBuffer` is in memory and returns its buffer.
     pub fn buffer(&mut self) -> Result<&Buffer> {
         self.to_memory()?;
-        Ok(self.buffer_read().ok_or(TexProError::Generic)?)
+        self.buffer_read()
     }
 
-    pub fn buffer_read(&self) -> Option<&Buffer> {
+    pub fn buffer_read(&self) -> Result<&Buffer> {
         if let Self::Memory(box_buf) = self {
-            Some(&box_buf)
+            Ok(&box_buf)
         } else {
-            None
+            Err(TexProError::Generic)
         }
     }
 
     pub fn size(&self) -> Size {
         match self {
             Self::Memory(box_buffer) => box_buffer.dimensions().into(),
-            Self::Storage(_, size) => *size,
+            Self::Storage(_, size, _) => *size,
         }
     }
 
@@ -53,15 +43,21 @@ impl TransientBuffer {
         self.size().pixel_count() * size_of::<ChannelPixel>()
     }
 
+    pub fn request(&self) {
+        if let Self::Storage(_, _, requested) = self {
+            requested.store(true, Ordering::Relaxed);
+        }
+    }
+
     pub fn in_memory(&self) -> bool {
         match self {
             Self::Memory(_) => true,
-            Self::Storage(_, _) => false,
+            Self::Storage(_, _, _) => false,
         }
     }
 
     /// Ensures the `TransientBuffer` is in storage, returns true if it was moved.
-    pub fn to_storage(&mut self) -> Result<bool> {
+    fn to_storage(&mut self) -> Result<bool> {
         if let Self::Memory(box_buffer) = self {
             let mut file = tempfile()?;
 
@@ -69,7 +65,7 @@ impl TransientBuffer {
                 file.write(&pixel.to_ne_bytes())?;
             }
 
-            *self = Self::Storage(file, box_buffer.dimensions().into());
+            *self = Self::Storage(file, box_buffer.dimensions().into(), AtomicBool::new(false));
 
             Ok(true)
         } else {
@@ -78,8 +74,8 @@ impl TransientBuffer {
     }
 
     /// Ensures the `TransientBuffer` is in memory, returns true if it was moved.
-    pub fn to_memory(&mut self) -> Result<bool> {
-        if let Self::Storage(file, size) = self {
+    fn to_memory(&mut self) -> Result<bool> {
+        if let Self::Storage(file, size, _) = self {
             let buffer_f32: Vec<f32> = {
                 let buffer_int: Vec<u8> = {
                     let mut buffer = Vec::<u8>::new();
@@ -131,6 +127,22 @@ impl TransientBufferContainer {
         }
     }
 
+    pub fn test_read(&self) -> RwLockReadGuard<TransientBuffer> {
+        loop {
+            if let Ok(transient_buffer) = self.transient_buffer.read() {
+                if transient_buffer.in_memory() {
+                    return transient_buffer
+                } else {
+                    transient_buffer.request();
+                }
+            } else {
+                panic!("Lock poisoned");
+            }
+
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+
     pub fn from_self(&self) -> Self {
         Self {
             retrieved: AtomicBool::new(false),
@@ -140,11 +152,11 @@ impl TransientBufferContainer {
 
     pub fn transient_buffer(&self) -> &RwLock<TransientBuffer> {
         self.retrieved.store(true, Ordering::Relaxed);
-        self.transient_buffer
-            .write()
-            .expect("Lock poisoned")
-            .to_memory()
-            .expect("Could not move to memory");
+        // self.transient_buffer
+        //     .write()
+        //     .expect("Lock poisoned")
+        //     .to_memory()
+        //     .expect("Could not move to memory");
         &self.transient_buffer
     }
 

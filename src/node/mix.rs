@@ -3,13 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{
-    error::Result,
-    node::process_shared::slot_data_with_name,
-    node_graph::SlotId,
-    slot_data::{Buffer, Size, SlotData, SlotImage},
-    transient_buffer::{TransientBuffer, TransientBufferContainer},
-};
+use crate::{error::Result, node::process_shared::slot_data_with_name, node_graph::SlotId, slot_data::{Buffer, Size, SlotData, SlotImage}, transient_buffer::{TransientBuffer, TransientBufferContainer}};
 
 use super::Node;
 
@@ -80,11 +74,12 @@ pub(crate) fn process(
 
     let slot_image: SlotImage = match (image_left, image_right) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {
-            let (mut left, mut right) = (
-                left.transient_buffer().write()?,
-                right.transient_buffer().write()?,
+            let (left, right) = (
+                left.transient_buffer().read()?,
+                right.transient_buffer().read()?,
             );
-            let (left, right) = (left.buffer()?, right.buffer()?);
+            
+            let (left, right) = (left.buffer_read()?, right.buffer_read()?);
 
             SlotImage::Gray(match mix_type {
                 MixType::Add => process_add_gray(left, right, size),
