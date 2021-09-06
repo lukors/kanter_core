@@ -254,7 +254,7 @@ impl Engine {
             }
 
             // Sleeping to reduce CPU load.
-            thread::sleep(std::time::Duration::from_micros(1));
+            thread::sleep(std::time::Duration::from_millis(1));
         }
     }
 
