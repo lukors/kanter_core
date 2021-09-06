@@ -75,11 +75,12 @@ pub(crate) fn process(
     let slot_image: SlotImage = match (image_left, image_right) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {
             let (left, right) = (
-                left.transient_buffer().read()?,
-                right.transient_buffer().read()?,
+                left.test_read(),
+                right.test_read(),
             );
+            let (left, right) = (left.buffer_test(), right.buffer_test());
             
-            let (left, right) = (left.buffer_read()?, right.buffer_read()?);
+            // let (left, right) = (left.buffer_read()?, right.buffer_read()?);
 
             SlotImage::Gray(match mix_type {
                 MixType::Add => process_add_gray(left, right, size),

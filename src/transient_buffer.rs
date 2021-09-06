@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug)]
 pub enum TransientBuffer {
     Memory(Box<Buffer>),
-    Storage(File, Size, AtomicBool),
+    Storage(File, Size, AtomicBool), // Turn the contents of this enum into a struct
 }
 
 impl TransientBuffer {
@@ -29,6 +29,14 @@ impl TransientBuffer {
             Ok(&box_buf)
         } else {
             Err(TexProError::Generic)
+        }
+    }
+
+    pub fn buffer_test(&self) -> &Buffer {
+        if let Self::Memory(box_buf) = self {
+            &box_buf
+        } else {
+            panic!("This should be unreachable")
         }
     }
 
@@ -115,14 +123,14 @@ impl TransientBuffer {
 /// A container for a `TransientBuffer`. Keeps track of if its `TransientBuffer` has been retrieved.
 #[derive(Debug)]
 pub struct TransientBufferContainer {
-    retrieved: AtomicBool,
+    // retrieved: AtomicBool,
     transient_buffer: Arc<RwLock<TransientBuffer>>,
 }
 
 impl TransientBufferContainer {
     pub fn new(transient_buffer: Arc<RwLock<TransientBuffer>>) -> Self {
         Self {
-            retrieved: AtomicBool::new(false),
+            // retrieved: AtomicBool::new(false),
             transient_buffer,
         }
     }
@@ -145,13 +153,13 @@ impl TransientBufferContainer {
 
     pub fn from_self(&self) -> Self {
         Self {
-            retrieved: AtomicBool::new(false),
+            // retrieved: AtomicBool::new(false),
             transient_buffer: Arc::clone(&self.transient_buffer),
         }
     }
 
     pub fn transient_buffer(&self) -> &RwLock<TransientBuffer> {
-        self.retrieved.store(true, Ordering::Relaxed);
+        // self.retrieved.store(true, Ordering::Relaxed);
         // self.transient_buffer
         //     .write()
         //     .expect("Lock poisoned")
@@ -168,9 +176,9 @@ impl TransientBufferContainer {
         Ok(self.transient_buffer.read()?.size())
     }
 
-    pub fn retrieved(&self) -> bool {
-        self.retrieved.load(Ordering::Relaxed)
-    }
+    // pub fn retrieved(&self) -> bool {
+    //     self.retrieved.load(Ordering::Relaxed)
+    // }
 }
 
 #[derive(Default)]
@@ -256,12 +264,12 @@ impl TransientBufferQueue {
                 continue;
             }
 
-            if self.queue[i].retrieved.swap(false, Ordering::Relaxed) {
-                if let Some(removed) = self.queue.remove(i) {
-                    removed.transient_buffer.write()?.to_memory()?;
-                    self.queue.push_back(removed);
-                }
-            }
+            // if self.queue[i].retrieved.swap(false, Ordering::Relaxed) {
+            //     if let Some(removed) = self.queue.remove(i) {
+            //         removed.transient_buffer.write()?.to_memory()?;
+            //         self.queue.push_back(removed);
+            //     }
+            // }
 
             if self.queue[i].transient_buffer.read()?.in_memory() {
                 bytes_in_memory += self.queue[i].transient_buffer.read()?.bytes();
