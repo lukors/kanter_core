@@ -82,8 +82,13 @@ fn input_output() {
 // }
 
 fn calculate_slot(tex_pro: &TextureProcessor, node_id: NodeId, slot_id: SlotId) {
-    for buf in tex_pro.slot_data_new(node_id, slot_id).unwrap().image.bufs() {
-        buf.transient_buffer().write().unwrap().buffer().unwrap();
+    for buf in tex_pro
+        .slot_data_new(node_id, slot_id)
+        .unwrap()
+        .image
+        .bufs()
+    {
+        buf.transient_buffer();
     }
 }
 
@@ -165,47 +170,18 @@ fn drive_cache() {
     {
         if let SlotImage::Rgba(bufs) = &tex_pro.slot_data_new(rgba_node, SlotId(0)).unwrap().image {
             let pixel = {
+                let pixel = [
+                    bufs[0].transient_buffer(),
+                    bufs[1].transient_buffer(),
+                    bufs[2].transient_buffer(),
+                    bufs[3].transient_buffer(),
+                ];
+
                 [
-                    bufs[0]
-                        .transient_buffer()
-                        .write()
-                        .unwrap()
-                        .buffer()
-                        .unwrap()
-                        .pixels()
-                        .next()
-                        .unwrap()
-                        .data[0],
-                    bufs[1]
-                        .transient_buffer()
-                        .write()
-                        .unwrap()
-                        .buffer()
-                        .unwrap()
-                        .pixels()
-                        .next()
-                        .unwrap()
-                        .data[0],
-                    bufs[2]
-                        .transient_buffer()
-                        .write()
-                        .unwrap()
-                        .buffer()
-                        .unwrap()
-                        .pixels()
-                        .next()
-                        .unwrap()
-                        .data[0],
-                    bufs[3]
-                        .transient_buffer()
-                        .write()
-                        .unwrap()
-                        .buffer()
-                        .unwrap()
-                        .pixels()
-                        .next()
-                        .unwrap()
-                        .data[0],
+                    pixel[0].buffer().pixels().next().unwrap().data[0],
+                    pixel[1].buffer().pixels().next().unwrap().data[0],
+                    pixel[2].buffer().pixels().next().unwrap().data[0],
+                    pixel[3].buffer().pixels().next().unwrap().data[0],
                 ]
             };
 

@@ -34,13 +34,13 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
         // let slot_image_cache = slot_data.image_cache();
         // let mut slot_image_cache = slot_image_cache.write().unwrap();
         let buffer_height = if let SlotImage::Gray(buf) = &slot_data.image {
-            buf.transient_buffer().write()?.buffer()?;
-            buf.transient_buffer().read()?
+            buf.transient_buffer()
         } else {
             return Ok(Vec::new());
         };
+        let buffer_height = buffer_height.buffer();
 
-        let buffer_height = buffer_height.buffer_read()?;
+        // let buffer_height = buffer_height.buffer_read()?;
 
         for (x, y, px) in buffer_height.enumerate_pixels() {
             let sample_up = buffer_height.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];

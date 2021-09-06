@@ -1,4 +1,16 @@
-use std::{collections::VecDeque, fmt::{self, Display}, fs::File, io::{Read, Seek, SeekFrom, Write}, mem::size_of, sync::{Arc, RwLock, RwLockReadGuard, atomic::{AtomicBool, Ordering}}, thread, time::Duration};
+use std::{
+    collections::VecDeque,
+    fmt::{self, Display},
+    fs::File,
+    io::{Read, Seek, SeekFrom, Write},
+    mem::size_of,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, RwLock, RwLockReadGuard,
+    },
+    thread,
+    time::Duration,
+};
 use tempfile::tempfile;
 
 use crate::{
@@ -18,25 +30,11 @@ impl TransientBuffer {
         Self::Memory(buffer)
     }
 
-    /// Makes sure the `TransientBuffer` is in memory and returns its buffer.
-    pub fn buffer(&mut self) -> Result<&Buffer> {
-        self.to_memory()?;
-        self.buffer_read()
-    }
-
-    pub fn buffer_read(&self) -> Result<&Buffer> {
-        if let Self::Memory(box_buf) = self {
-            Ok(&box_buf)
-        } else {
-            Err(TexProError::Generic)
-        }
-    }
-
-    pub fn buffer_test(&self) -> &Buffer {
+    pub fn buffer(&self) -> &Buffer {
         if let Self::Memory(box_buf) = self {
             &box_buf
         } else {
-            panic!("This should be unreachable")
+            panic!("This should be unreachable when accessed from the outside")
         }
     }
 
@@ -123,23 +121,26 @@ impl TransientBuffer {
 /// A container for a `TransientBuffer`. Keeps track of if its `TransientBuffer` has been retrieved.
 #[derive(Debug)]
 pub struct TransientBufferContainer {
-    // retrieved: AtomicBool,
     transient_buffer: Arc<RwLock<TransientBuffer>>,
+    size: Size,
 }
 
 impl TransientBufferContainer {
     pub fn new(transient_buffer: Arc<RwLock<TransientBuffer>>) -> Self {
+        let size = transient_buffer.read().unwrap().size();
+
         Self {
             // retrieved: AtomicBool::new(false),
             transient_buffer,
+            size,
         }
     }
 
-    pub fn test_read(&self) -> RwLockReadGuard<TransientBuffer> {
+    pub fn transient_buffer(&self) -> RwLockReadGuard<TransientBuffer> {
         loop {
             if let Ok(transient_buffer) = self.transient_buffer.read() {
                 if transient_buffer.in_memory() {
-                    return transient_buffer
+                    return transient_buffer;
                 } else {
                     transient_buffer.request();
                 }
@@ -151,29 +152,27 @@ impl TransientBufferContainer {
         }
     }
 
-    pub fn from_self(&self) -> Self {
-        Self {
-            // retrieved: AtomicBool::new(false),
-            transient_buffer: Arc::clone(&self.transient_buffer),
+    pub fn try_transient_buffer(&self) -> Result<RwLockReadGuard<TransientBuffer>> {
+        let transient_buffer = self.transient_buffer.try_read()?;
+
+        if transient_buffer.in_memory() {
+            Ok(transient_buffer)
+        } else {
+            transient_buffer.request();
+            Err(TexProError::Generic)
         }
     }
 
-    pub fn transient_buffer(&self) -> &RwLock<TransientBuffer> {
-        // self.retrieved.store(true, Ordering::Relaxed);
-        // self.transient_buffer
-        //     .write()
-        //     .expect("Lock poisoned")
-        //     .to_memory()
-        //     .expect("Could not move to memory");
-        &self.transient_buffer
+    pub fn from_self(&self) -> Self {
+        Self::new(Arc::clone(&self.transient_buffer))
     }
 
     pub(crate) fn transient_buffer_sneaky(&self) -> &RwLock<TransientBuffer> {
         &self.transient_buffer
     }
 
-    pub fn size(&self) -> Result<Size> {
-        Ok(self.transient_buffer.read()?.size())
+    pub fn size(&self) -> Size {
+        self.size
     }
 
     // pub fn retrieved(&self) -> bool {

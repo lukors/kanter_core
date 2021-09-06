@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
+    error::Result,
     node_graph::SlotId,
     slot_data::{SlotData, SlotImage},
-    error::Result,
 };
 
 use super::Node;

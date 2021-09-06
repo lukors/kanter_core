@@ -73,24 +73,42 @@ pub(crate) fn calculate_size(
             } else {
                 slot_datas
                     .iter()
-                    .max_by(|a, b| a.size().unwrap().pixel_count().cmp(&b.size().unwrap().pixel_count()))
+                    .max_by(|a, b| {
+                        a.size()
+                            .unwrap()
+                            .pixel_count()
+                            .cmp(&b.size().unwrap().pixel_count())
+                    })
                     .map(|node_data| node_data.size().unwrap())
                     .unwrap()
             }
         }
         ResizePolicy::LeastPixels => slot_datas
             .iter()
-            .min_by(|a, b| a.size().unwrap().pixel_count().cmp(&b.size().unwrap().pixel_count()))
+            .min_by(|a, b| {
+                a.size()
+                    .unwrap()
+                    .pixel_count()
+                    .cmp(&b.size().unwrap().pixel_count())
+            })
             .map(|node_data| node_data.size().unwrap())
             .unwrap(),
         ResizePolicy::LargestAxes => slot_datas.iter().fold(Size::new(0, 0), |a, b| {
-            Size::new(max(a.width, b.size().unwrap().width), max(a.height, b.size().unwrap().height))
+            Size::new(
+                max(a.width, b.size().unwrap().width),
+                max(a.height, b.size().unwrap().height),
+            )
         }),
-        ResizePolicy::SmallestAxes => slot_datas
-            .iter()
-            .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
-                Size::new(min(a.width, b.size().unwrap().width), min(a.height, b.size().unwrap().height))
-            }),
+        ResizePolicy::SmallestAxes => {
+            slot_datas
+                .iter()
+                .fold(Size::new(u32::MAX, u32::MAX), |a, b| {
+                    Size::new(
+                        min(a.width, b.size().unwrap().width),
+                        min(a.height, b.size().unwrap().height),
+                    )
+                })
+        }
         ResizePolicy::SpecificSlot(slot_id) => {
             let mut edges = edges.to_vec();
             edges.sort_unstable_by(|a, b| a.input_slot.cmp(&b.input_slot));
@@ -107,7 +125,8 @@ pub(crate) fn calculate_size(
                         node_data.slot_id == edge.output_slot && node_data.node_id == edge.output_id
                     })
                     .expect("Couldn't find a buffer with the given `NodeId` while resizing")
-                    .size().unwrap()
+                    .size()
+                    .unwrap()
             } else {
                 // TODO: This should fall back to the size of the graph here. Graphs don't have a size
                 // when this is written.
@@ -137,11 +156,7 @@ pub(crate) fn resize_buffers(
                     SlotImage::Gray(buf) => {
                         SlotImage::Gray(Arc::new(TransientBufferContainer::new(Arc::new(
                             RwLock::new(TransientBuffer::new(Box::new(imageops::resize(
-                                buf.transient_buffer()
-                                    .write()
-                                    .expect("Lock poisoned")
-                                    .buffer()
-                                    .expect("Lock poisoned"),
+                                buf.transient_buffer().buffer(),
                                 size.width,
                                 size.height,
                                 filter.into(),
@@ -151,12 +166,7 @@ pub(crate) fn resize_buffers(
                     SlotImage::Rgba(bufs) => SlotImage::Rgba([
                         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                             TransientBuffer::new(Box::new(imageops::resize(
-                                bufs[0]
-                                    .transient_buffer()
-                                    .write()
-                                    .expect("Lock poisoned")
-                                    .buffer()
-                                    .expect("Lock poisoned"),
+                                bufs[0].transient_buffer().buffer(),
                                 size.width,
                                 size.height,
                                 filter.into(),
@@ -164,12 +174,7 @@ pub(crate) fn resize_buffers(
                         )))),
                         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                             TransientBuffer::new(Box::new(imageops::resize(
-                                bufs[1]
-                                    .transient_buffer()
-                                    .write()
-                                    .expect("Lock poisoned")
-                                    .buffer()
-                                    .expect("Lock poisoned"),
+                                bufs[1].transient_buffer().buffer(),
                                 size.width,
                                 size.height,
                                 filter.into(),
@@ -177,12 +182,7 @@ pub(crate) fn resize_buffers(
                         )))),
                         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                             TransientBuffer::new(Box::new(imageops::resize(
-                                bufs[2]
-                                    .transient_buffer()
-                                    .write()
-                                    .expect("Lock poisoned")
-                                    .buffer()
-                                    .expect("Lock poisoned"),
+                                bufs[2].transient_buffer().buffer(),
                                 size.width,
                                 size.height,
                                 filter.into(),
@@ -190,12 +190,7 @@ pub(crate) fn resize_buffers(
                         )))),
                         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                             TransientBuffer::new(Box::new(imageops::resize(
-                                bufs[3]
-                                    .transient_buffer()
-                                    .write()
-                                    .expect("Lock poisoned")
-                                    .buffer()
-                                    .expect("Lock poisoned"),
+                                bufs[3].transient_buffer().buffer(),
                                 size.width,
                                 size.height,
                                 filter.into(),

@@ -114,8 +114,8 @@ impl SlotImage {
 
     pub fn size(&self) -> Result<Size> {
         Ok(match self {
-            Self::Gray(buf) => Size::new(buf.size()?.width, buf.size()?.height),
-            Self::Rgba(bufs) => Size::new(bufs[0].size()?.width, bufs[0].size()?.height),
+            Self::Gray(buf) => Size::new(buf.size().width, buf.size().height),
+            Self::Rgba(bufs) => Size::new(bufs[0].size().width, bufs[0].size().height),
         })
     }
 
@@ -146,8 +146,7 @@ impl SlotImage {
         Ok(match self {
             Self::Gray(buf) => buf
                 .transient_buffer()
-                .write()?
-                .buffer()?
+                .buffer()
                 .pixels()
                 .map(|x| {
                     let value = Self::f32_to_u8(x[0]);
@@ -157,12 +156,11 @@ impl SlotImage {
                 .collect(),
             Self::Rgba(bufs) => bufs[0]
                 .transient_buffer()
-                .write()?
-                .buffer()?
+                .buffer()
                 .pixels()
-                .zip(bufs[1].transient_buffer().write()?.buffer()?.pixels())
-                .zip(bufs[2].transient_buffer().write()?.buffer()?.pixels())
-                .zip(bufs[3].transient_buffer().write()?.buffer()?.pixels())
+                .zip(bufs[1].transient_buffer().buffer().pixels())
+                .zip(bufs[2].transient_buffer().buffer().pixels())
+                .zip(bufs[3].transient_buffer().buffer().pixels())
                 .map(|(((r, g), b), a)| vec![r, g, b, a].into_iter())
                 .flatten()
                 .map(|x| Self::f32_to_u8(x[0]))
@@ -179,8 +177,7 @@ impl SlotImage {
         Ok(match self {
             Self::Gray(buf) => buf
                 .transient_buffer()
-                .write()?
-                .buffer()?
+                .buffer()
                 .pixels()
                 .map(|x| {
                     let value = f32_to_u8_srgb(x[0]);
@@ -190,12 +187,11 @@ impl SlotImage {
                 .collect(),
             Self::Rgba(bufs) => bufs[0]
                 .transient_buffer()
-                .write()?
-                .buffer()?
+                .buffer()
                 .pixels()
-                .zip(bufs[1].transient_buffer().write()?.buffer()?.pixels())
-                .zip(bufs[2].transient_buffer().write()?.buffer()?.pixels())
-                .zip(bufs[3].transient_buffer().write()?.buffer()?.pixels())
+                .zip(bufs[1].transient_buffer().buffer().pixels())
+                .zip(bufs[2].transient_buffer().buffer().pixels())
+                .zip(bufs[3].transient_buffer().buffer().pixels())
                 .map(|(((r, g), b), a)| {
                     vec![
                         f32_to_u8_srgb(r.data[0]),
@@ -235,12 +231,12 @@ impl SlotImage {
                 )))),
             ]),
             Self::Rgba(bufs) => {
-                let (mut buf_r, mut buf_g, mut buf_b) = (
-                    bufs[0].transient_buffer().write()?,
-                    bufs[1].transient_buffer().write()?,
-                    bufs[2].transient_buffer().write()?,
+                let (buf_r, buf_g, buf_b) = (
+                    bufs[0].transient_buffer(),
+                    bufs[1].transient_buffer(),
+                    bufs[2].transient_buffer(),
                 );
-                let (buf_r, buf_g, buf_b) = (buf_r.buffer()?, buf_g.buffer()?, buf_b.buffer()?);
+                let (buf_r, buf_g, buf_b) = (buf_r.buffer(), buf_g.buffer(), buf_b.buffer());
 
                 Self::Gray(Arc::new(TransientBufferContainer::new(Arc::new(
                     RwLock::new(TransientBuffer::new(Box::new(Buffer::from_fn(
@@ -328,11 +324,7 @@ impl SlotData {
     }
 
     pub fn from_self(&self) -> Self {
-        Self::new(
-            self.node_id,
-            self.slot_id,
-            self.image.from_self(),
-        )
+        Self::new(self.node_id, self.slot_id, self.image.from_self())
     }
 
     pub fn size(&self) -> Result<Size> {

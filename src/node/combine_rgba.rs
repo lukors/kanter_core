@@ -1,10 +1,10 @@
 use std::sync::{Arc, RwLock};
 
 use crate::{
+    error::Result,
     node_graph::SlotId,
     slot_data::{Buffer, SlotData, SlotImage},
     transient_buffer::{TransientBuffer, TransientBufferContainer},
-    error::Result,
 };
 
 use super::Node;

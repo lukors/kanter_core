@@ -3,7 +3,13 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{error::Result, node::process_shared::slot_data_with_name, node_graph::SlotId, slot_data::{Buffer, Size, SlotData, SlotImage}, transient_buffer::{TransientBuffer, TransientBufferContainer}};
+use crate::{
+    error::Result,
+    node::process_shared::slot_data_with_name,
+    node_graph::SlotId,
+    slot_data::{Buffer, Size, SlotData, SlotImage},
+    transient_buffer::{TransientBuffer, TransientBufferContainer},
+};
 
 use super::Node;
 
@@ -60,9 +66,12 @@ pub(crate) fn process(
 
             (slot_data_left.image.clone(), image_right)
         } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
-            let image_left =
-                SlotImage::from_value(slot_data_right.size()?, 0.0, slot_data_right.image.is_rgba())
-                    .into();
+            let image_left = SlotImage::from_value(
+                slot_data_right.size()?,
+                0.0,
+                slot_data_right.image.is_rgba(),
+            )
+            .into();
 
             (image_left, slot_data_right.image.clone())
         } else {
@@ -74,12 +83,9 @@ pub(crate) fn process(
 
     let slot_image: SlotImage = match (image_left, image_right) {
         (SlotImage::Gray(left), SlotImage::Gray(right)) => {
-            let (left, right) = (
-                left.test_read(),
-                right.test_read(),
-            );
-            let (left, right) = (left.buffer_test(), right.buffer_test());
-            
+            let (left, right) = (left.transient_buffer(), right.transient_buffer());
+            let (left, right) = (left.buffer(), right.buffer());
+
             // let (left, right) = (left.buffer_read()?, right.buffer_read()?);
 
             SlotImage::Gray(match mix_type {
@@ -91,23 +97,18 @@ pub(crate) fn process(
             })
         }
         (SlotImage::Rgba(left), SlotImage::Rgba(right)) => {
-            let (mut left, mut right) = (
+            let (left, right) = (
                 left.iter()
-                    .map(|tbc| tbc.transient_buffer().write().expect("Poisoned lock"))
+                    .map(|tbc| tbc.transient_buffer())
                     .collect::<Vec<_>>(),
                 right
                     .iter()
-                    .map(|tbc| tbc.transient_buffer().write().expect("Poisoned lock"))
+                    .map(|tbc| tbc.transient_buffer())
                     .collect::<Vec<_>>(),
             );
             let (left, right) = (
-                left.iter_mut()
-                    .map(|tbc| tbc.buffer().expect("Poisoned lock"))
-                    .collect::<Vec<_>>(),
-                right
-                    .iter_mut()
-                    .map(|tbc| tbc.buffer().expect("Poisoned lock"))
-                    .collect::<Vec<_>>(),
+                left.iter().map(|tbc| tbc.buffer()).collect::<Vec<_>>(),
+                right.iter().map(|tbc| tbc.buffer()).collect::<Vec<_>>(),
             );
 
             SlotImage::Rgba(match mix_type {
