@@ -74,7 +74,7 @@ impl Engine {
         }
     }
 
-    pub(crate) fn process_loop(tex_pro: Arc<RwLock<Engine>>, shutdown: Arc<AtomicBool>) {
+    pub(crate) fn process_loop(engine: Arc<RwLock<Engine>>, shutdown: Arc<AtomicBool>) {
         struct ThreadMessage {
             node_id: NodeId,
             slot_datas: Result<Vec<Arc<SlotData>>>,
@@ -86,7 +86,7 @@ impl Engine {
                 return;
             }
 
-            if let Ok(mut tex_pro) = tex_pro.write() {
+            if let Ok(mut engine) = engine.write() {
                 // Handle messages received from node processing threads.
                 for message in recv.try_iter() {
                     let node_id = message.node_id;
@@ -95,52 +95,52 @@ impl Engine {
                         Ok(slot_datas) => {
                             for slot_data in &slot_datas {
                                 TransientBufferQueue::add_slot_data(
-                                    &tex_pro.add_buffer_queue,
+                                    &engine.add_buffer_queue,
                                     slot_data,
                                 );
                             }
 
-                            tex_pro.remove_nodes_data(node_id);
-                            tex_pro.slot_datas.append(&mut slot_datas.into());
+                            engine.remove_nodes_data(node_id);
+                            engine.slot_datas.append(&mut slot_datas.into());
                         }
                         Err(e) => {
                             shutdown.store(true, Ordering::Relaxed);
                             panic!(
                                 "Error when processing '{:?}' node with id '{}': {}",
-                                tex_pro.node_graph.node_with_id(node_id).unwrap().node_type,
+                                engine.node_graph.node_with_id(node_id).unwrap().node_type,
                                 node_id,
                                 e
                             );
                         }
                     }
 
-                    if tex_pro.set_state(node_id, NodeState::Clean).is_err() {
+                    if engine.set_state(node_id, NodeState::Clean).is_err() {
                         shutdown.store(true, Ordering::Relaxed);
                         return;
                     }
 
-                    if !tex_pro.use_cache {
-                        for parent in tex_pro.get_parents(node_id) {
-                            if tex_pro
+                    if !engine.use_cache {
+                        for parent in engine.get_parents(node_id) {
+                            if engine
                                 .get_children(parent)
                                 .iter()
                                 .flatten()
                                 .all(|node_id| {
                                     matches![
-                                        tex_pro.node_state(*node_id).unwrap(),
+                                        engine.node_state(*node_id).unwrap(),
                                         NodeState::Clean | NodeState::Processing
                                     ]
                                 })
                             {
-                                tex_pro.remove_nodes_data(parent);
+                                engine.remove_nodes_data(parent);
                             }
                         }
                     }
                 }
 
                 // Get requested nodes
-                let requested = if tex_pro.auto_update {
-                    tex_pro
+                let requested = if engine.auto_update {
+                    engine
                         .node_state
                         .iter()
                         .filter(|(_, node_state)| {
@@ -149,7 +149,7 @@ impl Engine {
                         .map(|(node_id, _)| *node_id)
                         .collect::<Vec<NodeId>>()
                 } else {
-                    tex_pro
+                    engine
                         .node_state
                         .iter()
                         .filter(|(_, node_state)| {
@@ -162,29 +162,29 @@ impl Engine {
                 // Get the closest non-clean parents
                 let mut closest_processable = Vec::new();
                 for node_id in requested {
-                    closest_processable.append(&mut tex_pro.get_closest_processable(node_id));
+                    closest_processable.append(&mut engine.get_closest_processable(node_id));
                 }
                 closest_processable.sort_unstable();
                 closest_processable.dedup();
 
                 for node_id in closest_processable {
-                    *tex_pro.node_state_mut(node_id).unwrap() = NodeState::Processing;
+                    *engine.node_state_mut(node_id).unwrap() = NodeState::Processing;
 
-                    let node = tex_pro.node_graph.node_with_id(node_id).unwrap();
+                    let node = engine.node_graph.node_with_id(node_id).unwrap();
 
-                    let embedded_node_datas: Vec<Arc<EmbeddedSlotData>> = tex_pro
+                    let embedded_node_datas: Vec<Arc<EmbeddedSlotData>> = engine
                         .embedded_slot_datas
                         .iter()
                         .map(|end| Arc::clone(&end))
                         .collect();
 
-                    let input_node_datas: Vec<Arc<SlotData>> = tex_pro
+                    let input_node_datas: Vec<Arc<SlotData>> = engine
                         .input_slot_datas
                         .iter()
                         .map(|nd| Arc::clone(&nd))
                         .collect();
 
-                    let edges = tex_pro
+                    let edges = engine
                         .edges()
                         .iter()
                         .filter(|edge| edge.input_id == node_id)
@@ -196,7 +196,7 @@ impl Engine {
                             .iter()
                             .map(|edge| {
                                 if let Ok(slot_data) =
-                                    tex_pro.slot_data(edge.output_id, edge.output_slot)
+                                    engine.slot_data(edge.output_id, edge.output_slot)
                                 {
                                     Arc::clone(&slot_data)
                                 } else {
@@ -242,8 +242,8 @@ impl Engine {
                     });
                 }
 
-                if tex_pro.one_shot
-                    && tex_pro
+                if engine.one_shot
+                    && engine
                         .node_state
                         .iter()
                         .all(|(_, node_state)| *node_state == NodeState::Clean)
