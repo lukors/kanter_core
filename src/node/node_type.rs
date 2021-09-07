@@ -1,4 +1,6 @@
-use crate::{error::Result, node_graph::*, shared::resize_buffers, slot_data::SlotData};
+use crate::{
+    edge::Edge, error::Result, node_graph::*, shared::resize_buffers, slot_data::SlotData,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt, mem, path::PathBuf, sync::Arc};
 

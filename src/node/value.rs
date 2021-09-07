@@ -4,7 +4,8 @@ use image::ImageBuffer;
 
 use crate::{
     node_graph::SlotId,
-    slot_data::{SlotData, SlotImage},
+    slot_data::SlotData,
+    slot_image::SlotImage,
     transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 

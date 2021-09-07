@@ -1,6 +1,7 @@
 use crate::{
+    edge::Edge,
     error::{Result, TexProError},
-    node_graph::Edge,
+    slot_image::{BoxBuffer, SlotImage},
     transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 use crate::{node::*, slot_data::*};

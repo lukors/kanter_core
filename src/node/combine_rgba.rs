@@ -3,7 +3,8 @@ use std::sync::{Arc, RwLock};
 use crate::{
     error::Result,
     node_graph::SlotId,
-    slot_data::{Buffer, SlotData, SlotImage},
+    slot_data::SlotData,
+    slot_image::{Buffer, SlotImage},
     transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 

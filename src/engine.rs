@@ -1,4 +1,5 @@
 use crate::{
+    edge::Edge,
     error::{Result, TexProError},
     node::{
         embed::{EmbeddedSlotData, EmbeddedSlotDataId},
@@ -7,6 +8,7 @@ use crate::{
     },
     node_graph::*,
     slot_data::*,
+    slot_image::SlotImage,
     transient_buffer::{TransientBuffer, TransientBufferContainer, TransientBufferQueue},
 };
 use image::ImageBuffer;
@@ -17,6 +19,7 @@ use std::{
         mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
     thread,
+    time::Duration,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -36,10 +39,10 @@ impl Default for NodeState {
 
 #[derive(Default)]
 pub struct Engine {
-    pub node_graph: NodeGraph,
+    node_graph: NodeGraph,
     slot_datas: VecDeque<Arc<SlotData>>,
-    pub embedded_slot_datas: Vec<Arc<EmbeddedSlotData>>,
-    pub input_slot_datas: Vec<Arc<SlotData>>,
+    embedded_slot_datas: Vec<Arc<EmbeddedSlotData>>,
+    input_slot_datas: Vec<Arc<SlotData>>,
     node_state: BTreeMap<NodeId, NodeState>,
     changed: BTreeSet<NodeId>,
     one_shot: bool,
@@ -49,9 +52,11 @@ pub struct Engine {
     pub memory_threshold: Arc<AtomicUsize>,
 }
 
+const ONE_GIB: usize = 1_073_742_000;
+
 impl Engine {
     pub fn new(shutdown: Arc<AtomicBool>) -> Self {
-        let mut transient_buffer_queue = TransientBufferQueue::new(1_073_742_000, shutdown); // 1 Gib
+        let mut transient_buffer_queue = TransientBufferQueue::new(ONE_GIB, shutdown);
         let add_buffer_queue = Arc::clone(&transient_buffer_queue.incoming_buffers);
         let memory_threshold = Arc::clone(&transient_buffer_queue.memory_threshold);
 
@@ -107,7 +112,7 @@ impl Engine {
                             shutdown.store(true, Ordering::Relaxed);
                             panic!(
                                 "Error when processing '{:?}' node with id '{}': {}",
-                                engine.node_graph.node_with_id(node_id).unwrap().node_type,
+                                engine.node_graph.node(node_id).unwrap().node_type,
                                 node_id,
                                 e
                             );
@@ -165,7 +170,7 @@ impl Engine {
                 for node_id in closest_processable {
                     *engine.node_state_mut(node_id).unwrap() = NodeState::Processing;
 
-                    let node = engine.node_graph.node_with_id(node_id).unwrap();
+                    let node = engine.node_graph.node(node_id).unwrap();
 
                     let embedded_node_datas: Vec<Arc<EmbeddedSlotData>> = engine
                         .embedded_slot_datas
@@ -249,7 +254,7 @@ impl Engine {
             }
 
             // Sleeping to reduce CPU load.
-            thread::sleep(std::time::Duration::from_millis(1));
+            thread::sleep(Duration::from_millis(1));
         }
     }
 
@@ -262,27 +267,14 @@ impl Engine {
 
     /// Return a SlotData as u8.
     pub fn buffer_rgba(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
-        // Ok((*self.slot_data(node_id, slot_id)?.image.read().unwrap()).get().to_u8())
         self.slot_data(node_id, slot_id)?.image.to_u8()
     }
-
-    // pub fn memory_threshold(&self) -> usize {
-    //     self.transient_buffer_queue.memory_threshold
-    // }
-
-    // pub fn set_memory_threshold(&mut self, threshold: usize) {
-    //     self.transient_buffer_queue.memory_threshold = threshold;
-    // }
 
     /// Return all changed `NodeId`s.
     pub fn changed_consume(&mut self) -> Vec<NodeId> {
         let output = self.changed.iter().copied().collect();
         self.changed.clear();
         output
-    }
-
-    pub fn has_node_with_id(&self, node_id: NodeId) -> Result<()> {
-        self.node_graph.has_node_with_id(node_id)
     }
 
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
@@ -300,6 +292,8 @@ impl Engine {
                     engine.prioritise(node_id)?;
                 }
             }
+
+            thread::sleep(Duration::from_millis(1));
         }
     }
 
@@ -318,6 +312,7 @@ impl Engine {
             }
 
             engine.write().unwrap().prioritise(node_id)?;
+            thread::sleep(Duration::from_millis(1));
         }
     }
 
@@ -358,12 +353,12 @@ impl Engine {
             .ok_or(TexProError::InvalidNodeId)?)
     }
 
-    /// Gets all `NodeId`s that are not clean.
-    pub fn non_clean(&self) -> Vec<NodeId> {
+    /// Returns all `NodeId`s that are not in the given `NodeState`.
+    pub fn node_ids_without_state(&self, node_state: NodeState) -> Vec<NodeId> {
         self.node_state
             .iter()
-            .filter(|(_, node_state)| **node_state != NodeState::Clean)
-            .map(|(node_id, _)| *node_id)
+            .filter(|(_, node_state_iter)| **node_state_iter != node_state)
+            .map(|(id, _)| *id)
             .collect()
     }
 
@@ -376,22 +371,7 @@ impl Engine {
             .collect()
     }
 
-    pub fn get_root_ids(&self) -> Vec<NodeId> {
-        self.node_graph
-            .nodes()
-            .iter()
-            .filter(|node| {
-                self.node_graph
-                    .edges
-                    .iter()
-                    .map(|edge| edge.output_id)
-                    .any(|x| x == node.node_id)
-            })
-            .map(|node| node.node_id)
-            .collect::<Vec<NodeId>>()
-    }
-
-    /// Returns the NodeIds of all immediate children of this node (not recursive).
+    /// Returns the `NodeId`s of all immediate children of the given `NodeId` (not recursive).
     pub fn get_children(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
         self.node_graph.has_node_with_id(node_id)?;
 
@@ -409,7 +389,7 @@ impl Engine {
         Ok(children)
     }
 
-    /// Returns the NodeIds of all children of this node.
+    /// Returns the `NodeId`s of all children of the given `NodeId`.
     pub fn get_children_recursive(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
         let children = self.get_children(node_id)?;
         let mut output = children.clone();
@@ -421,7 +401,7 @@ impl Engine {
         Ok(output)
     }
 
-    /// Returns the NodeIds of all immediate parents of this node (not recursive).
+    /// Returns the `NodeId`s of all immediate parents of the given `NodeId` (not recursive).
     pub fn get_parents(&self, node_id: NodeId) -> Vec<NodeId> {
         let mut node_ids = self
             .node_graph
@@ -436,19 +416,7 @@ impl Engine {
         node_ids
     }
 
-    /// Returns the NodeIds of all parents of this node.
-    pub fn get_ancestors(&self, node_id: NodeId) -> Vec<NodeId> {
-        let parents = self.get_parents(node_id);
-        let mut output = parents.clone();
-
-        for parent in parents {
-            output.append(&mut self.get_ancestors(parent));
-        }
-
-        output
-    }
-
-    /// Returns the NodeIds of the closest ancestors that are ready to be processed, including self.
+    /// Returns the `NodeId`s of the closest ancestors that are ready to be processed, including self.
     pub fn get_closest_processable(&self, node_id: NodeId) -> Vec<NodeId> {
         let mut closest_processable = Vec::new();
 
@@ -465,9 +433,9 @@ impl Engine {
             }
         }
 
-        // If there are no dirty parents, and no parents currently being processed that means all
-        // potential parents for this node have been processed, meaning this node can be processed.
         if dirty.is_empty() && processing.is_empty() {
+            // If there are no dirty parents, and no parents currently being processed that means all
+            // potential parents for this node have been processed, meaning this node can be processed.
             closest_processable.push(node_id);
         } else {
             // If there are dirty parents, recurse into them and keep looking for the closest
@@ -483,60 +451,16 @@ impl Engine {
         closest_processable
     }
 
-    /// Returns the `NodeId`s of all ancestors until a node with the given `NodeState` is found in the first Vec.
-    ///
-    /// Also returns the nodes with the state in the second Vec.
-    ///
-    /// Errors if any branch ends without finding a node in the given state.
-    pub fn get_ancestors_until_state_strict(
-        &self,
-        node_id: NodeId,
-        node_states: &[NodeState],
-    ) -> Result<(Vec<NodeId>, Vec<NodeId>)> {
-        let mut node_ids_with_state = Vec::new();
-        let mut node_ids_on_way = Vec::new();
-
-        for node_state in node_states.iter() {
-            if self.node_state(node_id).unwrap() == *node_state {
-                node_ids_with_state.push(node_id);
-            }
-        }
-
-        if node_ids_with_state.is_empty() {
-            node_ids_on_way.push(node_id);
-
-            let parent_node_ids = self.get_parents(node_id);
-            if parent_node_ids.is_empty() {
-                return Err(TexProError::InvalidNodeId);
-            }
-
-            for node_id in parent_node_ids {
-                let (on_way, with_state) =
-                    &mut self.get_ancestors_until_state_strict(node_id, node_states)?;
-                node_ids_on_way.append(on_way);
-                node_ids_with_state.append(with_state);
-            }
-        }
-
-        node_ids_on_way.sort_unstable();
-        node_ids_on_way.dedup();
-
-        node_ids_with_state.sort_unstable();
-        node_ids_with_state.dedup();
-
-        Ok((node_ids_on_way, node_ids_with_state))
-    }
-
-    /// Embeds a `SlotData` in the `TextureProcessor` with an associated `EmbeddedNodeDataId`.
+    /// Embeds a `SlotData` in the `Engine` with an associated `EmbeddedNodeDataId`.
     /// The `EmbeddedNodeDataId` can be referenced using the assigned `EmbeddedNodeDataId` in a
-    /// `NodeType::NodeData` node. This is useful when you want to transfer and use 'NodeData'
-    /// between several `TextureProcessor`s.
+    /// `NodeType::Embed` node. This is useful when you want to transfer and use 'NodeData'
+    /// between several `Engine`s.
     ///
-    /// Get the `SlotData`s from a `Node` in a `TextureProcessor` by using the `get_node_data()`
+    /// Get the `SlotData`s from a `Node` in a `Engine` by using `node_slot_datas_new()`
     /// function.
-    pub fn embed_node_data_with_id(
+    pub fn embed_slot_data_with_id(
         &mut self,
-        node_data: Arc<SlotData>,
+        slot_data: Arc<SlotData>,
         id: EmbeddedSlotDataId,
     ) -> Result<EmbeddedSlotDataId> {
         if self
@@ -544,15 +468,21 @@ impl Engine {
             .iter()
             .all(|end| end.slot_data_id != id)
         {
+            TransientBufferQueue::add_slot_data(&self.add_buffer_queue, &slot_data);
             self.embedded_slot_datas
-                .push(Arc::new(EmbeddedSlotData::from_slot_data(node_data, id)));
+                .push(Arc::new(EmbeddedSlotData::from_slot_data(slot_data, id)));
             Ok(id)
         } else {
             Err(TexProError::InvalidSlotId)
         }
     }
 
-    /// Removes all the `slot_data` associated with the given `NodeId`.
+    pub fn add_input_slot_data(&mut self, slot_data: Arc<SlotData>) {
+        TransientBufferQueue::add_slot_data(&self.add_buffer_queue, &slot_data);
+        self.input_slot_datas.push(slot_data);
+    }
+
+    /// Removes all the `SlotData` associated with the given `NodeId`.
     pub(crate) fn remove_nodes_data(&mut self, id: NodeId) {
         for i in (0..self.slot_datas.len()).rev() {
             if self.slot_datas[i].node_id == id {
@@ -561,43 +491,34 @@ impl Engine {
         }
     }
 
-    pub fn node_with_id_mut(&mut self, node_id: NodeId) -> Result<&mut Node> {
+    pub fn has_node(&self, node_id: NodeId) -> Result<()> {
+        self.node_graph.has_node_with_id(node_id)
+    }
+
+    pub fn node(&self, node_id: NodeId) -> Result<Node> {
+        self.node_graph.node(node_id)
+    }
+
+    pub fn node_mut(&mut self, node_id: NodeId) -> Result<&mut Node> {
         self.set_state(node_id, NodeState::Dirty)?;
         self.node_graph
             .node_with_id_mut(node_id)
             .ok_or(TexProError::InvalidNodeId)
     }
 
-    /// Gets all `SlotData`s in this `TextureProcessor`.
-    // pub fn slot_datas(&self) -> Vec<Arc<SlotData>> {
-    //     self.slot_datas.clone().into()
-    // }
+    pub fn set_node_with_id(&mut self, node_id: NodeId, node: Node) -> Result<()> {
+        let found_node = self
+            .node_graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.node_id == node_id)
+            .ok_or(TexProError::InvalidNodeId)?;
+        *found_node = node;
 
-    /// Gets all output `SlotData`s in this `TextureProcessor`.
-    // pub(crate) fn slot_datas_output(&mut self) -> Result<Vec<Arc<SlotData>>> {
-    //     let mut output = Vec::new();
+        Ok(())
+    }
 
-    //     let slot_data_ids: Vec<(NodeId, SlotId)> = self
-    //         .slot_datas
-    //         .iter()
-    //         .filter(|slot_data| {
-    //             if let Ok(node) = self.node_graph.node_with_id(slot_data.node_id) {
-    //                 node.node_type.is_output()
-    //             } else {
-    //                 false
-    //             }
-    //         })
-    //         .map(|slot_data| (slot_data.node_id, slot_data.slot_id))
-    //         .collect();
-
-    //     for (node_id, slot_id) in slot_data_ids {
-    //         output.push(self.slot_data(node_id, slot_id)?);
-    //     }
-
-    //     Ok(output)
-    // }
-
-    /// Gets any `SlotData`s associated with a given `NodeId`.
+    /// Gets all `SlotData`s associated with a given `NodeId`.
     pub(crate) fn node_slot_datas(&mut self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
         let mut output: Vec<Arc<SlotData>> = Vec::new();
 
@@ -615,6 +536,14 @@ impl Engine {
         Ok(output)
     }
 
+    /// Finds all `SlotData`s associated with the given `NodeId`, clones them and returns a vector
+    /// of new `SlotData`s.
+    ///
+    /// This function can be used to retrieve buffers from the `Engine`. The returned
+    /// `SlotData`s can be used inside another `Engine`, and in that case no buffers are being
+    /// cloned, they are sharing the same memory.
+    ///
+    /// Note that cloning a `SlotData` is very cheap since it is very lightweight.
     pub fn node_slot_datas_new(&mut self, node_id: NodeId) -> Result<Vec<SlotData>> {
         let mut output: Vec<SlotData> = Vec::new();
 
@@ -632,17 +561,12 @@ impl Engine {
         Ok(output)
     }
 
-    pub(crate) fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
+    pub fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
         self.slot_data(node_id, slot_id)?.size()
     }
 
     pub fn slot_in_memory(&self, node_id: NodeId, slot_id: SlotId) -> Result<bool> {
-        Ok(self
-            .slot_data(node_id, slot_id)?
-            .image
-            .bufs()
-            .iter()
-            .all(|buf| buf.transient_buffer_sneaky().read().unwrap().in_memory()))
+        self.slot_data(node_id, slot_id)?.in_memory()
     }
 
     /// This is only accessible to the crate on purpose. Cloning the `Arc<SlotData>` from the
@@ -658,7 +582,9 @@ impl Engine {
     }
 
     /// This function creates a new `SlotData` from the one in the given slot.
-    /// It returns a new totally independent `SlotData`. The reason for this is that if you were
+    /// It returns a new totally independent `SlotData`.
+    ///
+    /// The reason for this is that if you were
     /// able to clone the `Arc<SlotData>`, it would be very tempting to do so and then put it in
     /// another `Engine`. However, that would cause a memory leak as both `Engine`s would be
     /// holding a reference to the same `Arc`, so it would never be dropped.
@@ -670,12 +596,6 @@ impl Engine {
             .ok_or(TexProError::NoSlotData)?;
 
         Ok(slot_data.from_self())
-    }
-
-    pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
-        let node_id = self.node_graph.add_node_with_id(node, node_id)?;
-        self.changed.insert(node_id);
-        Ok(node_id)
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
@@ -802,6 +722,10 @@ impl Engine {
         for node_id in self.node_ids() {
             self.node_state.insert(node_id, NodeState::default());
         }
+    }
+
+    pub fn output_ids(&self) -> Vec<NodeId> {
+        self.node_graph.output_ids()
     }
 
     pub fn node_ids(&self) -> Vec<NodeId> {

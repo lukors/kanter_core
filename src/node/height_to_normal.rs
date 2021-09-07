@@ -4,7 +4,8 @@ use crate::{
     error::Result,
     node::process_shared::{slot_data_with_name, Sampling},
     node_graph::SlotId,
-    slot_data::{Buffer, SlotData, SlotImage},
+    slot_data::SlotData,
+    slot_image::{Buffer, SlotImage},
 };
 
 use super::Node;

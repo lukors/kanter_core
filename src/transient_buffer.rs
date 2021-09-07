@@ -15,7 +15,8 @@ use tempfile::tempfile;
 
 use crate::{
     error::{Result, TexProError},
-    slot_data::{Buffer, ChannelPixel, Size, SlotData},
+    slot_data::{ChannelPixel, Size, SlotData},
+    slot_image::Buffer,
 };
 
 /// A buffer that can be either in memory or in storage, getting it puts it in memory.
@@ -174,6 +175,12 @@ impl TransientBufferContainer {
         Self::new(Arc::clone(&self.transient_buffer))
     }
 
+    /// Returns the transientbuffer without touching anything else. Usually returning the buffer
+    /// touches some stuff to alert other systems that these have been touched, this function does
+    /// not do that.
+    ///
+    /// The purpose is to allow for retrieving data from the outside when it is known that this can
+    /// not have any bad effects.
     pub(crate) fn transient_buffer_sneaky(&self) -> &RwLock<TransientBuffer> {
         &self.transient_buffer
     }
@@ -260,6 +267,7 @@ impl TransientBufferQueue {
         }
     }
 
+    #[allow(dead_code)]
     pub fn add_buffer(
         incoming_buffers: &Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
         buffer: Arc<TransientBufferContainer>,

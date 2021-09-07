@@ -7,7 +7,8 @@ use crate::{
     error::Result,
     node::process_shared::slot_data_with_name,
     node_graph::SlotId,
-    slot_data::{Buffer, Size, SlotData, SlotImage},
+    slot_data::{Size, SlotData},
+    slot_image::{Buffer, SlotImage},
     transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 

@@ -17,19 +17,23 @@ pub(crate) fn process(
 ) -> Result<Vec<Arc<SlotData>>> {
     let mut output: Vec<Arc<SlotData>> = Vec::new();
     let tex_pro = TextureProcessor::new();
-    tex_pro.set_node_graph((*graph).clone())?;
+    tex_pro.engine().write()?.set_node_graph((*graph).clone());
 
     // Insert `SlotData`s into the graph TexPro.
     for slot_data in slot_datas {
-        tex_pro.input_slot_datas_push(Arc::new(SlotData::new(
-            NodeId(slot_data.slot_id.0),
-            SlotId(0),
-            slot_data.image.clone(),
-        )));
+        tex_pro
+            .engine()
+            .write()?
+            .add_input_slot_data(Arc::new(SlotData::new(
+                NodeId(slot_data.slot_id.0),
+                SlotId(0),
+                slot_data.image.clone(),
+            )));
     }
 
     // Fill the output vector with `SlotData`.
-    for output_node_id in tex_pro.output_ids() {
+    let output_node_ids = tex_pro.engine().read()?.output_ids();
+    for output_node_id in output_node_ids {
         for slot_data in tex_pro.node_slot_datas(output_node_id)? {
             let output_node_data = SlotData::new(
                 node.node_id,

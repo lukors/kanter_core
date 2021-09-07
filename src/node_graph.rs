@@ -1,4 +1,5 @@
 use crate::{
+    edge::Edge,
     error::*,
     node::{mix::MixType, node_type::NodeType, Node, Side, SlotInput, SlotOutput},
 };
@@ -36,10 +37,7 @@ impl NodeGraph {
                     let mut node_clone: Node = (self.nodes[node_index]).clone();
                     node_clone.node_type = NodeType::Mix(mix_type);
 
-                    #[allow(unused_must_use)]
-                    {
-                        mem::replace(&mut self.nodes[node_index], node_clone);
-                    }
+                    let _ = mem::replace(&mut self.nodes[node_index], node_clone);
                     Ok(())
                 }
                 _ => Err(TexProError::InvalidNodeId),
@@ -110,7 +108,7 @@ impl NodeGraph {
         self.nodes.iter().map(|node| node.node_id).collect()
     }
 
-    pub fn node_with_id(&self, node_id: NodeId) -> Result<Node> {
+    pub fn node(&self, node_id: NodeId) -> Result<Node> {
         self.nodes
             .iter()
             .find(|node| node.node_id == node_id)
@@ -264,7 +262,7 @@ impl NodeGraph {
     }
 
     pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
-        if self.node_with_id(node_id).is_err() {
+        if self.node(node_id).is_err() {
             self.add_node_internal(node, node_id)?;
         } else {
             return Err(TexProError::InvalidNodeId);
@@ -290,6 +288,7 @@ impl NodeGraph {
             .collect()
     }
 
+    /// Returns the indices of all `Edge`s that connect to the given `NodeId`.
     pub fn edge_indices_node(&mut self, node_id: NodeId) -> Result<Vec<usize>> {
         self.has_node_with_id(node_id)?;
 
@@ -302,6 +301,7 @@ impl NodeGraph {
             .collect())
     }
 
+    /// Returns the indices of all `Edge`s that connect to the given `SlotId`.
     pub fn edge_indices_slot(
         &mut self,
         node_id: NodeId,
@@ -319,6 +319,7 @@ impl NodeGraph {
             .collect()
     }
 
+    /// Try to create a connection, but don't force it if it's occupied.
     pub fn try_connect(
         &mut self,
         output_node_id: NodeId,
@@ -343,6 +344,7 @@ impl NodeGraph {
         Ok(())
     }
 
+    /// Force a connection to be created, if there already is a connection, it will be removed.
     pub fn connect(
         &mut self,
         output_node_id: NodeId,
@@ -350,8 +352,8 @@ impl NodeGraph {
         output_slot_id: SlotId,
         input_slot_id: SlotId,
     ) -> Result<&Edge> {
-        let output_node = self.node_with_id(output_node_id)?;
-        let input_node = self.node_with_id(input_node_id)?;
+        let output_node = self.node(output_node_id)?;
+        let input_node = self.node(input_node_id)?;
 
         let output_slot_type = output_node.output_slot_with_id(output_slot_id)?.slot_type;
         let input_slot_type = input_node.input_slot_with_id(input_slot_id)?.slot_type;
@@ -374,6 +376,8 @@ impl NodeGraph {
         }
     }
 
+    /// Attempt to make a connection without knowing which the given `SlotId`s are an input or an
+    /// output slot.
     pub fn connect_arbitrary(
         &mut self,
         a_node: NodeId,
@@ -393,6 +397,7 @@ impl NodeGraph {
         }
     }
 
+    /// Check if a slot is occupied.
     pub fn slot_occupied(&self, id: NodeId, side: Side, slot: SlotId) -> bool {
         match side {
             Side::Input => self
@@ -406,7 +411,7 @@ impl NodeGraph {
         }
     }
 
-    pub fn remove_edge_specific(
+    pub fn remove_edge(
         &mut self,
         output_node: NodeId,
         input_node: NodeId,
@@ -432,6 +437,7 @@ impl NodeGraph {
         Ok((self.nodes.remove(index_to_remove), removed_edges))
     }
 
+    /// Removes all `Edge`s plugged into the given `NodeId`.
     fn disconnect_node(&mut self, node_id: NodeId) -> Result<Vec<Edge>> {
         let mut removed_edges = Vec::new();
 
@@ -442,6 +448,7 @@ impl NodeGraph {
         Ok(removed_edges)
     }
 
+    /// Removes all `Edge`s plugged into hte given `SlotId`.
     pub fn disconnect_slot(
         &mut self,
         node_id: NodeId,
@@ -504,45 +511,5 @@ impl fmt::Display for SlotId {
 impl SlotId {
     pub fn as_usize(self) -> usize {
         self.0 as usize
-    }
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Serialize)]
-pub struct Edge {
-    pub output_id: NodeId,
-    pub input_id: NodeId,
-    pub output_slot: SlotId,
-    pub input_slot: SlotId,
-}
-
-impl Edge {
-    pub fn new(
-        output_id: NodeId,
-        input_id: NodeId,
-        output_slot: SlotId,
-        input_slot: SlotId,
-    ) -> Self {
-        Self {
-            output_id,
-            input_id,
-            output_slot,
-            input_slot,
-        }
-    }
-
-    pub fn output_id(&self) -> NodeId {
-        self.output_id
-    }
-
-    pub fn input_id(&self) -> NodeId {
-        self.input_id
-    }
-
-    pub fn output_slot(&self) -> SlotId {
-        self.output_slot
-    }
-
-    pub fn input_slot(&self) -> SlotId {
-        self.input_slot
     }
 }

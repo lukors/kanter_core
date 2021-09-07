@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    error::Result,
-    node_graph::SlotId,
-    slot_data::{SlotData, SlotImage},
-};
+use crate::{error::Result, node_graph::SlotId, slot_data::SlotData, slot_image::SlotImage};
 
 use super::Node;
 

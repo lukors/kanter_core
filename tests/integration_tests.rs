@@ -4,7 +4,8 @@ use kanter_core::{
         ResizePolicy,
     },
     node_graph::{NodeGraph, NodeId, SlotId},
-    slot_data::{Size, SlotImage},
+    slot_data::Size,
+    slot_image::SlotImage,
     texture_processor::TextureProcessor,
 };
 use ntest::timeout;
@@ -489,6 +490,9 @@ fn embedded_node_data() {
         .unwrap();
 
     let end_id = tex_pro_2
+        .engine()
+        .write()
+        .unwrap()
         .embed_slot_data_with_id(Arc::new(node_data), EmbeddedSlotDataId(0))
         .unwrap();
     let input = tex_pro_2
@@ -653,7 +657,7 @@ fn remove_node() {
 
     tex_pro.remove_node(value_node).unwrap();
 
-    assert_eq!(tex_pro.node_ids().len(), 0);
+    assert_eq!(tex_pro.engine().read().unwrap().node_ids().len(), 0);
 }
 
 #[test]
