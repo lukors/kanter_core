@@ -53,11 +53,11 @@ pub(crate) fn process(
     mix_type: MixType,
 ) -> Result<Vec<Arc<SlotData>>> {
     let (image_left, image_right): (SlotImage, SlotImage) = {
-        if let Some(slot_data_left) = slot_data_with_name(&slot_datas, &node, "left") {
+        if let Some(slot_data_left) = slot_data_with_name(slot_datas, node, "left") {
             let is_rgba = slot_data_left.image.is_rgba();
 
             let image_right = {
-                if let Some(slot_data) = slot_data_with_name(&slot_datas, &node, "right") {
+                if let Some(slot_data) = slot_data_with_name(slot_datas, node, "right") {
                     slot_data.image.as_type(is_rgba)?
                 } else {
                     SlotImage::from_value(slot_data_left.size()?, 0.0, is_rgba)
@@ -65,13 +65,12 @@ pub(crate) fn process(
             };
 
             (slot_data_left.image.clone(), image_right)
-        } else if let Some(slot_data_right) = slot_data_with_name(&slot_datas, &node, "right") {
+        } else if let Some(slot_data_right) = slot_data_with_name(slot_datas, node, "right") {
             let image_left = SlotImage::from_value(
                 slot_data_right.size()?,
                 0.0,
                 slot_data_right.image.is_rgba(),
-            )
-            .into();
+            );
 
             (image_left, slot_data_right.image.clone())
         } else {
@@ -193,9 +192,9 @@ fn process_add_rgba(
     size: Size,
 ) -> [Arc<TransientBufferContainer>; 4] {
     [
-        process_add_gray(&left[0], &right[0], size),
-        process_add_gray(&left[1], &right[1], size),
-        process_add_gray(&left[2], &right[2], size),
+        process_add_gray(left[0], right[0], size),
+        process_add_gray(left[1], right[1], size),
+        process_add_gray(left[2], right[2], size),
         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
             TransientBuffer::new(Box::new(
                 Buffer::from_raw(
@@ -215,9 +214,9 @@ fn process_subtract_rgba(
     size: Size,
 ) -> [Arc<TransientBufferContainer>; 4] {
     [
-        process_subtract_gray(&left[0], &right[0], size),
-        process_subtract_gray(&left[1], &right[1], size),
-        process_subtract_gray(&left[2], &right[2], size),
+        process_subtract_gray(left[0], right[0], size),
+        process_subtract_gray(left[1], right[1], size),
+        process_subtract_gray(left[2], right[2], size),
         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
             TransientBuffer::new(Box::new(
                 Buffer::from_raw(
@@ -237,9 +236,9 @@ fn process_multiply_rgba(
     size: Size,
 ) -> [Arc<TransientBufferContainer>; 4] {
     [
-        process_multiply_gray(&left[0], &right[0], size),
-        process_multiply_gray(&left[1], &right[1], size),
-        process_multiply_gray(&left[2], &right[2], size),
+        process_multiply_gray(left[0], right[0], size),
+        process_multiply_gray(left[1], right[1], size),
+        process_multiply_gray(left[2], right[2], size),
         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
             TransientBuffer::new(Box::new(
                 Buffer::from_raw(
@@ -259,9 +258,9 @@ fn process_divide_rgba(
     size: Size,
 ) -> [Arc<TransientBufferContainer>; 4] {
     [
-        process_divide_gray(&left[0], &right[0], size),
-        process_divide_gray(&left[1], &right[1], size),
-        process_divide_gray(&left[2], &right[2], size),
+        process_divide_gray(left[0], right[0], size),
+        process_divide_gray(left[1], right[1], size),
+        process_divide_gray(left[2], right[2], size),
         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
             TransientBuffer::new(Box::new(
                 Buffer::from_raw(
@@ -281,9 +280,9 @@ fn process_pow_rgba(
     size: Size,
 ) -> [Arc<TransientBufferContainer>; 4] {
     [
-        process_pow_gray(&left[0], &right[0], size),
-        process_pow_gray(&left[1], &right[1], size),
-        process_pow_gray(&left[2], &right[2], size),
+        process_pow_gray(left[0], right[0], size),
+        process_pow_gray(left[1], right[1], size),
+        process_pow_gray(left[2], right[2], size),
         Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
             TransientBuffer::new(Box::new(
                 Buffer::from_raw(

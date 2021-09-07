@@ -121,17 +121,12 @@ impl Engine {
 
                     if !engine.use_cache {
                         for parent in engine.get_parents(node_id) {
-                            if engine
-                                .get_children(parent)
-                                .iter()
-                                .flatten()
-                                .all(|node_id| {
-                                    matches![
-                                        engine.node_state(*node_id).unwrap(),
-                                        NodeState::Clean | NodeState::Processing
-                                    ]
-                                })
-                            {
+                            if engine.get_children(parent).iter().flatten().all(|node_id| {
+                                matches![
+                                    engine.node_state(*node_id).unwrap(),
+                                    NodeState::Clean | NodeState::Processing
+                                ]
+                            }) {
                                 engine.remove_nodes_data(parent);
                             }
                         }
@@ -175,13 +170,13 @@ impl Engine {
                     let embedded_node_datas: Vec<Arc<EmbeddedSlotData>> = engine
                         .embedded_slot_datas
                         .iter()
-                        .map(|end| Arc::clone(&end))
+                        .map(|end| Arc::clone(end))
                         .collect();
 
                     let input_node_datas: Vec<Arc<SlotData>> = engine
                         .input_slot_datas
                         .iter()
-                        .map(|nd| Arc::clone(&nd))
+                        .map(|nd| Arc::clone(nd))
                         .collect();
 
                     let edges = engine
@@ -268,7 +263,7 @@ impl Engine {
     /// Return a SlotData as u8.
     pub fn buffer_rgba(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         // Ok((*self.slot_data(node_id, slot_id)?.image.read().unwrap()).get().to_u8())
-        Ok(self.slot_data(node_id, slot_id)?.image.to_u8()?)
+        self.slot_data(node_id, slot_id)?.image.to_u8()
     }
 
     // pub fn memory_threshold(&self) -> usize {
@@ -638,7 +633,7 @@ impl Engine {
     }
 
     pub(crate) fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
-        Ok(self.slot_data(node_id, slot_id)?.size()?)
+        self.slot_data(node_id, slot_id)?.size()
     }
 
     pub fn slot_in_memory(&self, node_id: NodeId, slot_id: SlotId) -> Result<bool> {

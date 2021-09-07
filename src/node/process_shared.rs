@@ -10,7 +10,7 @@ pub(crate) fn slot_data_with_name(
     name: &str,
 ) -> Option<Arc<SlotData>> {
     slot_data_with_slot_id(
-        &slot_datas,
+        slot_datas,
         node.input_slot_with_name(name.into()).unwrap().slot_id,
     )
 }

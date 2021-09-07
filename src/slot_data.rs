@@ -220,9 +220,9 @@ impl SlotImage {
 
         Ok(match self {
             Self::Gray(buf) => Self::Rgba([
-                Arc::clone(&buf),
-                Arc::clone(&buf),
-                Arc::clone(&buf),
+                Arc::clone(buf),
+                Arc::clone(buf),
+                Arc::clone(buf),
                 Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
                     TransientBuffer::new(Box::new(
                         Buffer::from_raw(width, height, vec![1.0; (width * height) as usize])
@@ -256,7 +256,7 @@ impl SlotImage {
 
     pub fn bufs(&self) -> Vec<Arc<TransientBufferContainer>> {
         match self {
-            Self::Gray(buf) => vec![Arc::clone(&buf)],
+            Self::Gray(buf) => vec![Arc::clone(buf)],
             Self::Rgba(bufs) => bufs.to_vec(),
         }
     }

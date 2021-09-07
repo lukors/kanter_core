@@ -16,13 +16,13 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
     ) -> Arc<TransientBufferContainer> {
         if let Some(slot_data) = slot_data {
             if let SlotImage::Gray(buf) = &slot_data.image {
-                Arc::clone(&buf)
+                Arc::clone(buf)
             } else {
                 panic!("It shouldn't be possible to connect an RGBA image into this slot");
                 // Arc::clone(&buffer_default)
             }
         } else {
-            Arc::clone(&buffer_default)
+            Arc::clone(buffer_default)
         }
     }
 

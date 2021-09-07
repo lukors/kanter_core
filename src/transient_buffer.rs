@@ -32,7 +32,7 @@ impl TransientBuffer {
 
     pub fn buffer(&self) -> &Buffer {
         if let Self::Memory(box_buf) = self {
-            &box_buf
+            box_buf
         } else {
             panic!("This should be unreachable when accessed from the outside")
         }
@@ -71,12 +71,12 @@ impl TransientBuffer {
     }
 
     /// Ensures the `TransientBuffer` is in storage, returns true if it was moved.
-    fn to_storage(&mut self) -> Result<bool> {
+    fn move_to_storage(&mut self) -> Result<bool> {
         if let Self::Memory(box_buffer) = self {
             let mut file = tempfile()?;
 
             for pixel in box_buffer.iter() {
-                file.write(&pixel.to_ne_bytes())?;
+                file.write_all(&pixel.to_ne_bytes())?;
             }
 
             *self = Self::Storage(file, box_buffer.dimensions().into(), AtomicBool::new(false));
@@ -88,7 +88,7 @@ impl TransientBuffer {
     }
 
     /// Ensures the `TransientBuffer` is in memory, returns true if it was moved.
-    fn to_memory(&mut self) -> Result<bool> {
+    fn move_to_memory(&mut self) -> Result<bool> {
         if let Self::Storage(file, size, _) = self {
             let buffer_f32: Vec<f32> = {
                 let buffer_int: Vec<u8> = {
@@ -306,7 +306,7 @@ impl TransientBufferQueue {
                 if requested {
                     if let Some(removed) = self.queue.remove(i) {
                         if let Ok(mut transient_buffer) = removed.transient_buffer.write() {
-                            let _ = transient_buffer.to_memory();
+                            let _ = transient_buffer.move_to_memory();
                         }
                         self.queue.push_back(removed);
                     }
@@ -320,7 +320,7 @@ impl TransientBufferQueue {
                     let transient_buffer = &tbuf_container.transient_buffer;
 
                     if let Ok(mut transient_buffer) = transient_buffer.write() {
-                        if let Ok(moved) = transient_buffer.to_storage() {
+                        if let Ok(moved) = transient_buffer.move_to_storage() {
                             if moved {
                                 bytes_in_memory -= transient_buffer.bytes();
                             }

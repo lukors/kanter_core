@@ -150,7 +150,7 @@ pub(crate) fn resize_buffers(
 
     let output: Vec<Arc<SlotData>> = slot_datas
         .iter()
-        .map(|ref slot_data| {
+        .map(|slot_data| {
             if slot_data.size().unwrap() != size {
                 let resized_image = match &slot_data.image {
                     SlotImage::Gray(buf) => {

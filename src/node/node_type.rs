@@ -51,20 +51,20 @@ fn process_node_internal(
     input_slot_datas: &[Arc<SlotData>],
 ) -> Result<Vec<Arc<SlotData>>> {
     Ok(match node.node_type {
-        NodeType::InputRgba(_) => input_rgba::process(&node, &input_slot_datas),
-        NodeType::InputGray(_) => input_gray::process(&node, &input_slot_datas),
-        NodeType::OutputRgba(_) | NodeType::OutputGray(_) => output::process(&slot_datas, &node),
-        NodeType::Graph(ref node_graph) => graph::process(&slot_datas, &node, node_graph)?,
+        NodeType::InputRgba(_) => input_rgba::process(&node, input_slot_datas),
+        NodeType::InputGray(_) => input_gray::process(&node, input_slot_datas),
+        NodeType::OutputRgba(_) | NodeType::OutputGray(_) => output::process(slot_datas, &node),
+        NodeType::Graph(ref node_graph) => graph::process(slot_datas, &node, node_graph)?,
         NodeType::Image(ref path) => read::process(&node, path)?,
         NodeType::Embed(embedded_node_data_id) => {
             embed::process(&node, embedded_slot_datas, embedded_node_data_id)?
         }
-        NodeType::Write(ref path) => write::process(&slot_datas, path)?,
+        NodeType::Write(ref path) => write::process(slot_datas, path)?,
         NodeType::Value(val) => value::process(&node, val),
-        NodeType::Mix(mix_type) => mix::process(&slot_datas, &node, mix_type)?,
-        NodeType::HeightToNormal => height_to_normal::process(&slot_datas, &node)?,
-        NodeType::SeparateRgba => separate_rgba::process(&slot_datas, &node)?,
-        NodeType::CombineRgba => combine_rgba::process(&slot_datas, &node)?,
+        NodeType::Mix(mix_type) => mix::process(slot_datas, &node, mix_type)?,
+        NodeType::HeightToNormal => height_to_normal::process(slot_datas, &node)?,
+        NodeType::SeparateRgba => separate_rgba::process(slot_datas, &node)?,
+        NodeType::CombineRgba => combine_rgba::process(slot_datas, &node)?,
     })
 }
 
@@ -161,7 +161,7 @@ pub(crate) fn process_node(
         edges.sort_unstable_by(|a, b| a.input_slot.cmp(&b.input_slot));
 
         let slot_datas: Vec<Arc<SlotData>> =
-            resize_buffers(&slot_datas, &edges, node.resize_policy, node.resize_filter)?;
+            resize_buffers(slot_datas, &edges, node.resize_policy, node.resize_filter)?;
 
         assign_slot_ids(&slot_datas, &edges)
     };

@@ -128,15 +128,13 @@ impl TextureProcessor {
     // }
 
     pub(crate) fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
-        Ok(self
-            .wait_for_state_write(node_id, NodeState::Clean)?
-            .node_slot_datas(node_id)?)
+        self.wait_for_state_write(node_id, NodeState::Clean)?
+            .node_slot_datas(node_id)
     }
 
     pub fn node_slot_datas_new(&self, node_id: NodeId) -> Result<Vec<SlotData>> {
-        Ok(self
-            .wait_for_state_write(node_id, NodeState::Clean)?
-            .node_slot_datas_new(node_id)?)
+        self.wait_for_state_write(node_id, NodeState::Clean)?
+            .node_slot_datas_new(node_id)
     }
 
     pub fn add_node(&self, node: Node) -> Result<NodeId> {

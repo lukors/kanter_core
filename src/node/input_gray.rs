@@ -9,7 +9,7 @@ pub(crate) fn process(node: &Node, input_node_datas: &[Arc<SlotData>]) -> Vec<Ar
         .iter()
         .find(|nd| nd.node_id == node.node_id)
     {
-        vec![Arc::clone(&node_data)]
+        vec![Arc::clone(node_data)]
     } else {
         Vec::new()
     }

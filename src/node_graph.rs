@@ -157,10 +157,10 @@ impl NodeGraph {
 
             match node_type_clone {
                 NodeType::InputGray(_) | NodeType::InputRgba(_) => {
-                    *name = Self::avoid_name_collision(self.input_names(), &name);
+                    *name = Self::avoid_name_collision(self.input_names(), name);
                 }
                 NodeType::OutputGray(_) | NodeType::OutputRgba(_) => {
-                    *name = Self::avoid_name_collision(self.output_names(), &name);
+                    *name = Self::avoid_name_collision(self.output_names(), name);
                 }
                 _ => unreachable!("Only inputs and outputs have names"),
             }
