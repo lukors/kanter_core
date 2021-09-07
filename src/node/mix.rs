@@ -134,7 +134,7 @@ fn process_add_gray(left: &Buffer, right: &Buffer, size: Size) -> Arc<TransientB
         TransientBuffer::new(Box::new(ImageBuffer::from_fn(
             size.width,
             size.height,
-            |x, y| Luma([left.get_pixel(x, y).data[0] + right.get_pixel(x, y).data[0]]),
+            |x, y| Luma([left.get_pixel(x, y).0[0] + right.get_pixel(x, y).0[0]]),
         ))),
     ))))
 }
@@ -148,7 +148,7 @@ fn process_subtract_gray(
         TransientBuffer::new(Box::new(ImageBuffer::from_fn(
             size.width,
             size.height,
-            |x, y| Luma([left.get_pixel(x, y).data[0] - right.get_pixel(x, y).data[0]]),
+            |x, y| Luma([left.get_pixel(x, y).0[0] - right.get_pixel(x, y).0[0]]),
         ))),
     ))))
 }
@@ -162,7 +162,7 @@ fn process_multiply_gray(
         TransientBuffer::new(Box::new(ImageBuffer::from_fn(
             size.width,
             size.height,
-            |x, y| Luma([left.get_pixel(x, y).data[0] * right.get_pixel(x, y).data[0]]),
+            |x, y| Luma([left.get_pixel(x, y).0[0] * right.get_pixel(x, y).0[0]]),
         ))),
     ))))
 }
@@ -172,7 +172,7 @@ fn process_divide_gray(left: &Buffer, right: &Buffer, size: Size) -> Arc<Transie
         TransientBuffer::new(Box::new(ImageBuffer::from_fn(
             size.width,
             size.height,
-            |x, y| Luma([left.get_pixel(x, y).data[0] / right.get_pixel(x, y).data[0]]),
+            |x, y| Luma([left.get_pixel(x, y).0[0] / right.get_pixel(x, y).0[0]]),
         ))),
     ))))
 }
@@ -182,7 +182,7 @@ fn process_pow_gray(left: &Buffer, right: &Buffer, size: Size) -> Arc<TransientB
         TransientBuffer::new(Box::new(ImageBuffer::from_fn(
             size.width,
             size.height,
-            |x, y| Luma([left.get_pixel(x, y).data[0].powf(right.get_pixel(x, y).data[0])]),
+            |x, y| Luma([left.get_pixel(x, y).0[0].powf(right.get_pixel(x, y).0[0])]),
         ))),
     ))))
 }

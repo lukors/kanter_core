@@ -13,10 +13,10 @@ use std::{
 };
 
 pub fn deconstruct_image(image: &DynamicImage) -> Vec<BoxBuffer> {
-    let raw_pixels = image.raw_pixels();
+    let pixels = image.as_flat_samples_u8().unwrap().samples;
     let (width, height) = (image.width(), image.height());
     let pixel_count = (width * height) as usize;
-    let channel_count = raw_pixels.len() / pixel_count;
+    let channel_count = pixels.len() / pixel_count;
     let max_channel_count = 4;
     let mut pixel_vecs: Vec<Vec<f32>> = Vec::with_capacity(max_channel_count);
 
@@ -26,8 +26,8 @@ pub fn deconstruct_image(image: &DynamicImage) -> Vec<BoxBuffer> {
 
     let mut current_channel = 0;
 
-    for component in raw_pixels {
-        pixel_vecs[current_channel].push(ChannelPixel::from(component) / 255.);
+    for component in pixels {
+        pixel_vecs[current_channel].push(ChannelPixel::from(*component) / 255.);
         current_channel = (current_channel + 1) % channel_count;
     }
 

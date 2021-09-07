@@ -5,7 +5,7 @@ authors = ["Lukas Orsvärn <lukas@orsvarn.com>"]
 edition = "2018"
 
 [dependencies]
-image = "0.20.1"
+image = "0.23.14"
 nalgebra = "~0.10"
 rand = "0.5.0"
 tempfile = "3.2"

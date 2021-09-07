@@ -18,7 +18,7 @@ use crate::{
     node_graph::*,
     slot_data::*,
 };
-use image::FilterType;
+use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

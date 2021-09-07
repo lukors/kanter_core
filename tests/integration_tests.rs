@@ -35,9 +35,9 @@ fn ensure_out_dir() {
 
 fn images_equal<P: AsRef<Path>, Q: AsRef<Path>>(path_1: P, path_2: Q) -> bool {
     let image_1 = image::open(path_1).unwrap();
-    let raw_pixels_1 = image_1.raw_pixels();
+    let raw_pixels_1 = image_1.as_flat_samples_u8().unwrap().samples;
     let image_2 = image::open(path_2).unwrap();
-    let raw_pixels_2 = image_2.raw_pixels();
+    let raw_pixels_2 = image_2.as_flat_samples_u8().unwrap().samples;
 
     raw_pixels_1.iter().eq(raw_pixels_2.iter())
 }
@@ -73,7 +73,7 @@ fn input_output() {
         .unwrap(),
         SIZE,
         SIZE,
-        image::ColorType::RGBA(8),
+        image::ColorType::Rgba8,
     )
     .unwrap();
 
@@ -124,7 +124,7 @@ fn drive_cache() {
     const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
     let tex_pro = TextureProcessor::new();
 
-    // RGBA node should be 4 channels * 4 bytes = 16 bytes
+    // Rgba8de should be 4 channels * 4 bytes = 16 bytes
     let rgba_node = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
 
     // 4 value nodes should be 4 channels * 4 bytes = 16 bytes
@@ -152,7 +152,7 @@ fn drive_cache() {
         .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
         .unwrap();
 
-    // Setting the slot_data_ram_cap at 16 bytes should result in the RGBA node getting written
+    // Setting the slot_data_ram_cap at 16 bytes should result in the Rgba8de getting written
     // to drive.
     tex_pro
         .engine()
@@ -189,10 +189,10 @@ fn drive_cache() {
                 ];
 
                 [
-                    pixel[0].buffer().pixels().next().unwrap().data[0],
-                    pixel[1].buffer().pixels().next().unwrap().data[0],
-                    pixel[2].buffer().pixels().next().unwrap().data[0],
-                    pixel[3].buffer().pixels().next().unwrap().data[0],
+                    pixel[0].buffer().pixels().next().unwrap().0[0],
+                    pixel[1].buffer().pixels().next().unwrap().0[0],
+                    pixel[2].buffer().pixels().next().unwrap().0[0],
+                    pixel[3].buffer().pixels().next().unwrap().0[0],
                 ]
             };
 
@@ -360,7 +360,7 @@ fn input_output_intercept() {
                     &image::RgbaImage::from_vec(SIZE_SMALL, SIZE_SMALL, buffer).unwrap(),
                     SIZE_SMALL,
                     SIZE_SMALL,
-                    image::ColorType::RGBA(8),
+                    image::ColorType::Rgba8,
                 )
                 .unwrap();
                 intercepted = true;
@@ -374,7 +374,7 @@ fn input_output_intercept() {
                 &image::RgbaImage::from_vec(SIZE, SIZE, buffer).unwrap(),
                 SIZE,
                 SIZE,
-                image::ColorType::RGBA(8),
+                image::ColorType::Rgba8,
             )
             .unwrap();
 
@@ -443,7 +443,7 @@ fn mix_node_single_input_2() {
         &image::RgbaImage::from_vec(SIZE, SIZE, output).unwrap(),
         SIZE,
         SIZE,
-        image::ColorType::RGBA(8),
+        image::ColorType::Rgba8,
     )
     .unwrap();
 
@@ -509,7 +509,7 @@ fn embedded_node_data() {
         .unwrap(),
         256,
         256,
-        image::ColorType::RGBA(8),
+        image::ColorType::Rgba8,
     )
     .unwrap();
 
@@ -621,7 +621,7 @@ fn irregular_sizes() {
         .unwrap(),
         size.width,
         size.height,
-        image::ColorType::RGBA(8),
+        image::ColorType::Rgba8,
     )
     .unwrap();
 
@@ -822,7 +822,7 @@ fn save_and_compare_size(
         (vec_len as f32).sqrt()
     ));
 
-    image::save_buffer(&path_out, buf, size.0, size.1, image::ColorType::RGBA(8)).unwrap();
+    image::save_buffer(&path_out, buf, size.0, size.1, image::ColorType::Rgba8).unwrap();
 
     assert!(images_equal(path_out, path_cmp));
 }
@@ -1046,7 +1046,7 @@ fn graph_node_rgba() {
         .unwrap(),
         256,
         256,
-        image::ColorType::RGBA(8),
+        image::ColorType::Rgba8,
     )
     .unwrap();
 
@@ -1122,7 +1122,7 @@ fn graph_node_gray() {
         .unwrap(),
         256,
         256,
-        image::ColorType::RGBA(8),
+        image::ColorType::Rgba8,
     )
     .unwrap();
 

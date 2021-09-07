@@ -194,10 +194,10 @@ impl SlotImage {
                 .zip(bufs[3].transient_buffer().buffer().pixels())
                 .map(|(((r, g), b), a)| {
                     vec![
-                        f32_to_u8_srgb(r.data[0]),
-                        f32_to_u8_srgb(g.data[0]),
-                        f32_to_u8_srgb(b.data[0]),
-                        Self::f32_to_u8(a.data[0]),
+                        f32_to_u8_srgb(r.0[0]),
+                        f32_to_u8_srgb(g.0[0]),
+                        f32_to_u8_srgb(b.0[0]),
+                        Self::f32_to_u8(a.0[0]),
                     ]
                 })
                 .flatten()
@@ -243,9 +243,9 @@ impl SlotImage {
                         width,
                         height,
                         |x, y| {
-                            Luma([(buf_r.get_pixel(x, y).data[0]
-                                + buf_g.get_pixel(x, y).data[0]
-                                + buf_b.get_pixel(x, y).data[0])
+                            Luma([(buf_r.get_pixel(x, y).0[0]
+                                + buf_g.get_pixel(x, y).0[0]
+                                + buf_b.get_pixel(x, y).0[0])
                                 / 3.])
                         },
                     )))),
