@@ -10,7 +10,7 @@ use crate::{
 use super::Node;
 
 use image::{ImageBuffer, Luma};
-use nalgebra::{Cross, Norm, Vector3};
+use nalgebra::Vector3;
 
 pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<Arc<SlotData>>> {
     let slot_data = if let Some(slot_data) = slot_data_with_name(slot_datas, node, "input") {
@@ -40,14 +40,19 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
         };
         let buffer_height = buffer_height.buffer();
 
-        // let buffer_height = buffer_height.buffer_read()?;
+        // This is a temporary workaround. Rust-analyzer does not support const params yet, so it
+        // shows a false positive error when using `Vector3::new()`, saying there are too few
+        // parameters when there are not.
+        fn vec3<T>(x: T, y: T, z: T) -> Vector3<T> {
+            Vector3::new(x, y, z)
+        }
 
         for (x, y, px) in buffer_height.enumerate_pixels() {
             let sample_up = buffer_height.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
             let sample_left = buffer_height.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
 
-            let tangent = Vector3::new(pixel_distance_x, 0., px[0] - sample_left).normalize();
-            let bitangent = Vector3::new(0., pixel_distance_y, sample_up - px[0]).normalize();
+            let tangent = vec3(pixel_distance_x, 0., px[0] - sample_left).normalize();
+            let bitangent = vec3(0., pixel_distance_y, sample_up - px[0]).normalize();
             let normal = tangent.cross(&bitangent).normalize();
 
             for (i, buffer) in buffer_normal.iter_mut().enumerate() {
