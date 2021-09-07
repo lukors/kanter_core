@@ -258,7 +258,7 @@ impl Engine {
         }
     }
 
-    pub fn process_then_kill(&mut self) {
+    pub fn process_then_destroy(&mut self) {
         self.one_shot = true;
         for node_id in self.node_graph.output_ids() {
             self.request(node_id).unwrap();

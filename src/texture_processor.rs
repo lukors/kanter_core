@@ -101,8 +101,8 @@ impl TextureProcessor {
         result
     }
 
-    pub fn process_then_kill(&self) {
-        self.engine.write().unwrap().process_then_kill();
+    pub fn process_then_destroy(&self) {
+        self.engine.write().unwrap().process_then_destroy();
     }
 
     pub fn output_ids(&self) -> Vec<NodeId> {
