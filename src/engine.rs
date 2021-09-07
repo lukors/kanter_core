@@ -50,8 +50,8 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new() -> Self {
-        let mut transient_buffer_queue = TransientBufferQueue::new(1_073_742_000); // 1 Gib
+    pub fn new(shutdown: Arc<AtomicBool>) -> Self {
+        let mut transient_buffer_queue = TransientBufferQueue::new(1_073_742_000, shutdown); // 1 Gib
         let add_buffer_queue = Arc::clone(&transient_buffer_queue.incoming_buffers);
         let memory_threshold = Arc::clone(&transient_buffer_queue.memory_threshold);
 

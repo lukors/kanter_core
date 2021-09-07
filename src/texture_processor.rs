@@ -28,7 +28,7 @@ impl Drop for TextureProcessor {
 impl TextureProcessor {
     pub fn new() -> Self {
         let shutdown = Arc::new(AtomicBool::new(false));
-        let engine = Arc::new(RwLock::new(Engine::new()));
+        let engine = Arc::new(RwLock::new(Engine::new(Arc::clone(&shutdown))));
 
         let output = Self {
             engine: Arc::clone(&engine),

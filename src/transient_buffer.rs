@@ -188,6 +188,7 @@ pub(crate) struct TransientBufferQueue {
     queue: VecDeque<Arc<TransientBufferContainer>>,
     pub memory_threshold: Arc<AtomicUsize>,
     pub incoming_buffers: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
+    shutdown: Arc<AtomicBool>,
 }
 
 impl Display for TransientBufferQueue {
@@ -221,11 +222,12 @@ impl Display for TransientBufferQueue {
 }
 
 impl TransientBufferQueue {
-    pub fn new(memory_threshold: usize) -> Self {
+    pub fn new(memory_threshold: usize, shutdown: Arc<AtomicBool>) -> Self {
         Self {
             queue: VecDeque::new(),
             memory_threshold: Arc::new(AtomicUsize::new(memory_threshold)),
             incoming_buffers: Arc::new(RwLock::new(Vec::new())),
+            shutdown,
         }
     }
 
@@ -286,6 +288,9 @@ impl TransientBufferQueue {
         loop {
             let mut bytes_in_memory = 0;
 
+            if self.shutdown.load(Ordering::Relaxed) {
+                return;
+            }
             self.handle_incoming();
 
             for i in (0..self.queue.len()).rev() {
