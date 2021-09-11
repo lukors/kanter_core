@@ -102,10 +102,6 @@ impl TextureProcessor {
         result
     }
 
-    pub fn process_then_destroy(&self) {
-        self.engine.write().unwrap().process_then_destroy();
-    }
-
     pub(crate) fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
         self.wait_for_state_write(node_id, NodeState::Clean)?
             .node_slot_datas(node_id)

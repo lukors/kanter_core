@@ -45,7 +45,6 @@ pub struct Engine {
     input_slot_datas: Vec<Arc<SlotData>>,
     node_state: BTreeMap<NodeId, NodeState>,
     changed: BTreeSet<NodeId>,
-    one_shot: bool,
     pub auto_update: bool,
     pub use_cache: bool,
     add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
@@ -71,7 +70,6 @@ impl Engine {
             input_slot_datas: Vec::new(),
             node_state: BTreeMap::new(),
             changed: BTreeSet::new(),
-            one_shot: false,
             auto_update: false,
             use_cache: false,
             add_buffer_queue,
@@ -251,27 +249,10 @@ impl Engine {
                         };
                     });
                 }
-
-                if engine.one_shot
-                    && engine
-                        .node_state
-                        .iter()
-                        .all(|(_, node_state)| *node_state == NodeState::Clean)
-                {
-                    shutdown.store(true, Ordering::Relaxed);
-                    break;
-                }
             }
 
             // Sleeping to reduce CPU load.
             thread::sleep(Duration::from_millis(1));
-        }
-    }
-
-    pub fn process_then_destroy(&mut self) {
-        self.one_shot = true;
-        for node_id in self.node_graph.output_ids() {
-            self.request(node_id).unwrap();
         }
     }
 
