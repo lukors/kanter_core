@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    engine::{Engine, NodeState},
+    engine::Engine,
     error::Result,
     node_graph::{NodeGraph, SlotId},
     slot_data::SlotData,
@@ -37,7 +37,7 @@ pub(crate) fn process(
     // Fill the output vector with `SlotData`.
     let output_node_ids = engine.read()?.output_ids();
     for output_node_id in output_node_ids {
-        let engine = Engine::wait_for_state_read(&engine, output_node_id, NodeState::Clean)?;
+        let engine = Engine::await_clean_read(&engine, output_node_id)?;
         for slot_data in engine.node_slot_datas(output_node_id)? {
             let output_node_data = SlotData::new(
                 node.node_id,

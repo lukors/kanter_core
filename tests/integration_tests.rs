@@ -79,7 +79,7 @@ fn input_output() {
         &image::RgbaImage::from_vec(
             SIZE,
             SIZE,
-            Engine::wait_for_state_read(&engine, output_node, NodeState::Clean)
+            Engine::await_clean_read(&engine, output_node)
                 .unwrap()
                 .buffer_rgba(output_node, SlotId(0))
                 .unwrap(),
@@ -102,7 +102,7 @@ fn node_in_memory(
 }
 
 fn calculate_slot(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) {
-    for buf in Engine::wait_for_state_read(engine, node_id, NodeState::Clean)
+    for buf in Engine::await_clean_read(engine, node_id)
         .unwrap()
         .slot_data_new(node_id, slot_id)
         .unwrap()
@@ -136,7 +136,7 @@ fn deadlock() {
         mix_node_1
     };
 
-    Engine::wait_for_state_read(&engine, mix_node_1, NodeState::Clean)
+    Engine::await_clean_read(&engine, mix_node_1)
         .unwrap()
         .slot_data_new(mix_node_1, SlotId(0))
         .unwrap();
@@ -327,7 +327,7 @@ fn request_empty_buffer() {
         output_node
     };
 
-    let _ = Engine::wait_for_state_read(&engine, output_node, NodeState::Clean)
+    let _ = Engine::await_clean_read(&engine, output_node)
         .unwrap()
         .buffer_rgba(output_node, SlotId(0))
         .unwrap();
@@ -461,120 +461,95 @@ fn mix_node_single_input() {
     save_and_compare(&engine, output_node, "mix_node_single_input.png");
 }
 
-// #[test]
-// #[timeout(20_000)]
-// fn mix_node_single_input_2() {
-//     const SIZE: u32 = 256;
-//     let path_in = IMAGE_2.to_string();
-//     const PATH_OUT: &str = &"out/mix_node_single_input_2.png";
-//     const PATH_CMP: &str = &"data/test_compare/mix_node_single_input_2.png";
+#[test]
+#[timeout(20_000)]
+fn mix_node_single_input_2() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let mut tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let value_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let mix_node = engine
+            .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
 
-//     let value_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(path_in.clone().into())))
-//         .unwrap();
-//     let mix_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
+        engine
+            .connect(value_node, mix_node, SlotId(0), SlotId(1))
+            .unwrap();
+        engine
+            .connect(mix_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        output_node
+    };
 
-//     tex_pro
-//         .connect(value_node, mix_node, SlotId(0), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(mix_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+    save_and_compare(&engine, output_node, "mix_node_single_input_2.png");
+}
 
-//     let output = tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap();
+#[test]
+#[timeout(20_000)]
+fn unconnected() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+    let mut engine = engine.write().unwrap();
 
-//     ensure_out_dir();
-//     image::save_buffer(
-//         &Path::new(&PATH_OUT),
-//         &image::RgbaImage::from_vec(SIZE, SIZE, output).unwrap(),
-//         SIZE,
-//         SIZE,
-//         image::ColorType::Rgba8,
-//     )
-//     .unwrap();
+    engine
+        .add_node(Node::new(NodeType::OutputRgba("out".into())))
+        .unwrap();
+}
 
-//     assert!(images_equal(PATH_CMP, PATH_OUT));
-// }
+#[test]
+#[timeout(20_000)]
+fn embedded_node_data() {
+    let tex_pro = tex_pro_new();
+    let engine_embed = tex_pro.new_engine().unwrap();
 
-// #[test]
-// #[timeout(20_000)]
-// fn unconnected() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+    let output_node_embed = {
+        let mut engine = engine_embed.write().unwrap();
+        let input_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
 
-//     tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
-// }
+        engine
+            .connect(input_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        output_node
+    };
 
-// #[test]
-// #[timeout(20_000)]
-// fn embedded_node_data() {
-//     let path_cmp = IMAGE_1.to_string();
-//     let path_out = "out/embedded_node_data.png".to_string();
+    let node_data = Engine::await_clean_read(&engine_embed, output_node_embed)
+        .unwrap()
+        .slot_data_new(output_node_embed, SlotId(0))
+        .unwrap();
 
-//     let tex_pro_1 = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+    // Second graph
+    let engine_out = tex_pro.new_engine().unwrap();
 
-//     let tp1_input_node = tex_pro_1
-//         .add_node(Node::new(NodeType::Image(path_cmp.clone().into())))
-//         .unwrap();
-//     let tp1_output_node = tex_pro_1
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
+    let output_node_out = {
+        let mut engine = engine_out.write().unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
 
-//     tex_pro_1
-//         .connect(tp1_input_node, tp1_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+        let esd_id = engine
+            .embed_slot_data_with_id(Arc::new(node_data), EmbeddedSlotDataId(0))
+            .unwrap();
+        let input = engine.add_node(Node::new(NodeType::Embed(esd_id))).unwrap();
+        engine
+            .connect(input, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        output_node
+    };
 
-//     let node_data = tex_pro_1.slot_data_new(tp1_output_node, SlotId(0)).unwrap();
-
-//     // Second graph
-//     let mut tex_pro_2 = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let tp2_output_node = tex_pro_2
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
-
-//     let end_id = tex_pro_2
-//         .engine()
-//         .write()
-//         .unwrap()
-//         .embed_slot_data_with_id(Arc::new(node_data), EmbeddedSlotDataId(0))
-//         .unwrap();
-//     let input = tex_pro_2
-//         .add_node(Node::new(NodeType::Embed(end_id)))
-//         .unwrap();
-//     tex_pro_2
-//         .connect(input, tp2_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     ensure_out_dir();
-//     image::save_buffer(
-//         &Path::new(&path_out),
-//         &image::RgbaImage::from_vec(
-//             256,
-//             256,
-//             tex_pro_2.buffer_rgba(tp2_output_node, SlotId(0)).unwrap(),
-//         )
-//         .unwrap(),
-//         256,
-//         256,
-//         image::ColorType::Rgba8,
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(path_cmp, path_out));
-// }
+    save_and_compare(&engine_out, output_node_out, "embedded_node_data.png");
+}
 
 // #[test]
 // #[timeout(20_000)]
@@ -878,7 +853,7 @@ fn save_and_compare_size(
     let (path_out, path_cmp) = build_paths(name);
 
     ensure_out_dir();
-    let vec = Engine::wait_for_state_read(engine, node_id, NodeState::Clean)
+    let vec = Engine::await_clean_read(engine, node_id)
         .unwrap()
         .buffer_rgba(node_id, SlotId(0))
         .unwrap();

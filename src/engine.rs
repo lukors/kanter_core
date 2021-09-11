@@ -35,7 +35,12 @@ impl Default for NodeState {
     }
 }
 
-#[derive(Default)]
+struct ThreadMessage {
+    node_id: NodeId,
+    slot_datas: Result<Vec<Arc<SlotData>>>,
+    engine: Arc<RwLock<Engine>>,
+}
+
 pub struct Engine {
     node_graph: NodeGraph,
     slot_datas: VecDeque<Arc<SlotData>>,
@@ -69,10 +74,7 @@ impl Engine {
             priority: i8,
             engine: Arc<RwLock<Engine>>,
         }
-        struct ThreadMessage {
-            node_id: NodeId,
-            slot_datas: Result<Vec<Arc<SlotData>>>,
-        }
+
         let (send, recv) = mpsc::channel::<ThreadMessage>();
 
         loop {
@@ -80,57 +82,67 @@ impl Engine {
                 return;
             }
 
+            // Handle messages received from node processing threads.
+            for message in recv.try_iter() {
+                if let Some(engine) = tex_pro
+                    .engine()
+                    .read()
+                    .unwrap()
+                    .iter()
+                    .find(|engine| Arc::ptr_eq(engine, &message.engine))
+                {
+                    let mut engine = engine.write().unwrap();
+
+                    let node_id = message.node_id;
+
+                    match message.slot_datas {
+                        Ok(slot_datas) => {
+                            for slot_data in &slot_datas {
+                                TransientBufferQueue::add_slot_data(
+                                    &engine.add_buffer_queue,
+                                    slot_data,
+                                );
+                            }
+
+                            engine.remove_nodes_data(node_id);
+                            engine.slot_datas.append(&mut slot_datas.into());
+                        }
+                        Err(e) => {
+                            tex_pro.shutdown.store(true, Ordering::Relaxed);
+                            panic!(
+                                "Error when processing '{:?}' node with id '{}': {}",
+                                engine.node_graph.node(node_id).unwrap().node_type,
+                                node_id,
+                                e
+                            );
+                        }
+                    }
+
+                    if engine.set_state(node_id, NodeState::Clean).is_err() {
+                        tex_pro.shutdown.store(true, Ordering::Relaxed);
+                        return;
+                    }
+
+                    if !engine.use_cache {
+                        for parent in engine.get_parents(node_id) {
+                            if engine.get_children(parent).iter().flatten().all(|node_id| {
+                                matches![
+                                    engine.node_state(*node_id).unwrap(),
+                                    NodeState::Clean | NodeState::Processing
+                                ]
+                            }) {
+                                engine.remove_nodes_data(parent);
+                            }
+                        }
+                    }
+                }
+            }
+
             let mut process_packs: Vec<ProcessPack> = Vec::new();
 
             for engine in tex_pro.engine().read().unwrap().iter() {
                 let closest_processable = {
-                    let mut engine = engine.write().unwrap();
-
-                    // Handle messages received from node processing threads.
-                    for message in recv.try_iter() {
-                        let node_id = message.node_id;
-
-                        match message.slot_datas {
-                            Ok(slot_datas) => {
-                                for slot_data in &slot_datas {
-                                    TransientBufferQueue::add_slot_data(
-                                        &engine.add_buffer_queue,
-                                        slot_data,
-                                    );
-                                }
-
-                                engine.remove_nodes_data(node_id);
-                                engine.slot_datas.append(&mut slot_datas.into());
-                            }
-                            Err(e) => {
-                                tex_pro.shutdown.store(true, Ordering::Relaxed);
-                                panic!(
-                                    "Error when processing '{:?}' node with id '{}': {}",
-                                    engine.node_graph.node(node_id).unwrap().node_type,
-                                    node_id,
-                                    e
-                                );
-                            }
-                        }
-
-                        if engine.set_state(node_id, NodeState::Clean).is_err() {
-                            tex_pro.shutdown.store(true, Ordering::Relaxed);
-                            return;
-                        }
-
-                        if !engine.use_cache {
-                            for parent in engine.get_parents(node_id) {
-                                if engine.get_children(parent).iter().flatten().all(|node_id| {
-                                    matches![
-                                        engine.node_state(*node_id).unwrap(),
-                                        NodeState::Clean | NodeState::Processing
-                                    ]
-                                }) {
-                                    engine.remove_nodes_data(parent);
-                                }
-                            }
-                        }
-                    }
+                    let engine = engine.read().unwrap();
 
                     // Get requested nodes
                     let requested = if engine.auto_update {
@@ -239,6 +251,7 @@ impl Engine {
 
                 let tex_pro = Arc::clone(&tex_pro);
                 let send = send.clone();
+                let engine = Arc::clone(&process_pack.engine);
 
                 thread::spawn(move || {
                     let slot_datas: Result<Vec<Arc<SlotData>>> = process_node(
@@ -253,6 +266,7 @@ impl Engine {
                     match send.send(ThreadMessage {
                         node_id,
                         slot_datas,
+                        engine,
                     }) {
                         Ok(_) => (),
                         Err(e) => println!("{:?}", e),
@@ -355,16 +369,13 @@ impl Engine {
         }
     }
 
-    /// Waits until a certain NodeId has a certain state, and when it does it returns the
-    /// `RwLockReadGuard` so reads can be made while the `NodeState` remains the same.
-    pub fn wait_for_state_read(
+    pub fn await_clean_read(
         engine: &Arc<RwLock<Self>>,
         node_id: NodeId,
-        node_state: NodeState,
     ) -> Result<RwLockReadGuard<Engine>> {
         loop {
             if let Ok(engine) = engine.read() {
-                if node_state == engine.node_state(node_id)? {
+                if engine.node_state(node_id)? == NodeState::Clean {
                     return Ok(engine);
                 }
             }
@@ -373,6 +384,24 @@ impl Engine {
             thread::sleep(Duration::from_millis(1));
         }
     }
+
+    /// Waits until a certain NodeId has a certain state, and when it does it returns the
+    /// `RwLockReadGuard` so reads can be made while the `NodeState` remains the same.
+    // pub fn await_state_read(
+    //     engine: &Arc<RwLock<Self>>,
+    //     node_id: NodeId,
+    //     node_state: NodeState,
+    // ) -> Result<RwLockReadGuard<Engine>> {
+    //     loop {
+    //         if let Ok(engine) = engine.read() {
+    //             if node_state == engine.node_state(node_id)? {
+    //                 return Ok(engine);
+    //             }
+    //         }
+
+    //         thread::sleep(Duration::from_millis(1));
+    //     }
+    // }
 
     pub fn request(&mut self, node_id: NodeId) -> Result<()> {
         let node_state = self.node_state_mut(node_id)?;

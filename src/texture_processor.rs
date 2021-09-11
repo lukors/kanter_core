@@ -1,6 +1,6 @@
 use crate::{
     engine::*,
-    error::{Result, TexProError},
+    error::Result,
     node_graph::*,
     slot_data::*,
     transient_buffer::{TransientBufferContainer, TransientBufferQueue},
