@@ -187,7 +187,7 @@ fn drive_cache() {
     };
 
     calculate_slot(&engine, mix_node_2, SlotId(0));
-    thread::sleep(Duration::from_millis(1_000));
+    thread::sleep(Duration::from_millis(2_000));
     {
         // Assert that the right things are on drive and in RAM.
         let engine = engine.read().unwrap();
@@ -230,7 +230,7 @@ fn drive_cache() {
     // Loads this slot_data into RAM.
     calculate_slot(&engine, rgba_node, SlotId(0));
 
-    thread::sleep(Duration::from_millis(1_000));
+    thread::sleep(Duration::from_millis(2_000));
     {
         let engine = engine.read().unwrap();
 
@@ -274,54 +274,64 @@ fn no_cache() {
         .is_err());
 }
 
-// #[test]
-// #[timeout(20_000)]
-// fn use_cache() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+#[test]
+#[timeout(20_000)]
+fn use_cache() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let value_node = engine.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
+    let value_node = {
+        let mut engine = engine.write().unwrap();
 
-//     tex_pro
-//         .connect(value_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+        let value_node = engine.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
 
-//     engine.write().unwrap().use_cache = true;
-//     engine.write().unwrap().auto_update = true;
+        engine
+            .connect(value_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
 
-//     thread::sleep(std::time::Duration::from_secs(1));
+        engine.use_cache = true;
+        engine.auto_update = true;
+        value_node
+    };
+    thread::sleep(std::time::Duration::from_secs(1));
 
-//     assert!(tex_pro
-//         .engine()
-//         .write()
-//         .unwrap()
-//         .slot_data_new(value_node, SlotId(0))
-//         .is_ok());
-// }
+    assert!(engine
+        .write()
+        .unwrap()
+        .slot_data_new(value_node, SlotId(0))
+        .is_ok());
+}
 
-// #[test]
-// #[timeout(20_000)]
-// fn request_empty_buffer() {
-//     let mut tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+#[test]
+#[timeout(20_000)]
+fn request_empty_buffer() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let mix_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::default())))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
+    let output_node = {
+        let mut engine = engine.write().unwrap();
 
-//     tex_pro
-//         .connect(mix_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+        let mix_node = engine
+            .add_node(Node::new(NodeType::Mix(MixType::default())))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
 
-//     #[allow(unused_variables)]
-//     let nothing = tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap();
-// }
+        engine
+            .connect(mix_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        output_node
+    };
+
+    let _ = Engine::wait_for_state_read(&engine, output_node, NodeState::Clean)
+        .unwrap()
+        .buffer_rgba(output_node, SlotId(0))
+        .unwrap();
+}
 
 // #[test]
 // fn input_output_intercept() {

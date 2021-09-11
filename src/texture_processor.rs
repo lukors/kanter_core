@@ -70,7 +70,8 @@ impl TextureProcessor {
     }
 
     pub fn add_engine(&self, engine: Arc<RwLock<Engine>>) -> Result<()> {
-        Ok(self.engine.write()?.push(engine))
+        self.engine.write()?.push(engine);
+        Ok(())
     }
 
     pub fn engine(&self) -> &Arc<RwLock<Vec<Arc<RwLock<Engine>>>>> {

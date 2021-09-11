@@ -173,7 +173,7 @@ impl Engine {
                             .unwrap()
                             .priority
                             .load(Ordering::Relaxed),
-                        engine: Arc::clone(&engine),
+                        engine: Arc::clone(engine),
                     });
                 }
             }
