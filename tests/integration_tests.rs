@@ -1,8 +1,8 @@
 use kanter_core::{
     engine::{Engine, NodeState},
     node::{
-        embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, value, Node, ResizeFilter,
-        ResizePolicy,
+        embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, output, value, Node,
+        ResizeFilter, ResizePolicy,
     },
     node_graph::{NodeGraph, NodeId, SlotId},
     slot_data::Size,
@@ -333,121 +333,133 @@ fn request_empty_buffer() {
         .unwrap();
 }
 
-// #[test]
-// fn input_output_intercept() {
-//     const SIZE: u32 = 256;
-//     const SIZE_LARGE: u32 = 200;
-//     const SIZE_SMALL: u32 = 128;
-//     const PATH_IN: &str = IMAGE_2;
-//     const PATH_OUT_INTERCEPT: &str = &"out/input_output_intercept.png";
-//     const PATH_OUT: &str = &"out/input_output_intercept_out.png";
+#[test]
+fn input_output_intercept() {
+    const SIZE: u32 = 50;
+    const SIZE_LARGE: u32 = 30;
+    const SIZE_SMALL: u32 = 10;
+    const PATH_IN: &str = IMAGE_2;
+    const PATH_OUT_INTERCEPT: &str = &"out/input_output_intercept.png";
+    const PATH_OUT: &str = &"out/input_output_intercept_out.png";
 
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
-//         .unwrap();
-//     let resize_node_1 = tex_pro
-//         .add_node(
-//             Node::new(NodeType::Mix(MixType::default()))
-//                 .resize_filter(ResizeFilter::Lanczos3)
-//                 .resize_policy(ResizePolicy::SpecificSize(Size::new(
-//                     SIZE_SMALL, SIZE_SMALL,
-//                 ))),
-//         )
-//         .unwrap();
-//     let resize_node_2 = tex_pro
-//         .add_node(
-//             Node::new(NodeType::Mix(MixType::default()))
-//                 .resize_filter(ResizeFilter::Lanczos3)
-//                 .resize_policy(ResizePolicy::SpecificSize(Size::new(
-//                     SIZE_LARGE, SIZE_LARGE,
-//                 ))),
-//         )
-//         .unwrap();
-//     let resize_node_3 = tex_pro
-//         .add_node(
-//             Node::new(NodeType::Mix(MixType::default()))
-//                 .resize_filter(ResizeFilter::Lanczos3)
-//                 .resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
-//         )
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
+    let (resize_node_1, output_node) = {
+        let mut engine = engine.write().unwrap();
+        let input_node = engine
+            .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
+            .unwrap();
+        let resize_node_1 = engine
+            .add_node(
+                Node::new(NodeType::Mix(MixType::default()))
+                    .resize_filter(ResizeFilter::Lanczos3)
+                    .resize_policy(ResizePolicy::SpecificSize(Size::new(
+                        SIZE_SMALL, SIZE_SMALL,
+                    ))),
+            )
+            .unwrap();
+        let resize_node_2 = engine
+            .add_node(
+                Node::new(NodeType::Mix(MixType::default()))
+                    .resize_filter(ResizeFilter::Lanczos3)
+                    .resize_policy(ResizePolicy::SpecificSize(Size::new(
+                        SIZE_LARGE, SIZE_LARGE,
+                    ))),
+            )
+            .unwrap();
+        let resize_node_3 = engine
+            .add_node(
+                Node::new(NodeType::Mix(MixType::default()))
+                    .resize_filter(ResizeFilter::Lanczos3)
+                    .resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
+            )
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
 
-//     tex_pro
-//         .connect(input_node, resize_node_1, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(resize_node_1, resize_node_2, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(resize_node_2, resize_node_3, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(resize_node_3, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+        engine
+            .connect(input_node, resize_node_1, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(resize_node_1, resize_node_2, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(resize_node_2, resize_node_3, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(resize_node_3, output_node, SlotId(0), SlotId(0))
+            .unwrap();
 
-//     let mut intercepted = false;
-//     loop {
-//         if !intercepted {
-//             if let Ok(buffer) = tex_pro.try_buffer_rgba(resize_node_1, SlotId(0)) {
-//                 ensure_out_dir();
-//                 image::save_buffer(
-//                     &Path::new(&PATH_OUT_INTERCEPT),
-//                     &image::RgbaImage::from_vec(SIZE_SMALL, SIZE_SMALL, buffer).unwrap(),
-//                     SIZE_SMALL,
-//                     SIZE_SMALL,
-//                     image::ColorType::Rgba8,
-//                 )
-//                 .unwrap();
-//                 intercepted = true;
-//             }
-//         }
+        (resize_node_1, output_node)
+    };
 
-//         if let Ok(buffer) = tex_pro.try_buffer_rgba(output_node, SlotId(0)) {
-//             ensure_out_dir();
-//             image::save_buffer(
-//                 &Path::new(&PATH_OUT),
-//                 &image::RgbaImage::from_vec(SIZE, SIZE, buffer).unwrap(),
-//                 SIZE,
-//                 SIZE,
-//                 image::ColorType::Rgba8,
-//             )
-//             .unwrap();
+    let mut intercepted = false;
+    loop {
+        if !intercepted {
+            if let Ok(buffer) = Engine::try_buffer_rgba(&engine, resize_node_1, SlotId(0)) {
+                ensure_out_dir();
+                image::save_buffer(
+                    &Path::new(&PATH_OUT_INTERCEPT),
+                    &image::RgbaImage::from_vec(SIZE_SMALL, SIZE_SMALL, buffer).unwrap(),
+                    SIZE_SMALL,
+                    SIZE_SMALL,
+                    image::ColorType::Rgba8,
+                )
+                .unwrap();
+                intercepted = true;
+            }
+        }
 
-//             break;
-//         }
-//     }
-// }
+        if let Ok(buffer) = Engine::try_buffer_rgba(&engine, output_node, SlotId(0)) {
+            ensure_out_dir();
+            image::save_buffer(
+                &Path::new(&PATH_OUT),
+                &image::RgbaImage::from_vec(SIZE, SIZE, buffer).unwrap(),
+                SIZE,
+                SIZE,
+                image::ColorType::Rgba8,
+            )
+            .unwrap();
 
-// #[test]
-// #[timeout(20_000)]
-// fn mix_node_single_input() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+            break;
+        }
+    }
 
-//     let value_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let mix_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Add)))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
+    assert!(intercepted);
+}
 
-//     tex_pro
-//         .connect(value_node, mix_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(mix_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+#[test]
+#[timeout(20_000)]
+fn mix_node_single_input() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     save_and_compare(tex_pro, output_node, "mix_node_single_input.png");
-// }
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+
+        let value_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let mix_node = engine
+            .add_node(Node::new(NodeType::Mix(MixType::Add)))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
+
+        engine
+            .connect(value_node, mix_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(mix_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        output_node
+    };
+
+    save_and_compare(&engine, output_node, "mix_node_single_input.png");
+}
 
 // #[test]
 // #[timeout(20_000)]
@@ -853,42 +865,45 @@ fn request_empty_buffer() {
 //     );
 // }
 
-// fn save_and_compare(tex_pro: TextureProcessor, node_id: NodeId, name: &str) {
-//     save_and_compare_size(tex_pro, node_id, (256, 256), name);
-// }
+fn save_and_compare(engine: &Arc<RwLock<Engine>>, node_id: NodeId, name: &str) {
+    save_and_compare_size(engine, node_id, (256, 256), name);
+}
 
-// fn save_and_compare_size(
-//     mut tex_pro: TextureProcessor,
-//     node_id: NodeId,
-//     size: (u32, u32),
-//     name: &str,
-// ) {
-//     let (path_out, path_cmp) = build_paths(name);
+fn save_and_compare_size(
+    engine: &Arc<RwLock<Engine>>,
+    node_id: NodeId,
+    size: (u32, u32),
+    name: &str,
+) {
+    let (path_out, path_cmp) = build_paths(name);
 
-//     ensure_out_dir();
-//     let vec = tex_pro.buffer_rgba(node_id, SlotId(0)).unwrap();
-//     let vec_len = vec.len();
-//     let buf = &image::RgbaImage::from_vec(size.0, size.1, vec).expect(&format!(
-//         "Buffer was not big enough, \
-//         expected image size: {:?}, \
-//         number of pixels: {}, \
-//         Sqrt(number of pixels) = {}",
-//         size,
-//         vec_len,
-//         (vec_len as f32).sqrt()
-//     ));
+    ensure_out_dir();
+    let vec = Engine::wait_for_state_read(engine, node_id, NodeState::Clean)
+        .unwrap()
+        .buffer_rgba(node_id, SlotId(0))
+        .unwrap();
+    let vec_len = vec.len();
+    let buf = &image::RgbaImage::from_vec(size.0, size.1, vec).expect(&format!(
+        "Buffer was not big enough, \
+        expected image size: {:?}, \
+        number of pixels: {}, \
+        Sqrt(number of pixels) = {}",
+        size,
+        vec_len,
+        (vec_len as f32).sqrt()
+    ));
 
-//     image::save_buffer(&path_out, buf, size.0, size.1, image::ColorType::Rgba8).unwrap();
+    image::save_buffer(&path_out, buf, size.0, size.1, image::ColorType::Rgba8).unwrap();
 
-//     assert!(images_equal(path_out, path_cmp));
-// }
+    assert!(images_equal(path_out, path_cmp));
+}
 
-// fn build_paths(name: &str) -> (String, String) {
-//     (
-//         format!("{}/{}", DIR_OUT, name),
-//         format!("{}/{}", DIR_CMP, name),
-//     )
-// }
+fn build_paths(name: &str) -> (String, String) {
+    (
+        format!("{}/{}", DIR_OUT, name),
+        format!("{}/{}", DIR_CMP, name),
+    )
+}
 
 // #[test]
 // #[timeout(20_000)]

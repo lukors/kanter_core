@@ -270,6 +270,64 @@ impl Engine {
         self.slot_data(node_id, slot_id)?.image.to_u8()
     }
 
+    /// Tries to get the output of a node. If it can't it submits a request for it.
+    pub fn try_buffer_rgba(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+        slot_id: SlotId,
+    ) -> Result<Vec<u8>> {
+        let result = if let Ok(engine) = engine.try_write() {
+            if let Ok(node_state) = engine.node_state(node_id) {
+                if node_state == NodeState::Clean {
+                    engine.slot_data(node_id, slot_id)?.image.to_u8()
+                } else {
+                    Err(TexProError::InvalidNodeId)
+                }
+            } else {
+                Err(TexProError::InvalidNodeId)
+            }
+        } else {
+            Err(TexProError::UnableToLock)
+        };
+
+        if result.is_err() {
+            // This is blocking, should probably make requests go through an
+            // `RwLock<BTreeSet<NodeId>>`.
+            engine.write().unwrap().request(node_id)?
+        }
+
+        result
+    }
+
+    /// Tries to get the output of a node. If it can't it submits a request for it.
+    pub fn try_buffer_srgba(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+        slot_id: SlotId,
+    ) -> Result<Vec<u8>> {
+        let result = if let Ok(engine) = engine.try_write() {
+            if let Ok(node_state) = engine.node_state(node_id) {
+                if node_state == NodeState::Clean {
+                    engine.slot_data(node_id, slot_id)?.image.to_u8_srgb()
+                } else {
+                    Err(TexProError::InvalidNodeId)
+                }
+            } else {
+                Err(TexProError::InvalidNodeId)
+            }
+        } else {
+            Err(TexProError::UnableToLock)
+        };
+
+        if result.is_err() {
+            // This is blocking, should probably make requests go through an
+            // `RwLock<BTreeSet<NodeId>>`.
+            engine.write().unwrap().request(node_id)?
+        }
+
+        result
+    }
+
     /// Return all changed `NodeId`s.
     pub fn changed_consume(&mut self) -> Vec<NodeId> {
         let output = self.changed.iter().copied().collect();
