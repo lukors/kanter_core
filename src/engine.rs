@@ -4,15 +4,10 @@ use crate::{edge::Edge, error::{Result, TexProError}, node::{
         Node, Side,
     }, node_graph::*, slot_data::*, slot_image::SlotImage, texture_processor::TextureProcessor, transient_buffer::{TransientBuffer, TransientBufferContainer, TransientBufferQueue}};
 use image::ImageBuffer;
-use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    sync::{
-        atomic::{AtomicBool, Ordering},
+use std::{collections::{BTreeMap, BTreeSet, VecDeque}, sync::{
+        atomic::Ordering,
         mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    },
-    thread,
-    time::Duration,
-};
+    }, thread, time::Duration};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeState {
@@ -43,7 +38,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(shutdown: Arc<AtomicBool>, add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>) -> Self {
+    pub fn new(add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>) -> Self {
 
         Self {
             node_graph: NodeGraph::new(),
@@ -59,6 +54,12 @@ impl Engine {
     }
 
     pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
+
+        struct ProcessPack {
+            node_id: NodeId,
+            priority: i8,
+            engine: Arc<RwLock<Engine>>,
+        }
         struct ThreadMessage {
             node_id: NodeId,
             slot_datas: Result<Vec<Arc<SlotData>>>,
@@ -70,166 +71,178 @@ impl Engine {
                 return;
             }
 
-            if let Ok(mut engine) = engine.write() {
-                // Handle messages received from node processing threads.
-                for message in recv.try_iter() {
-                    let node_id = message.node_id;
+            let mut process_packs: Vec<ProcessPack> = Vec::new();
 
-                    match message.slot_datas {
-                        Ok(slot_datas) => {
-                            for slot_data in &slot_datas {
-                                TransientBufferQueue::add_slot_data(
-                                    &engine.add_buffer_queue,
-                                    slot_data,
+            for engine in tex_pro.engine().read().unwrap().iter() {
+                let closest_processable = {
+                    let mut engine = engine.write().unwrap();
+
+                    // Handle messages received from node processing threads.
+                    for message in recv.try_iter() {
+                        let node_id = message.node_id;
+    
+                        match message.slot_datas {
+                            Ok(slot_datas) => {
+                                for slot_data in &slot_datas {
+                                    TransientBufferQueue::add_slot_data(
+                                        &engine.add_buffer_queue,
+                                        slot_data,
+                                    );
+                                }
+    
+                                engine.remove_nodes_data(node_id);
+                                engine.slot_datas.append(&mut slot_datas.into());
+                            }
+                            Err(e) => {
+                                tex_pro.shutdown.store(true, Ordering::Relaxed);
+                                panic!(
+                                    "Error when processing '{:?}' node with id '{}': {}",
+                                    engine.node_graph.node(node_id).unwrap().node_type,
+                                    node_id,
+                                    e
                                 );
                             }
-
-                            engine.remove_nodes_data(node_id);
-                            engine.slot_datas.append(&mut slot_datas.into());
                         }
-                        Err(e) => {
-                            shutdown.store(true, Ordering::Relaxed);
-                            panic!(
-                                "Error when processing '{:?}' node with id '{}': {}",
-                                engine.node_graph.node(node_id).unwrap().node_type,
-                                node_id,
-                                e
-                            );
+    
+                        if engine.set_state(node_id, NodeState::Clean).is_err() {
+                            tex_pro.shutdown.store(true, Ordering::Relaxed);
+                            return;
                         }
-                    }
-
-                    if engine.set_state(node_id, NodeState::Clean).is_err() {
-                        shutdown.store(true, Ordering::Relaxed);
-                        return;
-                    }
-
-                    if !engine.use_cache {
-                        for parent in engine.get_parents(node_id) {
-                            if engine.get_children(parent).iter().flatten().all(|node_id| {
-                                matches![
-                                    engine.node_state(*node_id).unwrap(),
-                                    NodeState::Clean | NodeState::Processing
-                                ]
-                            }) {
-                                engine.remove_nodes_data(parent);
+    
+                        if !engine.use_cache {
+                            for parent in engine.get_parents(node_id) {
+                                if engine.get_children(parent).iter().flatten().all(|node_id| {
+                                    matches![
+                                        engine.node_state(*node_id).unwrap(),
+                                        NodeState::Clean | NodeState::Processing
+                                    ]
+                                }) {
+                                    engine.remove_nodes_data(parent);
+                                }
                             }
                         }
                     }
-                }
-
-                // Get requested nodes
-                let mut requested = if engine.auto_update {
-                    engine
-                        .node_state
-                        .iter()
-                        .filter(|(_, node_state)| {
-                            !matches!(node_state, NodeState::Processing | NodeState::Clean)
-                        })
-                        .map(|(node_id, _)| *node_id)
-                        .collect::<Vec<NodeId>>()
-                } else {
-                    engine
-                        .node_state
-                        .iter()
-                        .filter(|(_, node_state)| {
-                            matches!(node_state, NodeState::Requested | NodeState::Prioritised)
-                        })
-                        .map(|(node_id, _)| *node_id)
-                        .collect::<Vec<NodeId>>()
+    
+                    // Get requested nodes
+                    let requested = if engine.auto_update {
+                        engine
+                            .node_state
+                            .iter()
+                            .filter(|(_, node_state)| {
+                                !matches!(node_state, NodeState::Processing | NodeState::Clean)
+                            })
+                            .map(|(node_id, _)| *node_id)
+                            .collect::<Vec<NodeId>>()
+                    } else {
+                        engine
+                            .node_state
+                            .iter()
+                            .filter(|(_, node_state)| {
+                                matches!(node_state, NodeState::Requested | NodeState::Prioritised)
+                            })
+                            .map(|(node_id, _)| *node_id)
+                            .collect::<Vec<NodeId>>()
+                    };
+    
+                    // Get the closest non-clean parents
+                    let mut closest_processable = Vec::new();
+                    for node_id in requested {
+                        closest_processable.append(&mut engine.get_closest_processable(node_id));
+                    }
+                    closest_processable.sort_unstable();
+                    closest_processable.dedup();
+                    closest_processable
                 };
 
-                // Sort requested nodes by priority
-                requested.sort_unstable_by(|a, b| {
-                    engine
-                        .node(*a)
-                        .unwrap()
-                        .priority
-                        .load(Ordering::Relaxed)
-                        .cmp(&engine.node(*b).unwrap().priority.load(Ordering::Relaxed))
-                });
-
-                // Get the closest non-clean parents
-                let mut closest_processable = Vec::new();
-                for node_id in requested {
-                    closest_processable.append(&mut engine.get_closest_processable(node_id));
-                }
-                closest_processable.sort_unstable();
-                closest_processable.dedup();
-
                 for node_id in closest_processable {
-                    *engine.node_state_mut(node_id).unwrap() = NodeState::Processing;
-
-                    let node = engine.node_graph.node(node_id).unwrap();
-
-                    let embedded_node_datas: Vec<Arc<EmbeddedSlotData>> = engine
-                        .embedded_slot_datas
-                        .iter()
-                        .map(|end| Arc::clone(end))
-                        .collect();
-
-                    let input_node_datas: Vec<Arc<SlotData>> = engine
-                        .input_slot_datas
-                        .iter()
-                        .map(|nd| Arc::clone(nd))
-                        .collect();
-
-                    let edges = engine
-                        .edges()
-                        .iter()
-                        .filter(|edge| edge.input_id == node_id)
-                        .copied()
-                        .collect::<Vec<Edge>>();
-
-                    let input_data = {
-                        edges
-                            .iter()
-                            .map(|edge| {
-                                if let Ok(slot_data) =
-                                    engine.slot_data(edge.output_id, edge.output_slot)
-                                {
-                                    Arc::clone(&slot_data)
-                                } else {
-                                    Arc::new(SlotData::new(
-                                        edge.output_id,
-                                        edge.output_slot,
-                                        SlotImage::Gray(Arc::new(TransientBufferContainer::new(
-                                            Arc::new(RwLock::new(TransientBuffer::new(Box::new(
-                                                ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
-                                            )))),
-                                        ))),
-                                    ))
-                                }
-                            })
-                            .collect::<Vec<Arc<SlotData>>>()
-                    };
-
-                    assert_eq!(
-                        edges.len(),
-                        input_data.len(),
-                        "NodeType: {:?}",
-                        node.node_type
-                    );
-
-                    let send = send.clone();
-
-                    thread::spawn(move || {
-                        let slot_datas: Result<Vec<Arc<SlotData>>> = process_node(
-                            node,
-                            &input_data,
-                            &embedded_node_datas,
-                            &input_node_datas,
-                            &edges,
-                        );
-
-                        match send.send(ThreadMessage {
-                            node_id,
-                            slot_datas,
-                        }) {
-                            Ok(_) => (),
-                            Err(e) => println!("{:?}", e),
-                        };
+                    process_packs.push(ProcessPack{
+                        node_id,
+                        priority: engine.read().unwrap().node(node_id).unwrap().priority.load(Ordering::Relaxed),
+                        engine: Arc::clone(&engine),
                     });
                 }
+            }
+
+            process_packs.sort_unstable_by(|a, b| a.priority.cmp(&b.priority));
+
+            for process_pack in process_packs {
+                let node_id = process_pack.node_id;
+                let mut engine = process_pack.engine.write().unwrap();
+
+                *engine.node_state_mut(node_id).unwrap() = NodeState::Processing;
+
+                let node = engine.node_graph.node(node_id).unwrap();
+
+                let embedded_node_datas: Vec<Arc<EmbeddedSlotData>> = engine
+                    .embedded_slot_datas
+                    .iter()
+                    .map(|end| Arc::clone(end))
+                    .collect();
+
+                let input_node_datas: Vec<Arc<SlotData>> = engine
+                    .input_slot_datas
+                    .iter()
+                    .map(|nd| Arc::clone(nd))
+                    .collect();
+
+                let edges = engine
+                    .edges()
+                    .iter()
+                    .filter(|edge| edge.input_id == node_id)
+                    .copied()
+                    .collect::<Vec<Edge>>();
+
+                let input_data = {
+                    edges
+                        .iter()
+                        .map(|edge| {
+                            if let Ok(slot_data) =
+                                engine.slot_data(edge.output_id, edge.output_slot)
+                            {
+                                Arc::clone(&slot_data)
+                            } else {
+                                Arc::new(SlotData::new(
+                                    edge.output_id,
+                                    edge.output_slot,
+                                    SlotImage::Gray(Arc::new(TransientBufferContainer::new(
+                                        Arc::new(RwLock::new(TransientBuffer::new(Box::new(
+                                            ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
+                                        )))),
+                                    ))),
+                                ))
+                            }
+                        })
+                        .collect::<Vec<Arc<SlotData>>>()
+                };
+
+                assert_eq!(
+                    edges.len(),
+                    input_data.len(),
+                    "NodeType: {:?}",
+                    node.node_type
+                );
+
+                let tex_pro = Arc::clone(&tex_pro);
+                let send = send.clone();
+
+                thread::spawn(move || {
+                    let slot_datas: Result<Vec<Arc<SlotData>>> = process_node(
+                        node,
+                        &input_data,
+                        &embedded_node_datas,
+                        &input_node_datas,
+                        &edges,
+                        tex_pro,
+                    );
+
+                    match send.send(ThreadMessage {
+                        node_id,
+                        slot_datas,
+                    }) {
+                        Ok(_) => (),
+                        Err(e) => println!("{:?}", e),
+                    };
+                });
             }
 
             // Sleeping to reduce CPU load.
@@ -238,7 +251,7 @@ impl Engine {
     }
 
     /// Return a SlotData as u8.
-    pub fn buffer_rgba(&mut self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+    pub fn buffer_rgba(&self, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
         self.slot_data(node_id, slot_id)?.image.to_u8()
     }
 

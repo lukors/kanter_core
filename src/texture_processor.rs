@@ -1,5 +1,5 @@
-use crate::{edge::Edge, engine::*, error::{Result, TexProError}, node::{Node, Side}, node_graph::*, slot_data::*, transient_buffer::{TransientBufferContainer, TransientBufferQueue}};
-use std::{sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicBool, AtomicUsize, Ordering}}, thread};
+use crate::{engine::*, error::{Result, TexProError}, node_graph::*, slot_data::*, transient_buffer::{TransientBufferContainer, TransientBufferQueue}};
+use std::{sync::{Arc, RwLock, atomic::{AtomicBool, AtomicUsize, Ordering}}, thread};
 
 // #[derive(Default)]
 pub struct TextureProcessor {
@@ -37,9 +37,10 @@ impl TextureProcessor {
             memory_threshold,
             add_buffer_queue,
         });
+        let output_send = Arc::clone(&output);
 
         thread::spawn(move || {
-            Engine::process_loop(Arc::clone(&output), shutdown);
+            Engine::process_loop(output_send);
         });
 
         thread::spawn(move || {
@@ -50,8 +51,18 @@ impl TextureProcessor {
         output
     }
 
+    pub fn new_engine(&self) -> Result<Arc<RwLock<Engine>>> {
+        let engine = Arc::new(RwLock::new(Engine::new(Arc::clone(&self.add_buffer_queue))));
+        self.engine.write()?.push(Arc::clone(&engine));
+        Ok(engine)
+    }
+
     pub fn add_engine(&self, engine: Arc<RwLock<Engine>>) -> Result<()> {
         Ok(self.engine.write()?.push(engine))
+    }
+
+    pub fn engine(&self) -> &Arc<RwLock<Vec<Arc<RwLock<Engine>>>>> {
+        &self.engine
     }
 
     pub fn buffer_rgba(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {

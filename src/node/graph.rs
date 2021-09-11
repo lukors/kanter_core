@@ -13,7 +13,7 @@ pub(crate) fn process(
 ) -> Result<Vec<Arc<SlotData>>> {
     let mut output: Vec<Arc<SlotData>> = Vec::new();
     // let tex_pro = TextureProcessor::default();
-    let engine = Engine::new(Arc::clone(&tex_pro.shutdown), Arc::clone(&tex_pro.add_buffer_queue));
+    let mut engine = Engine::new(Arc::clone(&tex_pro.add_buffer_queue));
     engine.set_node_graph((*graph).clone());
 
     // Insert `SlotData`s into the graph TexPro.

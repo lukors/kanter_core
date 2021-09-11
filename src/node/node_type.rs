@@ -148,7 +148,7 @@ pub(crate) fn process_node(
     embedded_slot_datas: &[Arc<EmbeddedSlotData>],
     input_slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
-    tex_pro: &Arc<TextureProcessor>,
+    tex_pro: Arc<TextureProcessor>,
 ) -> Result<Vec<Arc<SlotData>>> {
     assert_eq!(
         edges.len(),
@@ -168,7 +168,7 @@ pub(crate) fn process_node(
         assign_slot_ids(&slot_datas, &edges)
     };
 
-    let output = process_node_internal(node, &slot_datas, embedded_slot_datas, input_slot_datas, tex_pro)?;
+    let output = process_node_internal(node, &slot_datas, embedded_slot_datas, input_slot_datas, &tex_pro)?;
 
     Ok(output)
 }
