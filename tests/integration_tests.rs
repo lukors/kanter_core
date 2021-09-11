@@ -1,7 +1,7 @@
 use kanter_core::{
     engine::{Engine, NodeState},
     node::{
-        embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, Node, ResizeFilter,
+        embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, value, Node, ResizeFilter,
         ResizePolicy,
     },
     node_graph::{NodeGraph, NodeId, SlotId},
@@ -244,32 +244,35 @@ fn drive_cache() {
     }
 }
 
-// #[test]
-// #[timeout(20_000)]
-// fn no_cache() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+#[test]
+#[timeout(20_000)]
+fn no_cache() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
+    let value_node = {
+        let mut engine = engine.write().unwrap();
+        let value_node = engine.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
 
-//     tex_pro
-//         .connect(value_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+        engine
+            .connect(value_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
 
-//     tex_pro.engine().write().unwrap().auto_update = true;
+        engine.auto_update = true;
+        value_node
+    };
 
-//     thread::sleep(std::time::Duration::from_secs(1));
+    thread::sleep(std::time::Duration::from_secs(1));
 
-//     assert!(tex_pro
-//         .engine()
-//         .write()
-//         .unwrap()
-//         .slot_data_new(value_node, SlotId(0))
-//         .is_err());
-// }
+    assert!(engine
+        .read()
+        .unwrap()
+        .slot_data_new(value_node, SlotId(0))
+        .is_err());
+}
 
 // #[test]
 // #[timeout(20_000)]
@@ -277,7 +280,7 @@ fn drive_cache() {
 //     let tex_pro = tex_pro_new();
 // let engine = tex_pro.new_engine().unwrap();
 
-//     let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
+//     let value_node = engine.add_node(Node::new(NodeType::Value(1.0))).unwrap();
 //     let output_node = tex_pro
 //         .add_node(Node::new(NodeType::OutputGray("out".into())))
 //         .unwrap();
@@ -286,8 +289,8 @@ fn drive_cache() {
 //         .connect(value_node, output_node, SlotId(0), SlotId(0))
 //         .unwrap();
 
-//     tex_pro.engine().write().unwrap().use_cache = true;
-//     tex_pro.engine().write().unwrap().auto_update = true;
+//     engine.write().unwrap().use_cache = true;
+//     engine.write().unwrap().auto_update = true;
 
 //     thread::sleep(std::time::Duration::from_secs(1));
 
@@ -578,15 +581,15 @@ fn drive_cache() {
 //     let input_1 = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
 //         .unwrap();
-//     let separate_1 = tex_pro.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+//     let separate_1 = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
 //     let input_2 = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
 //         .unwrap();
-//     let separate_2 = tex_pro.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+//     let separate_2 = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
 //     let output_node = tex_pro
 //         .add_node(Node::new(NodeType::OutputRgba("out".into())))
 //         .unwrap();
-//     let combine = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
+//     let combine = engine.add_node(Node::new(NodeType::CombineRgba)).unwrap();
 
 //     tex_pro
 //         .connect(input_1, separate_1, SlotId(0), SlotId(0))
@@ -672,8 +675,8 @@ fn drive_cache() {
 //     let tex_pro = tex_pro_new();
 // let engine = tex_pro.new_engine().unwrap();
 
-//     let input_1 = tex_pro.add_node(Node::new(NodeType::Value(0.0))).unwrap();
-//     tex_pro.add_node(Node::new(NodeType::Value(0.0))).unwrap();
+//     let input_1 = engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
+//     engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
 //     let output_node = tex_pro
 //         .add_node(Node::new(NodeType::OutputGray("out".into())))
 //         .unwrap();
@@ -689,11 +692,11 @@ fn drive_cache() {
 //     let tex_pro = tex_pro_new();
 // let engine = tex_pro.new_engine().unwrap();
 
-//     let value_node = tex_pro.add_node(Node::new(NodeType::Value(0.))).unwrap();
+//     let value_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
 
 //     tex_pro.remove_node(value_node).unwrap();
 
-//     assert_eq!(tex_pro.engine().read().unwrap().node_ids().len(), 0);
+//     assert_eq!(engine.read().unwrap().node_ids().len(), 0);
 // }
 
 // #[test]
@@ -701,7 +704,7 @@ fn drive_cache() {
 //     let tex_pro = tex_pro_new();
 // let engine = tex_pro.new_engine().unwrap();
 
-//     let value_node = tex_pro.add_node(Node::new(NodeType::Value(0.))).unwrap();
+//     let value_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
 
 //     let output_node = tex_pro
 //         .add_node(Node::new(NodeType::Mix(MixType::default())))
@@ -724,15 +727,15 @@ fn drive_cache() {
 //     let tex_pro = tex_pro_new();
 // let engine = tex_pro.new_engine().unwrap();
 
-//     let red_node = tex_pro.add_node(Node::new(NodeType::Value(0.))).unwrap();
-//     let green_node = tex_pro.add_node(Node::new(NodeType::Value(0.33))).unwrap();
-//     let blue_node = tex_pro.add_node(Node::new(NodeType::Value(0.66))).unwrap();
-//     let alpha_node = tex_pro.add_node(Node::new(NodeType::Value(1.))).unwrap();
+//     let red_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
+//     let green_node = engine.add_node(Node::new(NodeType::Value(0.33))).unwrap();
+//     let blue_node = engine.add_node(Node::new(NodeType::Value(0.66))).unwrap();
+//     let alpha_node = engine.add_node(Node::new(NodeType::Value(1.))).unwrap();
 
 //     let combine_node = {
 //         let mut node = Node::new(NodeType::CombineRgba);
 //         node.resize_policy = ResizePolicy::SpecificSize(Size::new(256, 256));
-//         tex_pro.add_node(node).unwrap()
+//         engine.add_node(node).unwrap()
 //     };
 
 //     let node_ids = [red_node, green_node, blue_node, alpha_node];
@@ -764,7 +767,7 @@ fn drive_cache() {
 //     let mix_node = {
 //         let mut mix_node = Node::new(NodeType::Mix(MixType::default()));
 //         mix_node.resize_policy = resize_policy;
-//         tex_pro.add_node(mix_node).unwrap()
+//         engine.add_node(mix_node).unwrap()
 //     };
 
 //     tex_pro
@@ -920,7 +923,7 @@ fn drive_cache() {
 //     let invert_graph_node = tex_pro
 //         .add_node(Node::new(NodeType::Graph(invert_graph)))
 //         .unwrap();
-//     let separate_node = tex_pro.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
 //     let output_node = tex_pro
 //         .add_node(Node::new(NodeType::OutputGray("out".into())))
 //         .unwrap();
@@ -1000,7 +1003,7 @@ fn drive_cache() {
 //     let image_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
 //         .unwrap();
-//     let separate_node = tex_pro.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
 //     let invert_graph_node = tex_pro
 //         .add_node(Node::new(NodeType::Graph(invert_graph)))
 //         .unwrap();
@@ -1129,7 +1132,7 @@ fn drive_cache() {
 //     let input_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
 //         .unwrap();
-//     let separate_node = tex_pro.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
 //     let graph_node = tex_pro
 //         .add_node(Node::new(NodeType::Graph(nested_graph)))
 //         .unwrap();
@@ -1204,7 +1207,7 @@ fn drive_cache() {
 //     let input_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(CLOUDS.into())))
 //         .unwrap();
-//     let separate_node = tex_pro.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
 //     let h2n_node = tex_pro
 //         .add_node(Node::new(NodeType::HeightToNormal))
 //         .unwrap();
@@ -1232,7 +1235,7 @@ fn drive_cache() {
 //     let image_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
 //         .unwrap();
-//     let separate_node = tex_pro.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
 //     let input_node = tex_pro
 //         .add_node(Node::new(NodeType::Mix(mix_type)))
 //         .unwrap();

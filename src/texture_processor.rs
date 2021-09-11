@@ -200,14 +200,14 @@ impl TextureProcessor {
     //         .disconnect_slot(node_id, side, slot_id)
     // }
 
-    pub fn slot_data_new(
-        engine: &Arc<RwLock<Engine>>,
-        node_id: NodeId,
-        slot_id: SlotId,
-    ) -> Result<SlotData> {
-        Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?
-            .slot_data_new(node_id, slot_id)
-    }
+    // pub fn slot_data_new(
+    //     engine: &Arc<RwLock<Engine>>,
+    //     node_id: NodeId,
+    //     slot_id: SlotId,
+    // ) -> Result<SlotData> {
+    //     Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?
+    //         .slot_data_new(node_id, slot_id)
+    // }
 
     // pub fn wait_for_state_read(
     //     &self,
