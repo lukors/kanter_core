@@ -102,8 +102,7 @@ fn node_in_memory(
 }
 
 fn calculate_slot(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) {
-    for buf in engine
-        .read()
+    for buf in Engine::wait_for_state_read(engine, node_id, NodeState::Clean)
         .unwrap()
         .slot_data_new(node_id, slot_id)
         .unwrap()
@@ -143,109 +142,107 @@ fn deadlock() {
         .unwrap();
 }
 
-// #[test]
-// #[timeout(20_000)]
-// fn drive_cache() {
-//     const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+#[test]
+#[timeout(20_000)]
+fn drive_cache() {
+    const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
+    let tex_pro = tex_pro_new();
+    // Setting the slot_data_ram_cap at 16 bytes should result in the Rgba8de getting written
+    tex_pro.memory_threshold.store(16, Ordering::Relaxed);
+    let engine = tex_pro.new_engine().unwrap();
 
-//     // Rgba8de should be 4 channels * 4 bytes = 16 bytes
-//     let rgba_node = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
+    let (rgba_node, value_nodes, mix_node_1, mix_node_2) = {
+        let mut engine = engine.write().unwrap();
+        engine.use_cache = true;
 
-//     // 4 value nodes should be 4 channels * 4 bytes = 16 bytes
-//     let mut value_nodes: Vec<NodeId> = Vec::new();
-//     for (i, val) in VAL.iter().enumerate() {
-//         let new_node = tex_pro.add_node(Node::new(NodeType::Value(*val))).unwrap();
-//         value_nodes.push(new_node);
-//         tex_pro
-//             .connect(new_node, rgba_node, SlotId(0), SlotId(i as u32))
-//             .unwrap();
-//     }
+        // Rgba8de should be 4 channels * 4 bytes = 16 bytes
+        let rgba_node = engine.add_node(Node::new(NodeType::CombineRgba)).unwrap();
 
-//     // 2 mix nodes should be 2 nodes * 4 channels * 4 bytes = 32 bytes
-//     let mix_node_1 = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Add)))
-//         .unwrap();
-//     let mix_node_2 = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Add)))
-//         .unwrap();
+        // 4 value nodes should be 4 channels * 4 bytes = 16 bytes
+        let mut value_nodes: Vec<NodeId> = Vec::new();
+        for (i, val) in VAL.iter().enumerate() {
+            let new_node = engine.add_node(Node::new(NodeType::Value(*val))).unwrap();
+            value_nodes.push(new_node);
+            engine
+                .connect(new_node, rgba_node, SlotId(0), SlotId(i as u32))
+                .unwrap();
+        }
 
-//     tex_pro
-//         .connect(rgba_node, mix_node_1, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
-//         .unwrap();
+        // 2 mix nodes should be 2 nodes * 4 channels * 4 bytes = 32 bytes
+        let mix_node_1 = engine
+            .add_node(Node::new(NodeType::Mix(MixType::Add)))
+            .unwrap();
+        let mix_node_2 = engine
+            .add_node(Node::new(NodeType::Mix(MixType::Add)))
+            .unwrap();
 
-//     // Setting the slot_data_ram_cap at 16 bytes should result in the Rgba8de getting written
-//     // to drive.
-//     tex_pro
-//         .engine()
-//         .read()
-//         .unwrap()
-//         .memory_threshold
-//         .store(16, Ordering::Relaxed);
-//     tex_pro.engine().write().unwrap().use_cache = true;
+        engine
+            .connect(rgba_node, mix_node_1, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
+            .unwrap();
 
-//     calculate_slot(&tex_pro, mix_node_2, SlotId(0));
-//     thread::sleep(Duration::from_millis(2000));
-//     {
-//         // Assert that the right things are on drive and in RAM.
-//         let engine = tex_pro.engine();
-//         let engine = engine.read().unwrap();
+        (rgba_node, value_nodes, mix_node_1, mix_node_2)
+    };
 
-//         for node_id in &value_nodes {
-//             assert!(!engine.slot_in_memory(*node_id, SlotId(0)).unwrap());
-//         }
+    calculate_slot(&engine, mix_node_2, SlotId(0));
+    thread::sleep(Duration::from_millis(1_000));
+    {
+        // Assert that the right things are on drive and in RAM.
+        let engine = engine.read().unwrap();
 
-//         assert!(!engine.slot_in_memory(rgba_node, SlotId(0)).unwrap());
-//         assert!(!engine.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
-//         assert!(engine.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
-//     }
+        for node_id in &value_nodes {
+            assert!(!engine.slot_in_memory(*node_id, SlotId(0)).unwrap());
+        }
 
-//     {
-//         if let SlotImage::Rgba(bufs) = &tex_pro.slot_data_new(rgba_node, SlotId(0)).unwrap().image {
-//             let pixel = {
-//                 let pixel = [
-//                     bufs[0].transient_buffer(),
-//                     bufs[1].transient_buffer(),
-//                     bufs[2].transient_buffer(),
-//                     bufs[3].transient_buffer(),
-//                 ];
+        assert!(!engine.slot_in_memory(rgba_node, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
+        assert!(engine.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
+    }
 
-//                 [
-//                     pixel[0].buffer().pixels().next().unwrap().0[0],
-//                     pixel[1].buffer().pixels().next().unwrap().0[0],
-//                     pixel[2].buffer().pixels().next().unwrap().0[0],
-//                     pixel[3].buffer().pixels().next().unwrap().0[0],
-//                 ]
-//             };
+    {
+        let engine = engine.write().unwrap();
+        if let SlotImage::Rgba(bufs) = &engine.slot_data_new(rgba_node, SlotId(0)).unwrap().image {
+            let pixel = {
+                let pixel = [
+                    bufs[0].transient_buffer(),
+                    bufs[1].transient_buffer(),
+                    bufs[2].transient_buffer(),
+                    bufs[3].transient_buffer(),
+                ];
 
-//             assert_eq!(pixel, VAL);
-//         } else {
-//             panic!()
-//         }
-//     }
+                [
+                    pixel[0].buffer().pixels().next().unwrap().0[0],
+                    pixel[1].buffer().pixels().next().unwrap().0[0],
+                    pixel[2].buffer().pixels().next().unwrap().0[0],
+                    pixel[3].buffer().pixels().next().unwrap().0[0],
+                ]
+            };
 
-//     // Test if the right thing happens when a slot_data on drive is retrieved...
-//     // Loads this slot_data into RAM.
-//     calculate_slot(&tex_pro, rgba_node, SlotId(0));
+            assert_eq!(pixel, VAL);
+        } else {
+            panic!()
+        }
+    }
 
-//     thread::sleep(Duration::from_millis(500));
-//     {
-//         let engine = tex_pro.engine();
-//         let engine = engine.read().unwrap();
+    // Test if the right thing happens when a slot_data on drive is retrieved...
+    // Loads this slot_data into RAM.
+    calculate_slot(&engine, rgba_node, SlotId(0));
 
-//         for node_id in value_nodes {
-//             assert!(engine.slot_in_memory(node_id, SlotId(0)).unwrap());
-//         }
+    thread::sleep(Duration::from_millis(1_000));
+    {
+        let engine = engine.read().unwrap();
 
-//         assert!(engine.slot_in_memory(rgba_node, SlotId(0)).unwrap());
-//         assert!(!engine.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
-//         assert!(!engine.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
-//     }
-// }
+        for node_id in value_nodes {
+            assert!(engine.slot_in_memory(node_id, SlotId(0)).unwrap());
+        }
+
+        assert!(engine.slot_in_memory(rgba_node, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
+        assert!(!engine.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
+    }
+}
 
 // #[test]
 // #[timeout(20_000)]
