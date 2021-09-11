@@ -1,6 +1,12 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{engine::{Engine, NodeState}, error::Result, node_graph::{NodeGraph, SlotId}, slot_data::SlotData, texture_processor::TextureProcessor};
+use crate::{
+    engine::{Engine, NodeState},
+    error::Result,
+    node_graph::{NodeGraph, SlotId},
+    slot_data::SlotData,
+    texture_processor::TextureProcessor,
+};
 
 use super::{Node, NodeId};
 
@@ -9,7 +15,7 @@ pub(crate) fn process(
     slot_datas: &[Arc<SlotData>],
     node: &Node,
     graph: &NodeGraph,
-    tex_pro: &Arc<TextureProcessor>
+    tex_pro: &Arc<TextureProcessor>,
 ) -> Result<Vec<Arc<SlotData>>> {
     let mut output: Vec<Arc<SlotData>> = Vec::new();
     // let tex_pro = TextureProcessor::default();
@@ -18,12 +24,11 @@ pub(crate) fn process(
 
     // Insert `SlotData`s into the graph TexPro.
     for slot_data in slot_datas {
-        engine
-            .add_input_slot_data(Arc::new(SlotData::new(
-                NodeId(slot_data.slot_id.0),
-                SlotId(0),
-                slot_data.image.clone(),
-            )));
+        engine.add_input_slot_data(Arc::new(SlotData::new(
+            NodeId(slot_data.slot_id.0),
+            SlotId(0),
+            slot_data.image.clone(),
+        )));
     }
 
     let engine = Arc::new(RwLock::new(engine));

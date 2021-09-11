@@ -1,5 +1,17 @@
-use crate::{engine::*, error::{Result, TexProError}, node_graph::*, slot_data::*, transient_buffer::{TransientBufferContainer, TransientBufferQueue}};
-use std::{sync::{Arc, RwLock, atomic::{AtomicBool, AtomicUsize, Ordering}}, thread};
+use crate::{
+    engine::*,
+    error::{Result, TexProError},
+    node_graph::*,
+    slot_data::*,
+    transient_buffer::{TransientBufferContainer, TransientBufferQueue},
+};
+use std::{
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, RwLock,
+    },
+    thread,
+};
 
 // #[derive(Default)]
 pub struct TextureProcessor {
@@ -26,9 +38,10 @@ impl TextureProcessor {
     pub fn new(memory_threshold: Arc<AtomicUsize>) -> Arc<Self> {
         let shutdown = Arc::new(AtomicBool::new(false));
 
-        let mut transient_buffer_queue = TransientBufferQueue::new(Arc::clone(&memory_threshold), Arc::clone(&shutdown));
+        let mut transient_buffer_queue =
+            TransientBufferQueue::new(Arc::clone(&memory_threshold), Arc::clone(&shutdown));
         let add_buffer_queue = Arc::clone(&transient_buffer_queue.incoming_buffers);
-        
+
         // let engine = Arc::new(RwLock::new(Engine::new(Arc::clone(&shutdown), Arc::clone(&add_buffer_queue))));
 
         let output = Arc::new(Self {
@@ -47,7 +60,6 @@ impl TextureProcessor {
             transient_buffer_queue.thread_loop();
         });
 
-
         output
     }
 
@@ -65,13 +77,21 @@ impl TextureProcessor {
         &self.engine
     }
 
-    pub fn buffer_rgba(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+    pub fn buffer_rgba(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+        slot_id: SlotId,
+    ) -> Result<Vec<u8>> {
         Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?
             .buffer_rgba(node_id, slot_id)
     }
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
-    pub fn try_buffer_rgba(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+    pub fn try_buffer_rgba(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+        slot_id: SlotId,
+    ) -> Result<Vec<u8>> {
         let result = if let Ok(engine) = engine.try_write() {
             if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
@@ -96,7 +116,11 @@ impl TextureProcessor {
     }
 
     /// Tries to get the output of a node. If it can't it submits a request for it.
-    pub fn try_buffer_srgba(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) -> Result<Vec<u8>> {
+    pub fn try_buffer_srgba(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+        slot_id: SlotId,
+    ) -> Result<Vec<u8>> {
         let result = if let Ok(engine) = engine.try_write() {
             if let Ok(node_state) = engine.node_state(node_id) {
                 if node_state == NodeState::Clean {
@@ -120,12 +144,17 @@ impl TextureProcessor {
         result
     }
 
-    pub(crate) fn node_slot_datas(engine: &Arc<RwLock<Engine>>, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
-        Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?
-            .node_slot_datas(node_id)
+    pub(crate) fn node_slot_datas(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+    ) -> Result<Vec<Arc<SlotData>>> {
+        Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?.node_slot_datas(node_id)
     }
 
-    pub fn node_slot_datas_new(engine: &Arc<RwLock<Engine>>, node_id: NodeId) -> Result<Vec<SlotData>> {
+    pub fn node_slot_datas_new(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+    ) -> Result<Vec<SlotData>> {
         Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?
             .node_slot_datas_new(node_id)
     }
@@ -171,7 +200,11 @@ impl TextureProcessor {
     //         .disconnect_slot(node_id, side, slot_id)
     // }
 
-    pub fn slot_data_new(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) -> Result<SlotData> {
+    pub fn slot_data_new(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+        slot_id: SlotId,
+    ) -> Result<SlotData> {
         Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?
             .slot_data_new(node_id, slot_id)
     }
@@ -194,7 +227,11 @@ impl TextureProcessor {
     // }
 
     /// Returns the size of a given `SlotData`.
-    pub fn await_slot_data_size(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
+    pub fn await_slot_data_size(
+        engine: &Arc<RwLock<Engine>>,
+        node_id: NodeId,
+        slot_id: SlotId,
+    ) -> Result<Size> {
         engine.write().unwrap().prioritise(node_id)?;
 
         loop {

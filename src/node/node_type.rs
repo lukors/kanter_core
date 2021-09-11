@@ -1,4 +1,7 @@
-use crate::{edge::Edge, error::Result, node_graph::*, shared::resize_buffers, slot_data::SlotData, texture_processor::TextureProcessor};
+use crate::{
+    edge::Edge, error::Result, node_graph::*, shared::resize_buffers, slot_data::SlotData,
+    texture_processor::TextureProcessor,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt, mem, path::PathBuf, sync::Arc};
 
@@ -168,7 +171,13 @@ pub(crate) fn process_node(
         assign_slot_ids(&slot_datas, &edges)
     };
 
-    let output = process_node_internal(node, &slot_datas, embedded_slot_datas, input_slot_datas, &tex_pro)?;
+    let output = process_node_internal(
+        node,
+        &slot_datas,
+        embedded_slot_datas,
+        input_slot_datas,
+        &tex_pro,
+    )?;
 
     Ok(output)
 }

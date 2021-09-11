@@ -1,7 +1,14 @@
-use kanter_core::{engine::{Engine, NodeState}, node::{
+use kanter_core::{
+    engine::{Engine, NodeState},
+    node::{
         embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, Node, ResizeFilter,
         ResizePolicy,
-    }, node_graph::{NodeGraph, NodeId, SlotId}, slot_data::Size, slot_image::SlotImage, texture_processor::TextureProcessor};
+    },
+    node_graph::{NodeGraph, NodeId, SlotId},
+    slot_data::Size,
+    slot_image::SlotImage,
+    texture_processor::TextureProcessor,
+};
 use ntest::timeout;
 use std::{
     fs::create_dir,
@@ -62,7 +69,7 @@ fn input_output() {
         engine
             .connect(input_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
-        
+
         output_node
     };
 
@@ -72,7 +79,10 @@ fn input_output() {
         &image::RgbaImage::from_vec(
             SIZE,
             SIZE,
-            Engine::wait_for_state_read(&engine, output_node, NodeState::Clean).unwrap().buffer_rgba(output_node, SlotId(0)).unwrap(),
+            Engine::wait_for_state_read(&engine, output_node, NodeState::Clean)
+                .unwrap()
+                .buffer_rgba(output_node, SlotId(0))
+                .unwrap(),
             // engine.buffer_rgba(output_node, SlotId(0)).unwrap(),
         )
         .unwrap(),

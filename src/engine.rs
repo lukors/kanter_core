@@ -1,13 +1,24 @@
-use crate::{edge::Edge, error::{Result, TexProError}, node::{
+use crate::{
+    edge::Edge,
+    error::{Result, TexProError},
+    node::{
         embed::{EmbeddedSlotData, EmbeddedSlotDataId},
         node_type::process_node,
         Node, Side,
-    }, node_graph::*, slot_data::*, slot_image::SlotImage, texture_processor::TextureProcessor, transient_buffer::{TransientBuffer, TransientBufferContainer, TransientBufferQueue}};
+    },
+    node_graph::*,
+    slot_data::*,
+    slot_image::SlotImage,
+    texture_processor::TextureProcessor,
+    transient_buffer::{TransientBuffer, TransientBufferContainer, TransientBufferQueue},
+};
 use image::ImageBuffer;
-use std::{collections::{BTreeMap, BTreeSet, VecDeque}, sync::{
-        atomic::Ordering,
-        mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    }, thread, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    sync::{atomic::Ordering, mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    thread,
+    time::Duration,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeState {
@@ -39,7 +50,6 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>) -> Self {
-
         Self {
             node_graph: NodeGraph::new(),
             slot_datas: VecDeque::new(),
@@ -54,7 +64,6 @@ impl Engine {
     }
 
     pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
-
         struct ProcessPack {
             node_id: NodeId,
             priority: i8,
@@ -80,7 +89,7 @@ impl Engine {
                     // Handle messages received from node processing threads.
                     for message in recv.try_iter() {
                         let node_id = message.node_id;
-    
+
                         match message.slot_datas {
                             Ok(slot_datas) => {
                                 for slot_data in &slot_datas {
@@ -89,7 +98,7 @@ impl Engine {
                                         slot_data,
                                     );
                                 }
-    
+
                                 engine.remove_nodes_data(node_id);
                                 engine.slot_datas.append(&mut slot_datas.into());
                             }
@@ -103,12 +112,12 @@ impl Engine {
                                 );
                             }
                         }
-    
+
                         if engine.set_state(node_id, NodeState::Clean).is_err() {
                             tex_pro.shutdown.store(true, Ordering::Relaxed);
                             return;
                         }
-    
+
                         if !engine.use_cache {
                             for parent in engine.get_parents(node_id) {
                                 if engine.get_children(parent).iter().flatten().all(|node_id| {
@@ -122,7 +131,7 @@ impl Engine {
                             }
                         }
                     }
-    
+
                     // Get requested nodes
                     let requested = if engine.auto_update {
                         engine
@@ -143,7 +152,7 @@ impl Engine {
                             .map(|(node_id, _)| *node_id)
                             .collect::<Vec<NodeId>>()
                     };
-    
+
                     // Get the closest non-clean parents
                     let mut closest_processable = Vec::new();
                     for node_id in requested {
@@ -155,9 +164,15 @@ impl Engine {
                 };
 
                 for node_id in closest_processable {
-                    process_packs.push(ProcessPack{
+                    process_packs.push(ProcessPack {
                         node_id,
-                        priority: engine.read().unwrap().node(node_id).unwrap().priority.load(Ordering::Relaxed),
+                        priority: engine
+                            .read()
+                            .unwrap()
+                            .node(node_id)
+                            .unwrap()
+                            .priority
+                            .load(Ordering::Relaxed),
                         engine: Arc::clone(&engine),
                     });
                 }
