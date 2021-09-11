@@ -551,294 +551,319 @@ fn embedded_node_data() {
     save_and_compare(&engine_out, output_node_out, "embedded_node_data.png");
 }
 
-// #[test]
-// #[timeout(20_000)]
-// fn repeat_process() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+#[test]
+#[timeout(20_000)]
+fn separate_node() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image("data/image_1.png".into())))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let input_1 = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+            .unwrap();
+        let separate_1 = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+        let input_2 = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let separate_2 = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
+        let combine = engine.add_node(Node::new(NodeType::CombineRgba)).unwrap();
 
-//     tex_pro
-//         .connect(input_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-// }
+        engine
+            .connect(input_1, separate_1, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(input_2, separate_2, SlotId(0), SlotId(0))
+            .unwrap();
 
-// #[test]
-// #[timeout(20_000)]
-// fn separate_node() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+        engine
+            .connect(separate_1, combine, SlotId(3), SlotId(0))
+            .unwrap();
+        engine
+            .connect(separate_1, combine, SlotId(1), SlotId(1))
+            .unwrap();
+        engine
+            .connect(separate_2, combine, SlotId(2), SlotId(2))
+            .unwrap();
+        engine
+            .connect(separate_2, combine, SlotId(3), SlotId(3))
+            .unwrap();
 
-//     let input_1 = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
-//         .unwrap();
-//     let separate_1 = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-//     let input_2 = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let separate_2 = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
-//     let combine = engine.add_node(Node::new(NodeType::CombineRgba)).unwrap();
+        engine
+            .connect(combine, output_node, SlotId(0), SlotId(0))
+            .unwrap();
 
-//     tex_pro
-//         .connect(input_1, separate_1, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(input_2, separate_2, SlotId(0), SlotId(0))
-//         .unwrap();
+        output_node
+    };
 
-//     tex_pro
-//         .connect(separate_1, combine, SlotId(3), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(separate_1, combine, SlotId(1), SlotId(1))
-//         .unwrap();
-//     tex_pro
-//         .connect(separate_2, combine, SlotId(2), SlotId(2))
-//         .unwrap();
-//     tex_pro
-//         .connect(separate_2, combine, SlotId(3), SlotId(3))
-//         .unwrap();
+    save_and_compare(&engine, output_node, "mix_images.png");
+}
 
-//     tex_pro
-//         .connect(combine, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+#[test]
+#[timeout(20_000)]
+fn irregular_sizes() {
+    let mut tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     save_and_compare(tex_pro, output_node, "mix_images.png");
-// }
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let input_1 = engine
+            .add_node(Node::new(NodeType::Image(HEART_128.into())))
+            .unwrap();
+        let input_2 = engine
+            .add_node(Node::new(NodeType::Image(HEART_110.into())))
+            .unwrap();
+        let mix = engine
+            .add_node(Node::new(NodeType::Mix(MixType::default())))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
 
-// #[test]
-// #[timeout(20_000)]
-// fn irregular_sizes() {
-//     let mut tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+        engine.connect(input_1, mix, SlotId(0), SlotId(0)).unwrap();
+        engine.connect(input_2, mix, SlotId(0), SlotId(1)).unwrap();
+        engine
+            .connect(mix, output_node, SlotId(0), SlotId(0))
+            .unwrap();
 
-//     let input_1 = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_128.into())))
-//         .unwrap();
-//     let input_2 = tex_pro
-//         .add_node(Node::new(NodeType::Image(HEART_110.into())))
-//         .unwrap();
-//     let mix = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::default())))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
+        output_node
+    };
 
-//     tex_pro.connect(input_1, mix, SlotId(0), SlotId(0)).unwrap();
-//     tex_pro.connect(input_2, mix, SlotId(0), SlotId(1)).unwrap();
-//     tex_pro
-//         .connect(mix, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
+    // Can not use the save_and_compare convenience function because this is slightly different.
+    const PATH_OUT: &str = &"out/irregular_sizes.png";
+    const PATH_CMP: &str = &"data/test_compare/irregular_sizes.png";
 
-//     // Can not use the save_and_compare convenience function because this is slightly different.
-//     const PATH_OUT: &str = &"out/irregular_sizes.png";
-//     const PATH_CMP: &str = &"data/test_compare/irregular_sizes.png";
+    let size = Engine::await_clean_read(&engine, output_node)
+        .unwrap()
+        .slot_data_size(output_node, SlotId(0))
+        .unwrap();
 
-//     let size = tex_pro
-//         .await_slot_data_size(output_node, SlotId(0))
-//         .unwrap();
+    ensure_out_dir();
+    image::save_buffer(
+        &Path::new(PATH_OUT),
+        &image::RgbaImage::from_vec(
+            size.width,
+            size.height,
+            Engine::await_clean_read(&engine, output_node)
+                .unwrap()
+                .buffer_rgba(output_node, SlotId(0))
+                .unwrap(),
+        )
+        .unwrap(),
+        size.width,
+        size.height,
+        image::ColorType::Rgba8,
+    )
+    .unwrap();
 
-//     ensure_out_dir();
-//     image::save_buffer(
-//         &Path::new(PATH_OUT),
-//         &image::RgbaImage::from_vec(
-//             size.width,
-//             size.height,
-//             tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap(),
-//         )
-//         .unwrap(),
-//         size.width,
-//         size.height,
-//         image::ColorType::Rgba8,
-//     )
-//     .unwrap();
+    assert!(images_equal(PATH_OUT, PATH_CMP));
+}
 
-//     assert!(images_equal(PATH_OUT, PATH_CMP));
-// }
+#[test]
+#[timeout(20_000)]
+fn unconnected_node() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-// #[test]
-// #[timeout(20_000)]
-// fn unconnected_node() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let input_1 = engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
+        engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
 
-//     let input_1 = engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
-//     engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
+        engine
+            .connect(input_1, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine.auto_update = true;
+        output_node
+    };
 
-//     tex_pro
-//         .connect(input_1, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-// }
+    thread::sleep(Duration::from_millis(1000));
+    Engine::await_clean_read(&engine, output_node)
+        .unwrap()
+        .buffer_rgba(output_node, SlotId(0))
+        .unwrap();
+}
 
-// #[test]
-// #[timeout(20_000)]
-// fn remove_node() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+#[test]
+#[timeout(20_000)]
+fn remove_node() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let value_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
+    {
+        let mut engine = engine.write().unwrap();
+        let value_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
+        engine.remove_node(value_node).unwrap();
+    }
 
-//     tex_pro.remove_node(value_node).unwrap();
+    assert_eq!(engine.read().unwrap().node_ids().len(), 0);
+}
 
-//     assert_eq!(engine.read().unwrap().node_ids().len(), 0);
-// }
+#[test]
+fn connect_invalid_slot() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-// #[test]
-// fn connect_invalid_slot() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+    {
+        let mut engine = engine.write().unwrap();
+        let value_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
 
-//     let value_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::Mix(MixType::default())))
+            .unwrap();
 
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::default())))
-//         .unwrap();
+        assert!(engine
+            .connect(value_node, output_node, SlotId(0), SlotId(0))
+            .is_ok());
+        assert!(engine
+            .connect(value_node, output_node, SlotId(0), SlotId(1))
+            .is_ok());
+        assert!(engine
+            .connect(value_node, output_node, SlotId(0), SlotId(2))
+            .is_err());
+    }
+}
 
-//     assert!(tex_pro
-//         .connect(value_node, output_node, SlotId(0), SlotId(0))
-//         .is_ok());
-//     assert!(tex_pro
-//         .connect(value_node, output_node, SlotId(0), SlotId(1))
-//         .is_ok());
-//     assert!(tex_pro
-//         .connect(value_node, output_node, SlotId(0), SlotId(2))
-//         .is_err());
-// }
+#[test]
+#[timeout(20_000)]
+fn value_node() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-// #[test]
-// #[timeout(20_000)]
-// fn value_node() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+    let combine_node = {
+        let mut engine = engine.write().unwrap();
+        let red_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
+        let green_node = engine.add_node(Node::new(NodeType::Value(0.33))).unwrap();
+        let blue_node = engine.add_node(Node::new(NodeType::Value(0.66))).unwrap();
+        let alpha_node = engine.add_node(Node::new(NodeType::Value(1.))).unwrap();
 
-//     let red_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
-//     let green_node = engine.add_node(Node::new(NodeType::Value(0.33))).unwrap();
-//     let blue_node = engine.add_node(Node::new(NodeType::Value(0.66))).unwrap();
-//     let alpha_node = engine.add_node(Node::new(NodeType::Value(1.))).unwrap();
+        let combine_node = {
+            let mut node = Node::new(NodeType::CombineRgba);
+            node.resize_policy = ResizePolicy::SpecificSize(Size::new(256, 256));
+            engine.add_node(node).unwrap()
+        };
 
-//     let combine_node = {
-//         let mut node = Node::new(NodeType::CombineRgba);
-//         node.resize_policy = ResizePolicy::SpecificSize(Size::new(256, 256));
-//         engine.add_node(node).unwrap()
-//     };
+        let node_ids = [red_node, green_node, blue_node, alpha_node];
+        for i in 0..4 {
+            engine
+                .connect(node_ids[i], combine_node, SlotId(0), SlotId(i as u32))
+                .unwrap();
+        }
 
-//     let node_ids = [red_node, green_node, blue_node, alpha_node];
-//     for i in 0..4 {
-//         tex_pro
-//             .connect(node_ids[i], combine_node, SlotId(0), SlotId(i as u32))
-//             .unwrap();
-//     }
+        combine_node
+    };
 
-//     save_and_compare(tex_pro, combine_node, "value_node.png");
-// }
+    save_and_compare(&engine, combine_node, "value_node.png");
+}
 
-// fn resize_policy_test(
-//     resize_policy: ResizePolicy,
-//     img_path_1: &str,
-//     img_path_2: &str,
-//     expected_size: (u32, u32),
-// ) {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
+fn resize_policy_test(
+    resize_policy: ResizePolicy,
+    img_path_1: &str,
+    img_path_2: &str,
+    expected_size: (u32, u32),
+) {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let image_node_1 = tex_pro
-//         .add_node(Node::new(NodeType::Image(img_path_1.into())))
-//         .unwrap();
-//     let image_node_2 = tex_pro
-//         .add_node(Node::new(NodeType::Image(img_path_2.into())))
-//         .unwrap();
+    let mix_node = {
+        let mut engine = engine.write().unwrap();
+        let image_node_1 = engine
+            .add_node(Node::new(NodeType::Image(img_path_1.into())))
+            .unwrap();
+        let image_node_2 = engine
+            .add_node(Node::new(NodeType::Image(img_path_2.into())))
+            .unwrap();
 
-//     let mix_node = {
-//         let mut mix_node = Node::new(NodeType::Mix(MixType::default()));
-//         mix_node.resize_policy = resize_policy;
-//         engine.add_node(mix_node).unwrap()
-//     };
+        let mix_node = {
+            let mut mix_node = Node::new(NodeType::Mix(MixType::default()));
+            mix_node.resize_policy = resize_policy;
+            engine.add_node(mix_node).unwrap()
+        };
 
-//     tex_pro
-//         .connect(image_node_1, mix_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node_2, mix_node, SlotId(0), SlotId(1))
-//         .unwrap();
+        engine
+            .connect(image_node_1, mix_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(image_node_2, mix_node, SlotId(0), SlotId(1))
+            .unwrap();
 
-//     let actual_size = tex_pro.await_slot_data_size(mix_node, SlotId(0)).unwrap();
-//     let expected_size = Size::new(expected_size.0, expected_size.1);
-//     assert_eq!(
-//         actual_size, expected_size,
-//         "Actual size: {:?}, Expected size: {:?}",
-//         actual_size, expected_size
-//     );
-// }
+        mix_node
+    };
 
-// #[test]
-// #[timeout(20_000)]
-// fn resize_policy_least_pixels() {
-//     resize_policy_test(ResizePolicy::LeastPixels, HEART_128, HEART_256, (128, 128));
-// }
+    let actual_size = Engine::await_clean_read(&engine, mix_node)
+        .unwrap()
+        .slot_data_size(mix_node, SlotId(0))
+        .unwrap();
+    let expected_size = Size::new(expected_size.0, expected_size.1);
+    assert_eq!(
+        actual_size, expected_size,
+        "Actual size: {:?}, Expected size: {:?}",
+        actual_size, expected_size
+    );
+}
 
-// #[test]
-// #[timeout(20_000)]
-// fn resize_policy_largest_axes() {
-//     resize_policy_test(
-//         ResizePolicy::LargestAxes,
-//         HEART_WIDE,
-//         HEART_TALL,
-//         (128, 128),
-//     );
-// }
+#[test]
+#[timeout(20_000)]
+fn resize_policy_least_pixels() {
+    resize_policy_test(ResizePolicy::LeastPixels, HEART_128, HEART_256, (128, 128));
+}
 
-// #[test]
-// #[timeout(20_000)]
-// fn resize_policy_smallest_axes() {
-//     resize_policy_test(ResizePolicy::SmallestAxes, HEART_WIDE, HEART_TALL, (64, 64));
-// }
+#[test]
+#[timeout(20_000)]
+fn resize_policy_largest_axes() {
+    resize_policy_test(
+        ResizePolicy::LargestAxes,
+        HEART_WIDE,
+        HEART_TALL,
+        (128, 128),
+    );
+}
 
-// #[test]
-// #[timeout(20_000)]
-// fn resize_policy_most_pixels() {
-//     resize_policy_test(ResizePolicy::MostPixels, HEART_128, HEART_256, (256, 256));
-// }
+#[test]
+#[timeout(20_000)]
+fn resize_policy_smallest_axes() {
+    resize_policy_test(ResizePolicy::SmallestAxes, HEART_WIDE, HEART_TALL, (64, 64));
+}
 
-// #[test]
-// #[timeout(20_000)]
-// fn resize_policy_specific_size() {
-//     resize_policy_test(
-//         ResizePolicy::SpecificSize(Size::new(256, 256)),
-//         HEART_128,
-//         HEART_WIDE,
-//         (256, 256),
-//     );
-// }
+#[test]
+#[timeout(20_000)]
+fn resize_policy_most_pixels() {
+    resize_policy_test(ResizePolicy::MostPixels, HEART_128, HEART_256, (256, 256));
+}
 
-// #[test]
-// #[timeout(20_000)]
-// fn resize_policy_specific_slot() {
-//     resize_policy_test(
-//         ResizePolicy::SpecificSlot(SlotId(1)),
-//         HEART_128,
-//         HEART_WIDE,
-//         (128, 64),
-//     );
-//     resize_policy_test(
-//         ResizePolicy::SpecificSlot(SlotId(2)),
-//         HEART_128,
-//         HEART_WIDE,
-//         (128, 128),
-//     );
-// }
+#[test]
+#[timeout(20_000)]
+fn resize_policy_specific_size() {
+    resize_policy_test(
+        ResizePolicy::SpecificSize(Size::new(256, 256)),
+        HEART_128,
+        HEART_WIDE,
+        (256, 256),
+    );
+}
+
+#[test]
+#[timeout(20_000)]
+fn resize_policy_specific_slot() {
+    resize_policy_test(
+        ResizePolicy::SpecificSlot(SlotId(1)),
+        HEART_128,
+        HEART_WIDE,
+        (128, 64),
+    );
+    resize_policy_test(
+        ResizePolicy::SpecificSlot(SlotId(2)),
+        HEART_128,
+        HEART_WIDE,
+        (128, 128),
+    );
+}
 
 fn save_and_compare(engine: &Arc<RwLock<Engine>>, node_id: NodeId, name: &str) {
     save_and_compare_size(engine, node_id, (256, 256), name);
@@ -880,471 +905,471 @@ fn build_paths(name: &str) -> (String, String) {
     )
 }
 
-// #[test]
-// #[timeout(20_000)]
-// fn invert_graph_node() {
-//     // Nested invert graph
-//     let mut invert_graph = NodeGraph::new();
-
-//     let white_node_nested = invert_graph
-//         .add_node(Node::new(NodeType::Value(1.)))
-//         .unwrap();
-//     let nested_input_node = invert_graph
-//         .add_node(Node::new(NodeType::InputGray("in".into())))
-//         .unwrap();
-//     let subtract_node = invert_graph
-//         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
-//         .unwrap();
-//     let nested_output_node = invert_graph
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     let graph_node_input_slot_id = invert_graph.input_slot_id_with_name("in").unwrap();
-//     let graph_node_output_slot_id = invert_graph.output_slot_id_with_name("out").unwrap();
-
-//     invert_graph
-//         .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     invert_graph
-//         .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
-//         .unwrap();
-
-//     invert_graph
-//         .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     // Main graph
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let invert_graph_node = tex_pro
-//         .add_node(Node::new(NodeType::Graph(invert_graph)))
-//         .unwrap();
-//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(image_node, separate_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(
-//             separate_node,
-//             invert_graph_node,
-//             SlotId(0),
-//             graph_node_input_slot_id,
-//         )
-//         .unwrap();
-
-//     tex_pro
-//         .connect(
-//             invert_graph_node,
-//             output_node,
-//             graph_node_output_slot_id,
-//             SlotId(0),
-//         )
-//         .unwrap();
-
-//     save_and_compare(tex_pro, output_node, "invert_graph_node.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn invert_graph_node_export() {
-//     // Nested invert graph
-//     let mut invert_graph = NodeGraph::new();
-
-//     let white_node_nested = invert_graph
-//         .add_node(Node::new(NodeType::Value(1.)))
-//         .unwrap();
-//     let nested_input_node = invert_graph
-//         .add_node(Node::new(NodeType::InputGray("in".into())))
-//         .unwrap();
-//     let subtract_node = invert_graph
-//         .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
-//         .unwrap();
-//     let nested_output_node = invert_graph
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     invert_graph
-//         .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     invert_graph
-//         .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
-//         .unwrap();
-
-//     invert_graph
-//         .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     invert_graph
-//         .export_json("out/invert_graph.json".into())
-//         .unwrap();
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn invert_graph_node_import() {
-//     // Nested invert graph
-//     let invert_graph = NodeGraph::from_path("data/invert_graph.json".into()).unwrap();
-
-//     let graph_node_input_slot_id = invert_graph.input_slot_id_with_name("in").unwrap();
-//     let graph_node_output_slot_id = invert_graph.output_slot_id_with_name("out").unwrap();
-
-//     // Main graph
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-//     let invert_graph_node = tex_pro
-//         .add_node(Node::new(NodeType::Graph(invert_graph)))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(image_node, separate_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(
-//             separate_node,
-//             invert_graph_node,
-//             SlotId(0),
-//             graph_node_input_slot_id,
-//         )
-//         .unwrap();
-//     tex_pro
-//         .connect(
-//             invert_graph_node,
-//             output_node,
-//             graph_node_output_slot_id,
-//             SlotId(0),
-//         )
-//         .unwrap();
-
-//     save_and_compare(tex_pro, output_node, "invert_graph_node_import.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn graph_node_rgba() {
-//     let (path_out, path_cmp) = build_paths("graph_node_rgba.png");
-
-//     // Nested graph
-//     let mut nested_graph = NodeGraph::new();
-
-//     let nested_input_node = nested_graph
-//         .add_node(Node::new(NodeType::InputRgba("in".into())))
-//         .unwrap();
-//     let nested_output_node = nested_graph
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
-
-//     let graph_node_input_slot_id = nested_graph.input_slot_id_with_name("in").unwrap();
-//     let graph_node_output_slot_id = nested_graph.output_slot_id_with_name("out").unwrap();
-
-//     nested_graph
-//         .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     // Texture Processor
-//     let mut tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let graph_node = tex_pro
-//         .add_node(Node::new(NodeType::Graph(nested_graph)))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(input_node, graph_node, SlotId(0), graph_node_input_slot_id)
-//         .unwrap();
-
-//     tex_pro
-//         .connect(
-//             graph_node,
-//             output_node,
-//             graph_node_output_slot_id,
-//             SlotId(0),
-//         )
-//         .unwrap();
-
-//     ensure_out_dir();
-//     // Output
-//     image::save_buffer(
-//         &path_out,
-//         &image::RgbaImage::from_vec(
-//             256,
-//             256,
-//             tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap(),
-//         )
-//         .unwrap(),
-//         256,
-//         256,
-//         image::ColorType::Rgba8,
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(path_out, path_cmp));
-// }
-
-// /// Grayscale passthrough node.
-// #[test]
-// #[timeout(20_000)]
-// fn graph_node_gray() {
-//     let (path_out, path_cmp) = build_paths("graph_node_gray.png");
-
-//     // Nested graph
-//     let mut nested_graph = NodeGraph::new();
-
-//     let nested_input_node = nested_graph
-//         .add_node(Node::new(NodeType::InputGray("in".into())))
-//         .unwrap();
-//     let nested_output_node = nested_graph
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     let graph_node_input_slot_id = nested_graph.input_slot_id_with_name("in").unwrap();
-//     let graph_node_output_slot_id = nested_graph.output_slot_id_with_name("out").unwrap();
-
-//     nested_graph
-//         .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     // Texture Processor
-//     let mut tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-//     let graph_node = tex_pro
-//         .add_node(Node::new(NodeType::Graph(nested_graph)))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(input_node, separate_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(
-//             separate_node,
-//             graph_node,
-//             SlotId(0),
-//             graph_node_input_slot_id,
-//         )
-//         .unwrap();
-
-//     tex_pro
-//         .connect(
-//             graph_node,
-//             output_node,
-//             graph_node_output_slot_id,
-//             SlotId(0),
-//         )
-//         .unwrap();
-
-//     ensure_out_dir();
-//     image::save_buffer(
-//         &path_out,
-//         &image::RgbaImage::from_vec(
-//             256,
-//             256,
-//             tex_pro.buffer_rgba(output_node, SlotId(0)).unwrap(),
-//         )
-//         .unwrap(),
-//         256,
-//         256,
-//         image::ColorType::Rgba8,
-//     )
-//     .unwrap();
-
-//     assert!(images_equal(path_out, path_cmp));
-// }
-
-// #[test]
-// #[should_panic]
-// #[timeout(20_000)]
-// fn wrong_slot_type() {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
-//         .unwrap();
-//     let gray_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node, gray_node, SlotId(0), SlotId(0))
-//         .unwrap();
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn height_to_normal_node() {
-//     // Texture Processor
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(CLOUDS.into())))
-//         .unwrap();
-//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-//     let h2n_node = tex_pro
-//         .add_node(Node::new(NodeType::HeightToNormal))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(input_node, separate_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(separate_node, h2n_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(h2n_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     save_and_compare(tex_pro, output_node, "height_to_normal_node.png");
-// }
-
-// fn mix_node_test_gray(mix_type: MixType, name: &str) {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let image_node = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-//     let input_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(mix_type)))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputGray("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(image_node, separate_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(separate_node, input_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(separate_node, input_node, SlotId(1), SlotId(1))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(input_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     save_and_compare(tex_pro, output_node, name);
-// }
-
-// fn mix_node_test_rgba(mix_type: MixType, name: &str) {
-//     let tex_pro = tex_pro_new();
-// let engine = tex_pro.new_engine().unwrap();
-
-//     let image_node_1 = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
-//         .unwrap();
-//     let image_node_2 = tex_pro
-//         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
-//         .unwrap();
-//     let multiply_node = tex_pro
-//         .add_node(Node::new(NodeType::Mix(mix_type)))
-//         .unwrap();
-//     let output_node = tex_pro
-//         .add_node(Node::new(NodeType::OutputRgba("out".into())))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(image_node_1, multiply_node, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(image_node_2, multiply_node, SlotId(0), SlotId(1))
-//         .unwrap();
-
-//     tex_pro
-//         .connect(multiply_node, output_node, SlotId(0), SlotId(0))
-//         .unwrap();
-
-//     save_and_compare(tex_pro, output_node, name);
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn add_node_gray() {
-//     mix_node_test_gray(MixType::Add, "add_node_gray.png");
-// }
-// #[test]
-// #[timeout(20_000)]
-// fn add_node_rgba() {
-//     mix_node_test_rgba(MixType::Add, "add_node_rgba.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn subtract_node_gray() {
-//     mix_node_test_gray(MixType::Subtract, "subtract_node_gray.png");
-// }
-// #[test]
-// #[timeout(20_000)]
-// fn subtract_node_rgba() {
-//     mix_node_test_rgba(MixType::Subtract, "subtract_node_rgba.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn multiply_node_gray() {
-//     mix_node_test_gray(MixType::Multiply, "multiply_node_gray.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn multiply_node_rgba() {
-//     mix_node_test_rgba(MixType::Multiply, "multiply_node_rgba.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn divide_node_gray() {
-//     mix_node_test_gray(MixType::Divide, "divide_node_gray.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn divide_node_rgba() {
-//     mix_node_test_rgba(MixType::Divide, "divide_node_rgba.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn pow_node_gray() {
-//     mix_node_test_gray(MixType::Pow, "pow_node_gray.png");
-// }
-
-// #[test]
-// #[timeout(20_000)]
-// fn pow_node_rgba() {
-//     mix_node_test_rgba(MixType::Pow, "pow_node_rgba.png");
-// }
+#[test]
+#[timeout(20_000)]
+fn invert_graph_node() {
+    // Nested invert graph
+    let invert_graph = {
+        let mut invert_graph = NodeGraph::new();
+
+        let white_node_nested = invert_graph
+            .add_node(Node::new(NodeType::Value(1.)))
+            .unwrap();
+        let nested_input_node = invert_graph
+            .add_node(Node::new(NodeType::InputGray("in".into())))
+            .unwrap();
+        let subtract_node = invert_graph
+            .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
+            .unwrap();
+        let nested_output_node = invert_graph
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
+
+        invert_graph
+            .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
+            .unwrap();
+        invert_graph
+            .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
+            .unwrap();
+
+        invert_graph
+            .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        invert_graph
+    };
+
+    let graph_node_input_slot_id = invert_graph.input_slot_id_with_name("in").unwrap();
+    let graph_node_output_slot_id = invert_graph.output_slot_id_with_name("out").unwrap();
+
+    // Main graph
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let image_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let invert_graph_node = engine
+            .add_node(Node::new(NodeType::Graph(invert_graph)))
+            .unwrap();
+        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
+
+        engine
+            .connect(image_node, separate_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(
+                separate_node,
+                invert_graph_node,
+                SlotId(0),
+                graph_node_input_slot_id,
+            )
+            .unwrap();
+
+        engine
+            .connect(
+                invert_graph_node,
+                output_node,
+                graph_node_output_slot_id,
+                SlotId(0),
+            )
+            .unwrap();
+
+        output_node
+    };
+
+    save_and_compare(&engine, output_node, "invert_graph_node.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn invert_graph_node_export() {
+    // Nested invert graph
+    let mut invert_graph = NodeGraph::new();
+
+    let white_node_nested = invert_graph
+        .add_node(Node::new(NodeType::Value(1.)))
+        .unwrap();
+    let nested_input_node = invert_graph
+        .add_node(Node::new(NodeType::InputGray("in".into())))
+        .unwrap();
+    let subtract_node = invert_graph
+        .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
+        .unwrap();
+    let nested_output_node = invert_graph
+        .add_node(Node::new(NodeType::OutputGray("out".into())))
+        .unwrap();
+
+    invert_graph
+        .connect(white_node_nested, subtract_node, SlotId(0), SlotId(0))
+        .unwrap();
+    invert_graph
+        .connect(nested_input_node, subtract_node, SlotId(0), SlotId(1))
+        .unwrap();
+
+    invert_graph
+        .connect(subtract_node, nested_output_node, SlotId(0), SlotId(0))
+        .unwrap();
+
+    invert_graph
+        .export_json("out/invert_graph.json".into())
+        .unwrap();
+}
+
+#[test]
+#[timeout(20_000)]
+fn invert_graph_node_import() {
+    // Nested invert graph
+    let invert_graph = NodeGraph::from_path("data/invert_graph.json".into()).unwrap();
+
+    let graph_node_input_slot_id = invert_graph.input_slot_id_with_name("in").unwrap();
+    let graph_node_output_slot_id = invert_graph.output_slot_id_with_name("out").unwrap();
+
+    // Main graph
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let image_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+        let invert_graph_node = engine
+            .add_node(Node::new(NodeType::Graph(invert_graph)))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
+
+        engine
+            .connect(image_node, separate_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(
+                separate_node,
+                invert_graph_node,
+                SlotId(0),
+                graph_node_input_slot_id,
+            )
+            .unwrap();
+        engine
+            .connect(
+                invert_graph_node,
+                output_node,
+                graph_node_output_slot_id,
+                SlotId(0),
+            )
+            .unwrap();
+
+        output_node
+    };
+
+    save_and_compare(&engine, output_node, "invert_graph_node_import.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn graph_node_rgba() {
+    let nested_graph = {
+        let mut nested_graph = NodeGraph::new();
+
+        let nested_input_node = nested_graph
+            .add_node(Node::new(NodeType::InputRgba("in".into())))
+            .unwrap();
+        let nested_output_node = nested_graph
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
+
+        nested_graph
+            .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        nested_graph
+    };
+
+    let graph_node_input_slot_id = nested_graph.input_slot_id_with_name("in").unwrap();
+    let graph_node_output_slot_id = nested_graph.output_slot_id_with_name("out").unwrap();
+
+    // Texture Processor
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let input_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let graph_node = engine
+            .add_node(Node::new(NodeType::Graph(nested_graph)))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
+
+        engine
+            .connect(input_node, graph_node, SlotId(0), graph_node_input_slot_id)
+            .unwrap();
+
+        engine
+            .connect(
+                graph_node,
+                output_node,
+                graph_node_output_slot_id,
+                SlotId(0),
+            )
+            .unwrap();
+        output_node
+    };
+
+    save_and_compare(&engine, output_node, "graph_node_rgba.png");
+}
+
+/// Grayscale passthrough node.
+#[test]
+#[timeout(20_000)]
+fn graph_node_gray() {
+    let nested_graph = {
+        let mut nested_graph = NodeGraph::new();
+
+        let nested_input_node = nested_graph
+            .add_node(Node::new(NodeType::InputGray("in".into())))
+            .unwrap();
+        let nested_output_node = nested_graph
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
+
+        nested_graph
+            .connect(nested_input_node, nested_output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        nested_graph
+    };
+
+    let graph_node_input_slot_id = nested_graph.input_slot_id_with_name("in").unwrap();
+    let graph_node_output_slot_id = nested_graph.output_slot_id_with_name("out").unwrap();
+
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let input_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+        let graph_node = engine
+            .add_node(Node::new(NodeType::Graph(nested_graph)))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
+
+        engine
+            .connect(input_node, separate_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(
+                separate_node,
+                graph_node,
+                SlotId(0),
+                graph_node_input_slot_id,
+            )
+            .unwrap();
+
+        engine
+            .connect(
+                graph_node,
+                output_node,
+                graph_node_output_slot_id,
+                SlotId(0),
+            )
+            .unwrap();
+        output_node
+    };
+
+    save_and_compare(&engine, output_node, "graph_node_gray.png");
+}
+
+#[test]
+#[should_panic]
+#[timeout(20_000)]
+fn wrong_slot_type() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+
+    {
+        let mut engine = engine.write().unwrap();
+        let image_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+            .unwrap();
+        let gray_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
+        engine
+            .connect(image_node, gray_node, SlotId(0), SlotId(0))
+            .unwrap();
+    }
+}
+
+#[test]
+#[timeout(20_000)]
+fn height_to_normal_node() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let input_node = engine
+            .add_node(Node::new(NodeType::Image(CLOUDS.into())))
+            .unwrap();
+        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+        let h2n_node = engine
+            .add_node(Node::new(NodeType::HeightToNormal))
+            .unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
+
+        engine
+            .connect(input_node, separate_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(separate_node, h2n_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(h2n_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+
+        output_node
+    };
+
+    save_and_compare(&engine, output_node, "height_to_normal_node.png");
+}
+
+fn mix_node_test_gray(mix_type: MixType, name: &str) {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let image_node = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
+        let input_node = engine.add_node(Node::new(NodeType::Mix(mix_type))).unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputGray("out".into())))
+            .unwrap();
+
+        engine
+            .connect(image_node, separate_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(separate_node, input_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(separate_node, input_node, SlotId(1), SlotId(1))
+            .unwrap();
+
+        engine
+            .connect(input_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        output_node
+    };
+
+    save_and_compare(&engine, output_node, name);
+}
+
+fn mix_node_test_rgba(mix_type: MixType, name: &str) {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
+
+    let output_node = {
+        let mut engine = engine.write().unwrap();
+        let image_node_1 = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+            .unwrap();
+        let image_node_2 = engine
+            .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
+            .unwrap();
+        let multiply_node = engine.add_node(Node::new(NodeType::Mix(mix_type))).unwrap();
+        let output_node = engine
+            .add_node(Node::new(NodeType::OutputRgba("out".into())))
+            .unwrap();
+
+        engine
+            .connect(image_node_1, multiply_node, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(image_node_2, multiply_node, SlotId(0), SlotId(1))
+            .unwrap();
+
+        engine
+            .connect(multiply_node, output_node, SlotId(0), SlotId(0))
+            .unwrap();
+        output_node
+    };
+
+    save_and_compare(&engine, output_node, name);
+}
+
+#[test]
+#[timeout(20_000)]
+fn add_node_gray() {
+    mix_node_test_gray(MixType::Add, "add_node_gray.png");
+}
+#[test]
+#[timeout(20_000)]
+fn add_node_rgba() {
+    mix_node_test_rgba(MixType::Add, "add_node_rgba.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn subtract_node_gray() {
+    mix_node_test_gray(MixType::Subtract, "subtract_node_gray.png");
+}
+#[test]
+#[timeout(20_000)]
+fn subtract_node_rgba() {
+    mix_node_test_rgba(MixType::Subtract, "subtract_node_rgba.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn multiply_node_gray() {
+    mix_node_test_gray(MixType::Multiply, "multiply_node_gray.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn multiply_node_rgba() {
+    mix_node_test_rgba(MixType::Multiply, "multiply_node_rgba.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn divide_node_gray() {
+    mix_node_test_gray(MixType::Divide, "divide_node_gray.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn divide_node_rgba() {
+    mix_node_test_rgba(MixType::Divide, "divide_node_rgba.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn pow_node_gray() {
+    mix_node_test_gray(MixType::Pow, "pow_node_gray.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn pow_node_rgba() {
+    mix_node_test_rgba(MixType::Pow, "pow_node_rgba.png");
+}

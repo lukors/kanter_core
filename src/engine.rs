@@ -351,14 +351,13 @@ impl Engine {
 
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
     /// `RwLockWriteGuard` so changes can be made while the `NodeState` the state remains the same.
-    pub fn wait_for_state_write(
+    pub fn await_clean_write(
         engine: &Arc<RwLock<Self>>,
         node_id: NodeId,
-        node_state: NodeState,
     ) -> Result<RwLockWriteGuard<Engine>> {
         loop {
             if let Ok(mut engine) = engine.write() {
-                if node_state == engine.node_state(node_id)? {
+                if engine.node_state(node_id)? == NodeState::Clean {
                     return Ok(engine);
                 } else {
                     engine.prioritise(node_id)?;

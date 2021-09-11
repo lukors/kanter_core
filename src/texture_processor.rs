@@ -83,23 +83,21 @@ impl TextureProcessor {
         node_id: NodeId,
         slot_id: SlotId,
     ) -> Result<Vec<u8>> {
-        Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?
-            .buffer_rgba(node_id, slot_id)
+        Engine::await_clean_write(engine, node_id)?.buffer_rgba(node_id, slot_id)
     }
 
     pub(crate) fn node_slot_datas(
         engine: &Arc<RwLock<Engine>>,
         node_id: NodeId,
     ) -> Result<Vec<Arc<SlotData>>> {
-        Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?.node_slot_datas(node_id)
+        Engine::await_clean_write(engine, node_id)?.node_slot_datas(node_id)
     }
 
     pub fn node_slot_datas_new(
         engine: &Arc<RwLock<Engine>>,
         node_id: NodeId,
     ) -> Result<Vec<SlotData>> {
-        Engine::wait_for_state_write(engine, node_id, NodeState::Clean)?
-            .node_slot_datas_new(node_id)
+        Engine::await_clean_write(engine, node_id)?.node_slot_datas_new(node_id)
     }
 
     // /// Adds a `Node` to the `TextureProcessor`'s `Engine`.
