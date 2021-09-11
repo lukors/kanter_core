@@ -20,7 +20,10 @@ use crate::{
 };
 use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::{
+    fmt,
+    sync::{atomic::AtomicI8, Arc},
+};
 
 use self::node_type::NodeType;
 
@@ -110,6 +113,8 @@ pub struct Node {
     pub node_type: NodeType,
     pub resize_policy: ResizePolicy,
     pub resize_filter: ResizeFilter,
+    #[serde(skip)]
+    pub priority: Arc<AtomicI8>,
 }
 
 impl Node {
@@ -119,6 +124,7 @@ impl Node {
             node_type,
             resize_policy: ResizePolicy::default(),
             resize_filter: ResizeFilter::default(),
+            priority: Arc::new(0.into()),
         }
     }
 

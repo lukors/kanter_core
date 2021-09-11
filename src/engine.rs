@@ -139,7 +139,7 @@ impl Engine {
                 }
 
                 // Get requested nodes
-                let requested = if engine.auto_update {
+                let mut requested = if engine.auto_update {
                     engine
                         .node_state
                         .iter()
@@ -158,6 +158,16 @@ impl Engine {
                         .map(|(node_id, _)| *node_id)
                         .collect::<Vec<NodeId>>()
                 };
+
+                // Sort requested nodes by priority
+                requested.sort_unstable_by(|a, b| {
+                    engine
+                        .node(*a)
+                        .unwrap()
+                        .priority
+                        .load(Ordering::Relaxed)
+                        .cmp(&engine.node(*b).unwrap().priority.load(Ordering::Relaxed))
+                });
 
                 // Get the closest non-clean parents
                 let mut closest_processable = Vec::new();
