@@ -1,6 +1,4 @@
-use crate::{
-    edge::Edge, error::Result, node_graph::*, shared::resize_buffers, slot_data::SlotData,
-};
+use crate::{edge::Edge, error::Result, node_graph::*, shared::resize_buffers, slot_data::SlotData, texture_processor::TextureProcessor};
 use serde::{Deserialize, Serialize};
 use std::{fmt, mem, path::PathBuf, sync::Arc};
 
@@ -51,12 +49,13 @@ fn process_node_internal(
     slot_datas: &[Arc<SlotData>],
     embedded_slot_datas: &[Arc<EmbeddedSlotData>],
     input_slot_datas: &[Arc<SlotData>],
+    tex_pro: &Arc<TextureProcessor>,
 ) -> Result<Vec<Arc<SlotData>>> {
     Ok(match node.node_type {
         NodeType::InputRgba(_) => input_rgba::process(&node, input_slot_datas),
         NodeType::InputGray(_) => input_gray::process(&node, input_slot_datas),
         NodeType::OutputRgba(_) | NodeType::OutputGray(_) => output::process(slot_datas, &node),
-        NodeType::Graph(ref node_graph) => graph::process(slot_datas, &node, node_graph)?,
+        NodeType::Graph(ref node_graph) => graph::process(slot_datas, &node, node_graph, &tex_pro)?,
         NodeType::Image(ref path) => read::process(&node, path)?,
         NodeType::Embed(embedded_node_data_id) => {
             embed::process(&node, embedded_slot_datas, embedded_node_data_id)?
@@ -149,6 +148,7 @@ pub(crate) fn process_node(
     embedded_slot_datas: &[Arc<EmbeddedSlotData>],
     input_slot_datas: &[Arc<SlotData>],
     edges: &[Edge],
+    tex_pro: &Arc<TextureProcessor>,
 ) -> Result<Vec<Arc<SlotData>>> {
     assert_eq!(
         edges.len(),
@@ -168,7 +168,7 @@ pub(crate) fn process_node(
         assign_slot_ids(&slot_datas, &edges)
     };
 
-    let output = process_node_internal(node, &slot_datas, embedded_slot_datas, input_slot_datas)?;
+    let output = process_node_internal(node, &slot_datas, embedded_slot_datas, input_slot_datas, tex_pro)?;
 
     Ok(output)
 }

@@ -1,21 +1,13 @@
-use crate::{
-    edge::Edge,
-    error::{Result, TexProError},
-    node::{
+use crate::{edge::Edge, error::{Result, TexProError}, node::{
         embed::{EmbeddedSlotData, EmbeddedSlotDataId},
         node_type::process_node,
         Node, Side,
-    },
-    node_graph::*,
-    slot_data::*,
-    slot_image::SlotImage,
-    transient_buffer::{TransientBuffer, TransientBufferContainer, TransientBufferQueue},
-};
+    }, node_graph::*, slot_data::*, slot_image::SlotImage, texture_processor::TextureProcessor, transient_buffer::{TransientBuffer, TransientBufferContainer, TransientBufferQueue}};
 use image::ImageBuffer;
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, Ordering},
         mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
     thread,
@@ -48,20 +40,10 @@ pub struct Engine {
     pub auto_update: bool,
     pub use_cache: bool,
     add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
-    pub memory_threshold: Arc<AtomicUsize>,
 }
 
-const ONE_GIB: usize = 1_073_742_000;
-
 impl Engine {
-    pub fn new(shutdown: Arc<AtomicBool>) -> Self {
-        let mut transient_buffer_queue = TransientBufferQueue::new(ONE_GIB, shutdown);
-        let add_buffer_queue = Arc::clone(&transient_buffer_queue.incoming_buffers);
-        let memory_threshold = Arc::clone(&transient_buffer_queue.memory_threshold);
-
-        thread::spawn(move || {
-            transient_buffer_queue.thread_loop();
-        });
+    pub fn new(shutdown: Arc<AtomicBool>, add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>) -> Self {
 
         Self {
             node_graph: NodeGraph::new(),
@@ -73,11 +55,10 @@ impl Engine {
             auto_update: false,
             use_cache: false,
             add_buffer_queue,
-            memory_threshold,
         }
     }
 
-    pub(crate) fn process_loop(engine: Arc<RwLock<Engine>>, shutdown: Arc<AtomicBool>) {
+    pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
         struct ThreadMessage {
             node_id: NodeId,
             slot_datas: Result<Vec<Arc<SlotData>>>,
@@ -85,7 +66,7 @@ impl Engine {
         let (send, recv) = mpsc::channel::<ThreadMessage>();
 
         loop {
-            if shutdown.load(Ordering::Relaxed) {
+            if tex_pro.shutdown.load(Ordering::Relaxed) {
                 return;
             }
 
@@ -510,7 +491,7 @@ impl Engine {
     }
 
     /// Gets all `SlotData`s associated with a given `NodeId`.
-    pub(crate) fn node_slot_datas(&mut self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
+    pub(crate) fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
         let mut output: Vec<Arc<SlotData>> = Vec::new();
 
         let slot_ids: Vec<SlotId> = self

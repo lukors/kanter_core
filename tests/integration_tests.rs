@@ -43,6 +43,10 @@ fn images_equal<P: AsRef<Path>, Q: AsRef<Path>>(path_1: P, path_2: Q) -> bool {
     raw_pixels_1.iter().eq(raw_pixels_2.iter())
 }
 
+fn tex_pro_new() -> TextureProcessor {
+    TextureProcessor::new(Arc::new(10_000_000.into()))
+}
+
 #[test]
 #[timeout(20_000)]
 fn input_output() {
@@ -50,7 +54,7 @@ fn input_output() {
     const PATH_IN: &str = IMAGE_2;
     const PATH_OUT: &str = &"out/input_output.png";
 
-    let mut tex_pro = TextureProcessor::new();
+    let mut tex_pro = tex_pro_new();
 
     let input_node = tex_pro
         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))

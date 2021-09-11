@@ -229,10 +229,10 @@ impl Display for TransientBufferQueue {
 }
 
 impl TransientBufferQueue {
-    pub fn new(memory_threshold: usize, shutdown: Arc<AtomicBool>) -> Self {
+    pub fn new(memory_threshold: Arc<AtomicUsize>, shutdown: Arc<AtomicBool>) -> Self {
         Self {
             queue: VecDeque::new(),
-            memory_threshold: Arc::new(AtomicUsize::new(memory_threshold)),
+            memory_threshold,
             incoming_buffers: Arc::new(RwLock::new(Vec::new())),
             shutdown,
         }
