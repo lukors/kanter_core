@@ -164,7 +164,7 @@ fn drive_cache() {
     tex_pro.engine().write().unwrap().use_cache = true;
 
     calculate_slot(&tex_pro, mix_node_2, SlotId(0));
-    thread::sleep(Duration::from_millis(500));
+    thread::sleep(Duration::from_millis(2000));
     {
         // Assert that the right things are on drive and in RAM.
         let engine = tex_pro.engine();
