@@ -13,7 +13,7 @@ use ntest::timeout;
 use std::{
     fs::create_dir,
     path::Path,
-    sync::{atomic::Ordering, Arc},
+    sync::{atomic::Ordering, Arc, RwLock},
     thread,
     time::Duration,
 };
@@ -83,7 +83,6 @@ fn input_output() {
                 .unwrap()
                 .buffer_rgba(output_node, SlotId(0))
                 .unwrap(),
-            // engine.buffer_rgba(output_node, SlotId(0)).unwrap(),
         )
         .unwrap(),
         SIZE,
@@ -95,49 +94,61 @@ fn input_output() {
     assert!(images_equal(PATH_IN, PATH_OUT));
 }
 
-// fn node_in_ram(
-//     engine: &std::sync::RwLockReadGuard<kanter_core::engine::Engine>,
-//     node_id: NodeId,
-// ) -> bool {
-//     engine.slot_in_ram(node_id, SlotId(0)).unwrap()
-// }
+fn node_in_memory(
+    engine: &std::sync::RwLockReadGuard<kanter_core::engine::Engine>,
+    node_id: NodeId,
+) -> bool {
+    engine.slot_in_memory(node_id, SlotId(0)).unwrap()
+}
 
-// fn calculate_slot(tex_pro: &TextureProcessor, node_id: NodeId, slot_id: SlotId) {
-//     for buf in tex_pro
-//         .slot_data_new(node_id, slot_id)
-//         .unwrap()
-//         .image
-//         .bufs()
-//     {
-//         let _ = buf.transient_buffer();
-//     }
-// }
+fn calculate_slot(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) {
+    for buf in engine
+        .read()
+        .unwrap()
+        .slot_data_new(node_id, slot_id)
+        .unwrap()
+        .image
+        .bufs()
+    {
+        let _ = buf.transient_buffer();
+    }
+}
 
-// #[test]
-// // #[timeout(1_000)]
-// fn deadlock() {
-//     let tex_pro = TextureProcessor::new();
+#[test]
+// #[timeout(1_000)]
+fn deadlock() {
+    let tex_pro = tex_pro_new();
+    let engine = tex_pro.new_engine().unwrap();
 
-//     let value_node = tex_pro.add_node(Node::new(NodeType::Value(0.0))).unwrap();
-//     let mix_node_1 = tex_pro
-//         .add_node(Node::new(NodeType::Mix(MixType::Add)))
-//         .unwrap();
+    let mix_node_1 = {
+        let mut engine = engine.write().unwrap();
+        let value_node = engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
+        let mix_node_1 = engine
+            .add_node(Node::new(NodeType::Mix(MixType::Add)))
+            .unwrap();
 
-//     tex_pro
-//         .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
-//         .unwrap();
-//     tex_pro
-//         .connect(value_node, mix_node_1, SlotId(0), SlotId(1))
-//         .unwrap();
+        engine
+            .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
+            .unwrap();
+        engine
+            .connect(value_node, mix_node_1, SlotId(0), SlotId(1))
+            .unwrap();
 
-//     tex_pro.slot_data_new(mix_node_1, SlotId(0)).unwrap();
-// }
+        mix_node_1
+    };
+
+    Engine::wait_for_state_read(&engine, mix_node_1, NodeState::Clean)
+        .unwrap()
+        .slot_data_new(mix_node_1, SlotId(0))
+        .unwrap();
+}
 
 // #[test]
 // #[timeout(20_000)]
 // fn drive_cache() {
 //     const VAL: [f32; 4] = [0.0, 0.3, 0.7, 1.0];
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     // Rgba8de should be 4 channels * 4 bytes = 16 bytes
 //     let rgba_node = tex_pro.add_node(Node::new(NodeType::CombineRgba)).unwrap();
@@ -239,7 +250,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn no_cache() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
 //     let output_node = tex_pro
@@ -265,7 +277,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn use_cache() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let value_node = tex_pro.add_node(Node::new(NodeType::Value(1.0))).unwrap();
 //     let output_node = tex_pro
@@ -292,7 +305,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn request_empty_buffer() {
-//     let mut tex_pro = TextureProcessor::new();
+//     let mut tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let mix_node = tex_pro
 //         .add_node(Node::new(NodeType::Mix(MixType::default())))
@@ -318,7 +332,8 @@ fn input_output() {
 //     const PATH_OUT_INTERCEPT: &str = &"out/input_output_intercept.png";
 //     const PATH_OUT: &str = &"out/input_output_intercept_out.png";
 
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let input_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
@@ -401,7 +416,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn mix_node_single_input() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let value_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
@@ -431,7 +447,8 @@ fn input_output() {
 //     const PATH_OUT: &str = &"out/mix_node_single_input_2.png";
 //     const PATH_CMP: &str = &"data/test_compare/mix_node_single_input_2.png";
 
-//     let mut tex_pro = TextureProcessor::new();
+//     let mut tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let value_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(path_in.clone().into())))
@@ -468,7 +485,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn unconnected() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     tex_pro
 //         .add_node(Node::new(NodeType::OutputRgba("out".into())))
@@ -481,7 +499,8 @@ fn input_output() {
 //     let path_cmp = IMAGE_1.to_string();
 //     let path_out = "out/embedded_node_data.png".to_string();
 
-//     let tex_pro_1 = TextureProcessor::new();
+//     let tex_pro_1 = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let tp1_input_node = tex_pro_1
 //         .add_node(Node::new(NodeType::Image(path_cmp.clone().into())))
@@ -497,7 +516,8 @@ fn input_output() {
 //     let node_data = tex_pro_1.slot_data_new(tp1_output_node, SlotId(0)).unwrap();
 
 //     // Second graph
-//     let mut tex_pro_2 = TextureProcessor::new();
+//     let mut tex_pro_2 = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let tp2_output_node = tex_pro_2
 //         .add_node(Node::new(NodeType::OutputRgba("out".into())))
@@ -537,7 +557,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn repeat_process() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let input_node = tex_pro
 //         .add_node(Node::new(NodeType::Image("data/image_1.png".into())))
@@ -554,7 +575,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn separate_node() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let input_1 = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
@@ -599,7 +621,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn irregular_sizes() {
-//     let mut tex_pro = TextureProcessor::new();
+//     let mut tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let input_1 = tex_pro
 //         .add_node(Node::new(NodeType::Image(HEART_128.into())))
@@ -649,7 +672,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn unconnected_node() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let input_1 = tex_pro.add_node(Node::new(NodeType::Value(0.0))).unwrap();
 //     tex_pro.add_node(Node::new(NodeType::Value(0.0))).unwrap();
@@ -665,7 +689,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn remove_node() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let value_node = tex_pro.add_node(Node::new(NodeType::Value(0.))).unwrap();
 
@@ -676,7 +701,8 @@ fn input_output() {
 
 // #[test]
 // fn connect_invalid_slot() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let value_node = tex_pro.add_node(Node::new(NodeType::Value(0.))).unwrap();
 
@@ -698,7 +724,8 @@ fn input_output() {
 // #[test]
 // #[timeout(20_000)]
 // fn value_node() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let red_node = tex_pro.add_node(Node::new(NodeType::Value(0.))).unwrap();
 //     let green_node = tex_pro.add_node(Node::new(NodeType::Value(0.33))).unwrap();
@@ -727,7 +754,8 @@ fn input_output() {
 //     img_path_2: &str,
 //     expected_size: (u32, u32),
 // ) {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let image_node_1 = tex_pro
 //         .add_node(Node::new(NodeType::Image(img_path_1.into())))
@@ -886,7 +914,8 @@ fn input_output() {
 //         .unwrap();
 
 //     // Main graph
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let image_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
@@ -968,7 +997,8 @@ fn input_output() {
 //     let graph_node_output_slot_id = invert_graph.output_slot_id_with_name("out").unwrap();
 
 //     // Main graph
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let image_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
@@ -1027,7 +1057,8 @@ fn input_output() {
 //         .unwrap();
 
 //     // Texture Processor
-//     let mut tex_pro = TextureProcessor::new();
+//     let mut tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let input_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
@@ -1095,7 +1126,8 @@ fn input_output() {
 //         .unwrap();
 
 //     // Texture Processor
-//     let mut tex_pro = TextureProcessor::new();
+//     let mut tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let input_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
@@ -1151,7 +1183,8 @@ fn input_output() {
 // #[should_panic]
 // #[timeout(20_000)]
 // fn wrong_slot_type() {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let image_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
@@ -1168,7 +1201,8 @@ fn input_output() {
 // #[timeout(20_000)]
 // fn height_to_normal_node() {
 //     // Texture Processor
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let input_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(CLOUDS.into())))
@@ -1195,7 +1229,8 @@ fn input_output() {
 // }
 
 // fn mix_node_test_gray(mix_type: MixType, name: &str) {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let image_node = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
@@ -1226,7 +1261,8 @@ fn input_output() {
 // }
 
 // fn mix_node_test_rgba(mix_type: MixType, name: &str) {
-//     let tex_pro = TextureProcessor::new();
+//     let tex_pro = tex_pro_new();
+// let engine = tex_pro.new_engine().unwrap();
 
 //     let image_node_1 = tex_pro
 //         .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
