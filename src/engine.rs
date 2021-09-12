@@ -12,6 +12,7 @@ use crate::{
     live_graph::{LiveGraph, NodeState},
     node::{embed::EmbeddedSlotData, node_type::process_node},
     node_graph::NodeId,
+    process_pack::ProcessPack,
     slot_data::SlotData,
     slot_image::SlotImage,
     texture_processor::TextureProcessor,
@@ -25,12 +26,6 @@ struct ThreadMessage {
 }
 
 pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
-    struct ProcessPack {
-        node_id: NodeId,
-        priority: i8,
-        live_graph: Arc<RwLock<LiveGraph>>,
-    }
-
     let (send, recv) = mpsc::channel::<ThreadMessage>();
 
     loop {
@@ -139,19 +134,19 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
             for node_id in closest_processable {
                 process_packs.push(ProcessPack {
                     node_id,
-                    priority: live_graph
-                        .read()
-                        .unwrap()
-                        .node(node_id)
-                        .unwrap()
-                        .priority
-                        .load(Ordering::Relaxed),
+                    priority: Arc::clone(
+                        &live_graph.read().unwrap().node(node_id).unwrap().priority,
+                    ),
                     live_graph: Arc::clone(live_graph),
                 });
             }
         }
 
-        process_packs.sort_unstable_by(|a, b| a.priority.cmp(&b.priority));
+        let process_packs = tex_pro
+            .process_pack_manager
+            .write()
+            .unwrap()
+            .update(process_packs);
 
         for process_pack in process_packs {
             let node_id = process_pack.node_id;

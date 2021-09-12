@@ -199,6 +199,7 @@ dependencies = [
  "image",
  "nalgebra",
  "ntest",
+ "num_cpus",
  "rand",
  "serde",
  "serde_json",

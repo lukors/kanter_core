@@ -4,6 +4,7 @@ pub mod error;
 pub mod live_graph;
 pub mod node;
 pub mod node_graph;
+mod process_pack;
 mod shared;
 pub mod slot_data;
 pub mod slot_image;

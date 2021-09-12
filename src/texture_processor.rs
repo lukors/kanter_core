@@ -3,6 +3,7 @@ use crate::{
     error::Result,
     live_graph::*,
     node_graph::*,
+    process_pack::ProcessPackManager,
     slot_data::*,
     transient_buffer::{TransientBufferContainer, TransientBufferQueue},
 };
@@ -14,20 +15,13 @@ use std::{
     thread,
 };
 
-// #[derive(Default)]
 pub struct TextureProcessor {
     live_graph: Arc<RwLock<Vec<Arc<RwLock<LiveGraph>>>>>,
     pub shutdown: Arc<AtomicBool>,
     pub add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
     pub memory_threshold: Arc<AtomicUsize>,
+    pub(crate) process_pack_manager: RwLock<ProcessPackManager>,
 }
-
-// impl Default for TextureProcessor {
-//     fn default() -> Self {
-//         const ONE_GB: usize = 1_000_000_000;
-//         Self::new(Arc::new(ONE_GB.into()))
-//     }
-// }
 
 impl Drop for TextureProcessor {
     fn drop(&mut self) {
@@ -48,6 +42,7 @@ impl TextureProcessor {
             shutdown: Arc::clone(&shutdown),
             memory_threshold,
             add_buffer_queue,
+            process_pack_manager: RwLock::new(ProcessPackManager::new()),
         });
         let output_send = Arc::clone(&output);
 
@@ -109,5 +104,9 @@ impl TextureProcessor {
                 }
             }
         }
+    }
+
+    pub fn processing_node_count(&self) -> Result<usize> {
+        Ok(self.process_pack_manager.read()?.process_packs().len())
     }
 }
