@@ -1,8 +1,8 @@
 use kanter_core::{
-    engine::{Engine, NodeState},
+    live_graph::LiveGraph,
     node::{
-        embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, output, value, Node,
-        ResizeFilter, ResizePolicy,
+        embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, Node, ResizeFilter,
+        ResizePolicy,
     },
     node_graph::{NodeGraph, NodeId, SlotId},
     slot_data::Size,
@@ -56,17 +56,17 @@ fn input_output() {
     const PATH_OUT: &str = &"out/input_output.png";
 
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let input_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let input_node = live_graph
             .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(input_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
 
@@ -79,7 +79,7 @@ fn input_output() {
         &image::RgbaImage::from_vec(
             SIZE,
             SIZE,
-            Engine::await_clean_read(&engine, output_node)
+            LiveGraph::await_clean_read(&live_graph, output_node)
                 .unwrap()
                 .buffer_rgba(output_node, SlotId(0))
                 .unwrap(),
@@ -94,15 +94,8 @@ fn input_output() {
     assert!(images_equal(PATH_IN, PATH_OUT));
 }
 
-fn node_in_memory(
-    engine: &std::sync::RwLockReadGuard<kanter_core::engine::Engine>,
-    node_id: NodeId,
-) -> bool {
-    engine.slot_in_memory(node_id, SlotId(0)).unwrap()
-}
-
-fn calculate_slot(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId) {
-    for buf in Engine::await_clean_read(engine, node_id)
+fn calculate_slot(live_graph: &Arc<RwLock<LiveGraph>>, node_id: NodeId, slot_id: SlotId) {
+    for buf in LiveGraph::await_clean_read(live_graph, node_id)
         .unwrap()
         .slot_data_new(node_id, slot_id)
         .unwrap()
@@ -117,26 +110,28 @@ fn calculate_slot(engine: &Arc<RwLock<Engine>>, node_id: NodeId, slot_id: SlotId
 // #[timeout(1_000)]
 fn deadlock() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let mix_node_1 = {
-        let mut engine = engine.write().unwrap();
-        let value_node = engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
-        let mix_node_1 = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let value_node = live_graph
+            .add_node(Node::new(NodeType::Value(0.0)))
+            .unwrap();
+        let mix_node_1 = live_graph
             .add_node(Node::new(NodeType::Mix(MixType::Add)))
             .unwrap();
 
-        engine
+        live_graph
             .connect(value_node, mix_node_1, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(value_node, mix_node_1, SlotId(0), SlotId(1))
             .unwrap();
 
         mix_node_1
     };
 
-    Engine::await_clean_read(&engine, mix_node_1)
+    LiveGraph::await_clean_read(&live_graph, mix_node_1)
         .unwrap()
         .slot_data_new(mix_node_1, SlotId(0))
         .unwrap();
@@ -149,61 +144,69 @@ fn drive_cache() {
     let tex_pro = tex_pro_new();
     // Setting the slot_data_ram_cap at 16 bytes should result in the Rgba8de getting written
     tex_pro.memory_threshold.store(16, Ordering::Relaxed);
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let (rgba_node, value_nodes, mix_node_1, mix_node_2) = {
-        let mut engine = engine.write().unwrap();
-        engine.use_cache = true;
+        let mut live_graph = live_graph.write().unwrap();
+        live_graph.use_cache = true;
 
         // Rgba8de should be 4 channels * 4 bytes = 16 bytes
-        let rgba_node = engine.add_node(Node::new(NodeType::CombineRgba)).unwrap();
+        let rgba_node = live_graph
+            .add_node(Node::new(NodeType::CombineRgba))
+            .unwrap();
 
         // 4 value nodes should be 4 channels * 4 bytes = 16 bytes
         let mut value_nodes: Vec<NodeId> = Vec::new();
         for (i, val) in VAL.iter().enumerate() {
-            let new_node = engine.add_node(Node::new(NodeType::Value(*val))).unwrap();
+            let new_node = live_graph
+                .add_node(Node::new(NodeType::Value(*val)))
+                .unwrap();
             value_nodes.push(new_node);
-            engine
+            live_graph
                 .connect(new_node, rgba_node, SlotId(0), SlotId(i as u32))
                 .unwrap();
         }
 
         // 2 mix nodes should be 2 nodes * 4 channels * 4 bytes = 32 bytes
-        let mix_node_1 = engine
+        let mix_node_1 = live_graph
             .add_node(Node::new(NodeType::Mix(MixType::Add)))
             .unwrap();
-        let mix_node_2 = engine
+        let mix_node_2 = live_graph
             .add_node(Node::new(NodeType::Mix(MixType::Add)))
             .unwrap();
 
-        engine
+        live_graph
             .connect(rgba_node, mix_node_1, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(mix_node_1, mix_node_2, SlotId(0), SlotId(0))
             .unwrap();
 
         (rgba_node, value_nodes, mix_node_1, mix_node_2)
     };
 
-    calculate_slot(&engine, mix_node_2, SlotId(0));
+    calculate_slot(&live_graph, mix_node_2, SlotId(0));
     thread::sleep(Duration::from_millis(2_000));
     {
         // Assert that the right things are on drive and in RAM.
-        let engine = engine.read().unwrap();
+        let live_graph = live_graph.read().unwrap();
 
         for node_id in &value_nodes {
-            assert!(!engine.slot_in_memory(*node_id, SlotId(0)).unwrap());
+            assert!(!live_graph.slot_in_memory(*node_id, SlotId(0)).unwrap());
         }
 
-        assert!(!engine.slot_in_memory(rgba_node, SlotId(0)).unwrap());
-        assert!(!engine.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
-        assert!(engine.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
+        assert!(!live_graph.slot_in_memory(rgba_node, SlotId(0)).unwrap());
+        assert!(!live_graph.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
+        assert!(live_graph.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
     }
 
     {
-        let engine = engine.write().unwrap();
-        if let SlotImage::Rgba(bufs) = &engine.slot_data_new(rgba_node, SlotId(0)).unwrap().image {
+        let live_graph = live_graph.write().unwrap();
+        if let SlotImage::Rgba(bufs) = &live_graph
+            .slot_data_new(rgba_node, SlotId(0))
+            .unwrap()
+            .image
+        {
             let pixel = {
                 let pixel = [
                     bufs[0].transient_buffer(),
@@ -228,19 +231,19 @@ fn drive_cache() {
 
     // Test if the right thing happens when a slot_data on drive is retrieved...
     // Loads this slot_data into RAM.
-    calculate_slot(&engine, rgba_node, SlotId(0));
+    calculate_slot(&live_graph, rgba_node, SlotId(0));
 
     thread::sleep(Duration::from_millis(2_000));
     {
-        let engine = engine.read().unwrap();
+        let live_graph = live_graph.read().unwrap();
 
         for node_id in value_nodes {
-            assert!(engine.slot_in_memory(node_id, SlotId(0)).unwrap());
+            assert!(live_graph.slot_in_memory(node_id, SlotId(0)).unwrap());
         }
 
-        assert!(engine.slot_in_memory(rgba_node, SlotId(0)).unwrap());
-        assert!(!engine.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
-        assert!(!engine.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
+        assert!(live_graph.slot_in_memory(rgba_node, SlotId(0)).unwrap());
+        assert!(!live_graph.slot_in_memory(mix_node_1, SlotId(0)).unwrap());
+        assert!(!live_graph.slot_in_memory(mix_node_2, SlotId(0)).unwrap());
     }
 }
 
@@ -248,26 +251,28 @@ fn drive_cache() {
 #[timeout(20_000)]
 fn no_cache() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let value_node = {
-        let mut engine = engine.write().unwrap();
-        let value_node = engine.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-        let output_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let value_node = live_graph
+            .add_node(Node::new(NodeType::Value(1.0)))
+            .unwrap();
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(value_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
 
-        engine.auto_update = true;
+        live_graph.auto_update = true;
         value_node
     };
 
     thread::sleep(std::time::Duration::from_secs(1));
 
-    assert!(engine
+    assert!(live_graph
         .read()
         .unwrap()
         .slot_data_new(value_node, SlotId(0))
@@ -278,27 +283,29 @@ fn no_cache() {
 #[timeout(20_000)]
 fn use_cache() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let value_node = {
-        let mut engine = engine.write().unwrap();
+        let mut live_graph = live_graph.write().unwrap();
 
-        let value_node = engine.add_node(Node::new(NodeType::Value(1.0))).unwrap();
-        let output_node = engine
+        let value_node = live_graph
+            .add_node(Node::new(NodeType::Value(1.0)))
+            .unwrap();
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(value_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
 
-        engine.use_cache = true;
-        engine.auto_update = true;
+        live_graph.use_cache = true;
+        live_graph.auto_update = true;
         value_node
     };
     thread::sleep(std::time::Duration::from_secs(1));
 
-    assert!(engine
+    assert!(live_graph
         .write()
         .unwrap()
         .slot_data_new(value_node, SlotId(0))
@@ -309,25 +316,25 @@ fn use_cache() {
 #[timeout(20_000)]
 fn request_empty_buffer() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
+        let mut live_graph = live_graph.write().unwrap();
 
-        let mix_node = engine
+        let mix_node = live_graph
             .add_node(Node::new(NodeType::Mix(MixType::default())))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(mix_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
         output_node
     };
 
-    let _ = Engine::await_clean_read(&engine, output_node)
+    let _ = LiveGraph::await_clean_read(&live_graph, output_node)
         .unwrap()
         .buffer_rgba(output_node, SlotId(0))
         .unwrap();
@@ -343,14 +350,14 @@ fn input_output_intercept() {
     const PATH_OUT: &str = &"out/input_output_intercept_out.png";
 
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let (resize_node_1, output_node) = {
-        let mut engine = engine.write().unwrap();
-        let input_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let input_node = live_graph
             .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
             .unwrap();
-        let resize_node_1 = engine
+        let resize_node_1 = live_graph
             .add_node(
                 Node::new(NodeType::Mix(MixType::default()))
                     .resize_filter(ResizeFilter::Lanczos3)
@@ -359,7 +366,7 @@ fn input_output_intercept() {
                     ))),
             )
             .unwrap();
-        let resize_node_2 = engine
+        let resize_node_2 = live_graph
             .add_node(
                 Node::new(NodeType::Mix(MixType::default()))
                     .resize_filter(ResizeFilter::Lanczos3)
@@ -368,27 +375,27 @@ fn input_output_intercept() {
                     ))),
             )
             .unwrap();
-        let resize_node_3 = engine
+        let resize_node_3 = live_graph
             .add_node(
                 Node::new(NodeType::Mix(MixType::default()))
                     .resize_filter(ResizeFilter::Lanczos3)
                     .resize_policy(ResizePolicy::SpecificSize(Size::new(SIZE, SIZE))),
             )
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(input_node, resize_node_1, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(resize_node_1, resize_node_2, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(resize_node_2, resize_node_3, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(resize_node_3, output_node, SlotId(0), SlotId(0))
             .unwrap();
 
@@ -398,7 +405,7 @@ fn input_output_intercept() {
     let mut intercepted = false;
     loop {
         if !intercepted {
-            if let Ok(buffer) = Engine::try_buffer_rgba(&engine, resize_node_1, SlotId(0)) {
+            if let Ok(buffer) = LiveGraph::try_buffer_rgba(&live_graph, resize_node_1, SlotId(0)) {
                 ensure_out_dir();
                 image::save_buffer(
                     &Path::new(&PATH_OUT_INTERCEPT),
@@ -412,7 +419,7 @@ fn input_output_intercept() {
             }
         }
 
-        if let Ok(buffer) = Engine::try_buffer_rgba(&engine, output_node, SlotId(0)) {
+        if let Ok(buffer) = LiveGraph::try_buffer_rgba(&live_graph, output_node, SlotId(0)) {
             ensure_out_dir();
             image::save_buffer(
                 &Path::new(&PATH_OUT),
@@ -434,71 +441,71 @@ fn input_output_intercept() {
 #[timeout(20_000)]
 fn mix_node_single_input() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
+        let mut live_graph = live_graph.write().unwrap();
 
-        let value_node = engine
+        let value_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let mix_node = engine
+        let mix_node = live_graph
             .add_node(Node::new(NodeType::Mix(MixType::Add)))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(value_node, mix_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(mix_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
         output_node
     };
 
-    save_and_compare(&engine, output_node, "mix_node_single_input.png");
+    save_and_compare(&live_graph, output_node, "mix_node_single_input.png");
 }
 
 #[test]
 #[timeout(20_000)]
 fn mix_node_single_input_2() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let value_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let value_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let mix_node = engine
+        let mix_node = live_graph
             .add_node(Node::new(NodeType::Mix(MixType::Subtract)))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(value_node, mix_node, SlotId(0), SlotId(1))
             .unwrap();
-        engine
+        live_graph
             .connect(mix_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
         output_node
     };
 
-    save_and_compare(&engine, output_node, "mix_node_single_input_2.png");
+    save_and_compare(&live_graph, output_node, "mix_node_single_input_2.png");
 }
 
 #[test]
 #[timeout(20_000)]
 fn unconnected() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
-    let mut engine = engine.write().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
+    let mut live_graph = live_graph.write().unwrap();
 
-    engine
+    live_graph
         .add_node(Node::new(NodeType::OutputRgba("out".into())))
         .unwrap();
 }
@@ -507,125 +514,137 @@ fn unconnected() {
 #[timeout(20_000)]
 fn embedded_node_data() {
     let tex_pro = tex_pro_new();
-    let engine_embed = tex_pro.new_engine().unwrap();
+    let live_graph_embed = tex_pro.new_live_graph().unwrap();
 
     let output_node_embed = {
-        let mut engine = engine_embed.write().unwrap();
-        let input_node = engine
+        let mut live_graph = live_graph_embed.write().unwrap();
+        let input_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(input_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
         output_node
     };
 
-    let node_data = Engine::await_clean_read(&engine_embed, output_node_embed)
+    let node_data = LiveGraph::await_clean_read(&live_graph_embed, output_node_embed)
         .unwrap()
         .slot_data_new(output_node_embed, SlotId(0))
         .unwrap();
 
     // Second graph
-    let engine_out = tex_pro.new_engine().unwrap();
+    let live_graph_out = tex_pro.new_live_graph().unwrap();
 
     let output_node_out = {
-        let mut engine = engine_out.write().unwrap();
-        let output_node = engine
+        let mut live_graph = live_graph_out.write().unwrap();
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        let esd_id = engine
+        let esd_id = live_graph
             .embed_slot_data_with_id(Arc::new(node_data), EmbeddedSlotDataId(0))
             .unwrap();
-        let input = engine.add_node(Node::new(NodeType::Embed(esd_id))).unwrap();
-        engine
+        let input = live_graph
+            .add_node(Node::new(NodeType::Embed(esd_id)))
+            .unwrap();
+        live_graph
             .connect(input, output_node, SlotId(0), SlotId(0))
             .unwrap();
         output_node
     };
 
-    save_and_compare(&engine_out, output_node_out, "embedded_node_data.png");
+    save_and_compare(&live_graph_out, output_node_out, "embedded_node_data.png");
 }
 
 #[test]
 #[timeout(20_000)]
 fn separate_node() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let input_1 = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let input_1 = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
             .unwrap();
-        let separate_1 = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-        let input_2 = engine
+        let separate_1 = live_graph
+            .add_node(Node::new(NodeType::SeparateRgba))
+            .unwrap();
+        let input_2 = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let separate_2 = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-        let output_node = engine
+        let separate_2 = live_graph
+            .add_node(Node::new(NodeType::SeparateRgba))
+            .unwrap();
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
-        let combine = engine.add_node(Node::new(NodeType::CombineRgba)).unwrap();
+        let combine = live_graph
+            .add_node(Node::new(NodeType::CombineRgba))
+            .unwrap();
 
-        engine
+        live_graph
             .connect(input_1, separate_1, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(input_2, separate_2, SlotId(0), SlotId(0))
             .unwrap();
 
-        engine
+        live_graph
             .connect(separate_1, combine, SlotId(3), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(separate_1, combine, SlotId(1), SlotId(1))
             .unwrap();
-        engine
+        live_graph
             .connect(separate_2, combine, SlotId(2), SlotId(2))
             .unwrap();
-        engine
+        live_graph
             .connect(separate_2, combine, SlotId(3), SlotId(3))
             .unwrap();
 
-        engine
+        live_graph
             .connect(combine, output_node, SlotId(0), SlotId(0))
             .unwrap();
 
         output_node
     };
 
-    save_and_compare(&engine, output_node, "mix_images.png");
+    save_and_compare(&live_graph, output_node, "mix_images.png");
 }
 
 #[test]
 #[timeout(20_000)]
 fn irregular_sizes() {
-    let mut tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let tex_pro = tex_pro_new();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let input_1 = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let input_1 = live_graph
             .add_node(Node::new(NodeType::Image(HEART_128.into())))
             .unwrap();
-        let input_2 = engine
+        let input_2 = live_graph
             .add_node(Node::new(NodeType::Image(HEART_110.into())))
             .unwrap();
-        let mix = engine
+        let mix = live_graph
             .add_node(Node::new(NodeType::Mix(MixType::default())))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        engine.connect(input_1, mix, SlotId(0), SlotId(0)).unwrap();
-        engine.connect(input_2, mix, SlotId(0), SlotId(1)).unwrap();
-        engine
+        live_graph
+            .connect(input_1, mix, SlotId(0), SlotId(0))
+            .unwrap();
+        live_graph
+            .connect(input_2, mix, SlotId(0), SlotId(1))
+            .unwrap();
+        live_graph
             .connect(mix, output_node, SlotId(0), SlotId(0))
             .unwrap();
 
@@ -636,7 +655,7 @@ fn irregular_sizes() {
     const PATH_OUT: &str = &"out/irregular_sizes.png";
     const PATH_CMP: &str = &"data/test_compare/irregular_sizes.png";
 
-    let size = Engine::await_clean_read(&engine, output_node)
+    let size = LiveGraph::await_clean_read(&live_graph, output_node)
         .unwrap()
         .slot_data_size(output_node, SlotId(0))
         .unwrap();
@@ -647,7 +666,7 @@ fn irregular_sizes() {
         &image::RgbaImage::from_vec(
             size.width,
             size.height,
-            Engine::await_clean_read(&engine, output_node)
+            LiveGraph::await_clean_read(&live_graph, output_node)
                 .unwrap()
                 .buffer_rgba(output_node, SlotId(0))
                 .unwrap(),
@@ -666,25 +685,29 @@ fn irregular_sizes() {
 #[timeout(20_000)]
 fn unconnected_node() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let input_1 = engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
-        engine.add_node(Node::new(NodeType::Value(0.0))).unwrap();
-        let output_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let input_1 = live_graph
+            .add_node(Node::new(NodeType::Value(0.0)))
+            .unwrap();
+        live_graph
+            .add_node(Node::new(NodeType::Value(0.0)))
+            .unwrap();
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(input_1, output_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine.auto_update = true;
+        live_graph.auto_update = true;
         output_node
     };
 
     thread::sleep(Duration::from_millis(1000));
-    Engine::await_clean_read(&engine, output_node)
+    LiveGraph::await_clean_read(&live_graph, output_node)
         .unwrap()
         .buffer_rgba(output_node, SlotId(0))
         .unwrap();
@@ -694,37 +717,37 @@ fn unconnected_node() {
 #[timeout(20_000)]
 fn remove_node() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     {
-        let mut engine = engine.write().unwrap();
-        let value_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
-        engine.remove_node(value_node).unwrap();
+        let mut live_graph = live_graph.write().unwrap();
+        let value_node = live_graph.add_node(Node::new(NodeType::Value(0.))).unwrap();
+        live_graph.remove_node(value_node).unwrap();
     }
 
-    assert_eq!(engine.read().unwrap().node_ids().len(), 0);
+    assert_eq!(live_graph.read().unwrap().node_ids().len(), 0);
 }
 
 #[test]
 fn connect_invalid_slot() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     {
-        let mut engine = engine.write().unwrap();
-        let value_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
+        let mut live_graph = live_graph.write().unwrap();
+        let value_node = live_graph.add_node(Node::new(NodeType::Value(0.))).unwrap();
 
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::Mix(MixType::default())))
             .unwrap();
 
-        assert!(engine
+        assert!(live_graph
             .connect(value_node, output_node, SlotId(0), SlotId(0))
             .is_ok());
-        assert!(engine
+        assert!(live_graph
             .connect(value_node, output_node, SlotId(0), SlotId(1))
             .is_ok());
-        assert!(engine
+        assert!(live_graph
             .connect(value_node, output_node, SlotId(0), SlotId(2))
             .is_err());
     }
@@ -734,24 +757,28 @@ fn connect_invalid_slot() {
 #[timeout(20_000)]
 fn value_node() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let combine_node = {
-        let mut engine = engine.write().unwrap();
-        let red_node = engine.add_node(Node::new(NodeType::Value(0.))).unwrap();
-        let green_node = engine.add_node(Node::new(NodeType::Value(0.33))).unwrap();
-        let blue_node = engine.add_node(Node::new(NodeType::Value(0.66))).unwrap();
-        let alpha_node = engine.add_node(Node::new(NodeType::Value(1.))).unwrap();
+        let mut live_graph = live_graph.write().unwrap();
+        let red_node = live_graph.add_node(Node::new(NodeType::Value(0.))).unwrap();
+        let green_node = live_graph
+            .add_node(Node::new(NodeType::Value(0.33)))
+            .unwrap();
+        let blue_node = live_graph
+            .add_node(Node::new(NodeType::Value(0.66)))
+            .unwrap();
+        let alpha_node = live_graph.add_node(Node::new(NodeType::Value(1.))).unwrap();
 
         let combine_node = {
             let mut node = Node::new(NodeType::CombineRgba);
             node.resize_policy = ResizePolicy::SpecificSize(Size::new(256, 256));
-            engine.add_node(node).unwrap()
+            live_graph.add_node(node).unwrap()
         };
 
         let node_ids = [red_node, green_node, blue_node, alpha_node];
         for i in 0..4 {
-            engine
+            live_graph
                 .connect(node_ids[i], combine_node, SlotId(0), SlotId(i as u32))
                 .unwrap();
         }
@@ -759,7 +786,7 @@ fn value_node() {
         combine_node
     };
 
-    save_and_compare(&engine, combine_node, "value_node.png");
+    save_and_compare(&live_graph, combine_node, "value_node.png");
 }
 
 fn resize_policy_test(
@@ -769,34 +796,34 @@ fn resize_policy_test(
     expected_size: (u32, u32),
 ) {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let mix_node = {
-        let mut engine = engine.write().unwrap();
-        let image_node_1 = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let image_node_1 = live_graph
             .add_node(Node::new(NodeType::Image(img_path_1.into())))
             .unwrap();
-        let image_node_2 = engine
+        let image_node_2 = live_graph
             .add_node(Node::new(NodeType::Image(img_path_2.into())))
             .unwrap();
 
         let mix_node = {
             let mut mix_node = Node::new(NodeType::Mix(MixType::default()));
             mix_node.resize_policy = resize_policy;
-            engine.add_node(mix_node).unwrap()
+            live_graph.add_node(mix_node).unwrap()
         };
 
-        engine
+        live_graph
             .connect(image_node_1, mix_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(image_node_2, mix_node, SlotId(0), SlotId(1))
             .unwrap();
 
         mix_node
     };
 
-    let actual_size = Engine::await_clean_read(&engine, mix_node)
+    let actual_size = LiveGraph::await_clean_read(&live_graph, mix_node)
         .unwrap()
         .slot_data_size(mix_node, SlotId(0))
         .unwrap();
@@ -865,12 +892,12 @@ fn resize_policy_specific_slot() {
     );
 }
 
-fn save_and_compare(engine: &Arc<RwLock<Engine>>, node_id: NodeId, name: &str) {
-    save_and_compare_size(engine, node_id, (256, 256), name);
+fn save_and_compare(live_graph: &Arc<RwLock<LiveGraph>>, node_id: NodeId, name: &str) {
+    save_and_compare_size(live_graph, node_id, (256, 256), name);
 }
 
 fn save_and_compare_size(
-    engine: &Arc<RwLock<Engine>>,
+    live_graph: &Arc<RwLock<LiveGraph>>,
     node_id: NodeId,
     size: (u32, u32),
     name: &str,
@@ -878,7 +905,7 @@ fn save_and_compare_size(
     let (path_out, path_cmp) = build_paths(name);
 
     ensure_out_dir();
-    let vec = Engine::await_clean_read(engine, node_id)
+    let vec = LiveGraph::await_clean_read(live_graph, node_id)
         .unwrap()
         .buffer_rgba(node_id, SlotId(0))
         .unwrap();
@@ -943,25 +970,27 @@ fn invert_graph_node() {
 
     // Main graph
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let image_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let image_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let invert_graph_node = engine
+        let invert_graph_node = live_graph
             .add_node(Node::new(NodeType::Graph(invert_graph)))
             .unwrap();
-        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-        let output_node = engine
+        let separate_node = live_graph
+            .add_node(Node::new(NodeType::SeparateRgba))
+            .unwrap();
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(image_node, separate_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(
                 separate_node,
                 invert_graph_node,
@@ -970,7 +999,7 @@ fn invert_graph_node() {
             )
             .unwrap();
 
-        engine
+        live_graph
             .connect(
                 invert_graph_node,
                 output_node,
@@ -982,7 +1011,7 @@ fn invert_graph_node() {
         output_node
     };
 
-    save_and_compare(&engine, output_node, "invert_graph_node.png");
+    save_and_compare(&live_graph, output_node, "invert_graph_node.png");
 }
 
 #[test]
@@ -1031,25 +1060,27 @@ fn invert_graph_node_import() {
 
     // Main graph
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let image_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let image_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-        let invert_graph_node = engine
+        let separate_node = live_graph
+            .add_node(Node::new(NodeType::SeparateRgba))
+            .unwrap();
+        let invert_graph_node = live_graph
             .add_node(Node::new(NodeType::Graph(invert_graph)))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(image_node, separate_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(
                 separate_node,
                 invert_graph_node,
@@ -1057,7 +1088,7 @@ fn invert_graph_node_import() {
                 graph_node_input_slot_id,
             )
             .unwrap();
-        engine
+        live_graph
             .connect(
                 invert_graph_node,
                 output_node,
@@ -1069,7 +1100,7 @@ fn invert_graph_node_import() {
         output_node
     };
 
-    save_and_compare(&engine, output_node, "invert_graph_node_import.png");
+    save_and_compare(&live_graph, output_node, "invert_graph_node_import.png");
 }
 
 #[test]
@@ -1096,25 +1127,25 @@ fn graph_node_rgba() {
 
     // Texture Processor
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let input_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let input_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let graph_node = engine
+        let graph_node = live_graph
             .add_node(Node::new(NodeType::Graph(nested_graph)))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(input_node, graph_node, SlotId(0), graph_node_input_slot_id)
             .unwrap();
 
-        engine
+        live_graph
             .connect(
                 graph_node,
                 output_node,
@@ -1125,7 +1156,7 @@ fn graph_node_rgba() {
         output_node
     };
 
-    save_and_compare(&engine, output_node, "graph_node_rgba.png");
+    save_and_compare(&live_graph, output_node, "graph_node_rgba.png");
 }
 
 /// Grayscale passthrough node.
@@ -1152,25 +1183,27 @@ fn graph_node_gray() {
     let graph_node_output_slot_id = nested_graph.output_slot_id_with_name("out").unwrap();
 
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let input_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let input_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-        let graph_node = engine
+        let separate_node = live_graph
+            .add_node(Node::new(NodeType::SeparateRgba))
+            .unwrap();
+        let graph_node = live_graph
             .add_node(Node::new(NodeType::Graph(nested_graph)))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(input_node, separate_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(
                 separate_node,
                 graph_node,
@@ -1179,7 +1212,7 @@ fn graph_node_gray() {
             )
             .unwrap();
 
-        engine
+        live_graph
             .connect(
                 graph_node,
                 output_node,
@@ -1190,7 +1223,7 @@ fn graph_node_gray() {
         output_node
     };
 
-    save_and_compare(&engine, output_node, "graph_node_gray.png");
+    save_and_compare(&live_graph, output_node, "graph_node_gray.png");
 }
 
 #[test]
@@ -1198,17 +1231,17 @@ fn graph_node_gray() {
 #[timeout(20_000)]
 fn wrong_slot_type() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     {
-        let mut engine = engine.write().unwrap();
-        let image_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let image_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
             .unwrap();
-        let gray_node = engine
+        let gray_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
-        engine
+        live_graph
             .connect(image_node, gray_node, SlotId(0), SlotId(0))
             .unwrap();
     }
@@ -1218,102 +1251,110 @@ fn wrong_slot_type() {
 #[timeout(20_000)]
 fn height_to_normal_node() {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let input_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let input_node = live_graph
             .add_node(Node::new(NodeType::Image(CLOUDS.into())))
             .unwrap();
-        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-        let h2n_node = engine
+        let separate_node = live_graph
+            .add_node(Node::new(NodeType::SeparateRgba))
+            .unwrap();
+        let h2n_node = live_graph
             .add_node(Node::new(NodeType::HeightToNormal))
             .unwrap();
-        let output_node = engine
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(input_node, separate_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(separate_node, h2n_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(h2n_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
 
         output_node
     };
 
-    save_and_compare(&engine, output_node, "height_to_normal_node.png");
+    save_and_compare(&live_graph, output_node, "height_to_normal_node.png");
 }
 
 fn mix_node_test_gray(mix_type: MixType, name: &str) {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let image_node = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let image_node = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let separate_node = engine.add_node(Node::new(NodeType::SeparateRgba)).unwrap();
-        let input_node = engine.add_node(Node::new(NodeType::Mix(mix_type))).unwrap();
-        let output_node = engine
+        let separate_node = live_graph
+            .add_node(Node::new(NodeType::SeparateRgba))
+            .unwrap();
+        let input_node = live_graph
+            .add_node(Node::new(NodeType::Mix(mix_type)))
+            .unwrap();
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputGray("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(image_node, separate_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(separate_node, input_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(separate_node, input_node, SlotId(1), SlotId(1))
             .unwrap();
 
-        engine
+        live_graph
             .connect(input_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
         output_node
     };
 
-    save_and_compare(&engine, output_node, name);
+    save_and_compare(&live_graph, output_node, name);
 }
 
 fn mix_node_test_rgba(mix_type: MixType, name: &str) {
     let tex_pro = tex_pro_new();
-    let engine = tex_pro.new_engine().unwrap();
+    let live_graph = tex_pro.new_live_graph().unwrap();
 
     let output_node = {
-        let mut engine = engine.write().unwrap();
-        let image_node_1 = engine
+        let mut live_graph = live_graph.write().unwrap();
+        let image_node_1 = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
             .unwrap();
-        let image_node_2 = engine
+        let image_node_2 = live_graph
             .add_node(Node::new(NodeType::Image(IMAGE_2.into())))
             .unwrap();
-        let multiply_node = engine.add_node(Node::new(NodeType::Mix(mix_type))).unwrap();
-        let output_node = engine
+        let multiply_node = live_graph
+            .add_node(Node::new(NodeType::Mix(mix_type)))
+            .unwrap();
+        let output_node = live_graph
             .add_node(Node::new(NodeType::OutputRgba("out".into())))
             .unwrap();
 
-        engine
+        live_graph
             .connect(image_node_1, multiply_node, SlotId(0), SlotId(0))
             .unwrap();
-        engine
+        live_graph
             .connect(image_node_2, multiply_node, SlotId(0), SlotId(1))
             .unwrap();
 
-        engine
+        live_graph
             .connect(multiply_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
         output_node
     };
 
-    save_and_compare(&engine, output_node, name);
+    save_and_compare(&live_graph, output_node, name);
 }
 
 #[test]

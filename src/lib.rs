@@ -1,6 +1,7 @@
 pub mod edge;
-pub mod engine;
+mod engine;
 pub mod error;
+pub mod live_graph;
 pub mod node;
 pub mod node_graph;
 mod shared;
