@@ -407,7 +407,7 @@ impl LiveGraph {
             .collect();
 
         for slot_id in slot_ids {
-            output.push(self.slot_data(node_id, slot_id)?);
+            output.push(Arc::clone(self.slot_data(node_id, slot_id)?));
         }
 
         Ok(output)
@@ -446,16 +446,14 @@ impl LiveGraph {
         self.slot_data(node_id, slot_id)?.in_memory()
     }
 
-    /// This is only accessible to the crate on purpose. Cloning the `Arc<SlotData>` from the
-    /// outside could very easily cause a memory leak if the `Arc<SlotData>` is used in another
-    /// `LiveGraph`.
-    pub(crate) fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<Arc<SlotData>> {
-        Ok(Arc::clone(
-            self.slot_datas
-                .iter()
-                .find(|slot_data| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
-                .ok_or(TexProError::NoSlotData)?,
-        ))
+    /// This is only accessible to the crate on purpose because using the `Arc<SlotData>` in another
+    /// `TextureProcessor` would cause a memory leak.
+    pub(crate) fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<&Arc<SlotData>> {
+        Ok(self
+            .slot_datas
+            .iter()
+            .find(|slot_data| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
+            .ok_or(TexProError::NoSlotData)?)
     }
 
     /// This function creates a new `SlotData` from the one in the given slot.
@@ -463,8 +461,9 @@ impl LiveGraph {
     ///
     /// The reason for this is that if you were
     /// able to clone the `Arc<SlotData>`, it would be very tempting to do so and then put it in
-    /// another `LiveGraph`. However, that would cause a memory leak as both `LiveGraph`s would be
-    /// holding a reference to the same `Arc`, so it would never be dropped.
+    /// another `TextureProcessor`. However, that would cause a memory leak as both
+    /// `TextureProcessor`s would be holding a reference to the same `Arc`, so it would never be
+    /// dropped.
     pub fn slot_data_new(&self, node_id: NodeId, slot_id: SlotId) -> Result<SlotData> {
         let slot_data = self
             .slot_datas

@@ -70,7 +70,7 @@ impl TextureProcessor {
         Ok(live_graph)
     }
 
-    pub fn add_live_graph(&self, live_graph: Arc<RwLock<LiveGraph>>) -> Result<()> {
+    pub fn push_live_graph(&self, live_graph: Arc<RwLock<LiveGraph>>) -> Result<()> {
         self.live_graph.write()?.push(live_graph);
         Ok(())
     }

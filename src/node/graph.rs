@@ -31,7 +31,7 @@ pub(crate) fn process(
     }
 
     let live_graph = Arc::new(RwLock::new(live_graph));
-    tex_pro.add_live_graph(Arc::clone(&live_graph))?;
+    tex_pro.push_live_graph(Arc::clone(&live_graph))?;
 
     // Fill the output vector with `SlotData`.
     let output_node_ids = live_graph.read()?.output_ids();
