@@ -478,6 +478,49 @@ impl NodeGraph {
             .copied()
             .collect()
     }
+
+    /// Returns the `NodeId`s of all immediate children of the given `NodeId` (not recursive).
+    pub fn get_children(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
+        self.has_node_with_id(node_id)?;
+
+        let mut children = self
+            .edges
+            .iter()
+            .filter(|edge| edge.output_id == node_id)
+            .map(|edge| edge.input_id)
+            .collect::<Vec<NodeId>>();
+
+        children.sort_unstable();
+        children.dedup();
+
+        Ok(children)
+    }
+
+    /// Returns the `NodeId`s of all children of the given `NodeId`.
+    pub fn get_children_recursive(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
+        let children = self.get_children(node_id)?;
+        let mut output = children.clone();
+
+        for child in children {
+            output.append(&mut self.get_children_recursive(child)?);
+        }
+
+        Ok(output)
+    }
+
+    /// Returns the `NodeId`s of all immediate parents of the given `NodeId` (not recursive).
+    pub fn get_parents(&self, node_id: NodeId) -> Vec<NodeId> {
+        let mut node_ids = self
+            .edges
+            .iter()
+            .filter(|edge| edge.input_id == node_id)
+            .map(|edge| edge.output_id)
+            .collect::<Vec<NodeId>>();
+
+        node_ids.sort_unstable();
+        node_ids.dedup();
+        node_ids
+    }
 }
 
 #[derive(

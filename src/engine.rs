@@ -75,8 +75,9 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                 }
 
                 if !live_graph.use_cache {
-                    for parent in live_graph.get_parents(node_id) {
+                    for parent in live_graph.node_graph.get_parents(node_id) {
                         if live_graph
+                            .node_graph
                             .get_children(parent)
                             .iter()
                             .flatten()
@@ -140,6 +141,8 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                     live_graph: Arc::clone(live_graph),
                 });
             }
+
+            live_graph.write().unwrap().propagate_priorities();
         }
 
         let process_packs = tex_pro

@@ -1,15 +1,12 @@
-use std::sync::{
-    atomic::{AtomicI8, Ordering},
-    Arc, RwLock,
-};
+use std::sync::{Arc, RwLock};
 extern crate num_cpus;
 
-use crate::{live_graph::LiveGraph, node_graph::NodeId};
+use crate::{live_graph::LiveGraph, node_graph::NodeId, priority::Priority};
 
 #[derive(Clone)]
 pub(crate) struct ProcessPack {
     pub node_id: NodeId,
-    pub priority: Arc<AtomicI8>,
+    pub priority: Arc<Priority>,
     pub live_graph: Arc<RwLock<LiveGraph>>,
 }
 
@@ -41,13 +38,13 @@ impl ProcessPackManager {
             if self.process_packs.len() < self.max_count {
                 self.insert_by_priority(process_pack.clone());
                 output_packs.push(process_pack);
-            } else if process_pack.priority.load(Ordering::Relaxed)
+            } else if process_pack.priority.propagated_priority()
                 > self
                     .process_packs
                     .first()
                     .expect("Unfailable")
                     .priority
-                    .load(Ordering::Relaxed)
+                    .propagated_priority()
             {
                 self.insert_by_priority(process_pack.clone());
                 // todo: cancel the processing of the removed node.
@@ -66,8 +63,8 @@ impl ProcessPackManager {
             .process_packs
             .binary_search_by(|pp| {
                 pp.priority
-                    .load(Ordering::Relaxed)
-                    .cmp(&process_pack.priority.load(Ordering::Relaxed))
+                    .propagated_priority()
+                    .cmp(&process_pack.priority.propagated_priority())
             })
             .unwrap_or_else(|e| e);
         self.process_packs.insert(pos, process_pack);
@@ -76,8 +73,8 @@ impl ProcessPackManager {
     fn sort_by_priority(process_packs: &mut Vec<ProcessPack>) {
         process_packs.sort_unstable_by(|a, b| {
             a.priority
-                .load(Ordering::Relaxed)
-                .cmp(&b.priority.load(Ordering::Relaxed))
+                .propagated_priority()
+                .cmp(&b.priority.propagated_priority())
         });
     }
 

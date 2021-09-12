@@ -6,6 +6,7 @@ use crate::{
         Node, Side,
     },
     node_graph::*,
+    priority::PriorityPropagator,
     slot_data::*,
     transient_buffer::{TransientBufferContainer, TransientBufferQueue},
 };
@@ -38,6 +39,7 @@ pub struct LiveGraph {
     input_slot_datas: Vec<Arc<SlotData>>,
     node_state: BTreeMap<NodeId, NodeState>,
     changed: BTreeSet<NodeId>,
+    priority_propagator: PriorityPropagator,
     pub auto_update: bool,
     pub use_cache: bool,
     pub(crate) add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
@@ -52,6 +54,7 @@ impl LiveGraph {
             input_slot_datas: Vec::new(),
             node_state: BTreeMap::new(),
             changed: BTreeSet::new(),
+            priority_propagator: PriorityPropagator::new(),
             auto_update: false,
             use_cache: false,
             add_buffer_queue,
@@ -163,6 +166,10 @@ impl LiveGraph {
         }
     }
 
+    pub(crate) fn propagate_priorities(&mut self) {
+        self.priority_propagator.update(&self.node_graph);
+    }
+
     /// Waits until a certain NodeId has a certain state, and when it does it returns the
     /// `RwLockReadGuard` so reads can be made while the `NodeState` remains the same.
     // pub fn await_state_read(
@@ -240,51 +247,6 @@ impl LiveGraph {
             .collect()
     }
 
-    /// Returns the `NodeId`s of all immediate children of the given `NodeId` (not recursive).
-    pub fn get_children(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
-        self.node_graph.has_node_with_id(node_id)?;
-
-        let mut children = self
-            .node_graph
-            .edges
-            .iter()
-            .filter(|edge| edge.output_id == node_id)
-            .map(|edge| edge.input_id)
-            .collect::<Vec<NodeId>>();
-
-        children.sort_unstable();
-        children.dedup();
-
-        Ok(children)
-    }
-
-    /// Returns the `NodeId`s of all children of the given `NodeId`.
-    pub fn get_children_recursive(&self, node_id: NodeId) -> Result<Vec<NodeId>> {
-        let children = self.get_children(node_id)?;
-        let mut output = children.clone();
-
-        for child in children {
-            output.append(&mut self.get_children_recursive(child)?);
-        }
-
-        Ok(output)
-    }
-
-    /// Returns the `NodeId`s of all immediate parents of the given `NodeId` (not recursive).
-    pub fn get_parents(&self, node_id: NodeId) -> Vec<NodeId> {
-        let mut node_ids = self
-            .node_graph
-            .edges
-            .iter()
-            .filter(|edge| edge.input_id == node_id)
-            .map(|edge| edge.output_id)
-            .collect::<Vec<NodeId>>();
-
-        node_ids.sort_unstable();
-        node_ids.dedup();
-        node_ids
-    }
-
     /// Returns the `NodeId`s of the closest ancestors that are ready to be processed, including self.
     pub fn get_closest_processable(&self, node_id: NodeId) -> Vec<NodeId> {
         let mut closest_processable = Vec::new();
@@ -292,7 +254,7 @@ impl LiveGraph {
         // Put dirty and processing parents in their own vectors.
         let mut dirty = Vec::new();
         let mut processing = Vec::new();
-        for node_id in self.get_parents(node_id) {
+        for node_id in self.node_graph.get_parents(node_id) {
             match self.node_state(node_id).unwrap() {
                 NodeState::Processing => processing.push(node_id),
                 NodeState::Dirty | NodeState::Requested | NodeState::Prioritised => {
@@ -475,10 +437,12 @@ impl LiveGraph {
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
+        let priority = Arc::clone(&node.priority);
         let node_id = self.node_graph.add_node(node)?;
 
         self.changed.insert(node_id);
         self.node_state.insert(node_id, NodeState::Dirty);
+        self.priority_propagator.push_priority(node_id, priority);
 
         Ok(node_id)
     }
@@ -550,7 +514,7 @@ impl LiveGraph {
         if node_state != node_state_old {
             // If the state becomes dirty, propagate it to all children.
             if node_state == NodeState::Dirty {
-                for node_id in self.get_children(node_id)? {
+                for node_id in self.node_graph.get_children(node_id)? {
                     self.set_state(node_id, node_state)?;
                 }
             }
@@ -572,7 +536,8 @@ impl LiveGraph {
 
         let mut disconnected_children = Vec::new();
         for edge in &edges {
-            disconnected_children.append(&mut self.get_children_recursive(edge.input_id)?);
+            disconnected_children
+                .append(&mut self.node_graph.get_children_recursive(edge.input_id)?);
         }
         disconnected_children.sort_unstable();
         disconnected_children.dedup();
