@@ -10,22 +10,4 @@ It's not meant to be used yet, but you can use it and it should be easy to see h
 - Every image channel is 32 bit float
 
 ## Progress
-Currently I'm working on a GUI for this library called [Kanter](https://github.com/lukors/kanter).
-
-Here are some planned tasks:
-
-### General
-- [x] Combine basic nodes like `Add` into a `Mix` node
-- [ ] Implement rgba slots
-- [ ] See if input/output mappings for graphs can be stored in the input/output nodes instead
-- [ ] Combine input/output grayscale and rgba nodes
-- [ ] Automatic conversion to and from grayscale and rgba slots
-- [ ] Randomly generated test
-- [ ] Noise node: https://github.com/jackmott/rust-simd-noise
-- [ ] Consider variable support
-- [ ] Command line interface
-
-### Optimization
-- [ ] Make benchmark tests
-- [ ] Disregard nodes that do not lead to an output
-- [ ] Do not resize inputs before processing, instead sample the un-resized image using the resizing filter
+The current goal is to implement all features required for a really smooth GUI experience.
