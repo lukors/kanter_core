@@ -109,4 +109,9 @@ impl TextureProcessor {
     pub fn processing_node_count(&self) -> Result<usize> {
         Ok(self.process_pack_manager.read()?.process_packs().len())
     }
+
+    pub fn set_max_processing_nodes(&self, count: usize) -> Result<()> {
+        self.process_pack_manager.write()?.max_count = count;
+        Ok(())
+    }
 }

@@ -1,7 +1,12 @@
 use std::sync::{Arc, RwLock};
 extern crate num_cpus;
 
-use crate::{live_graph::LiveGraph, node_graph::NodeId, priority::Priority};
+use crate::{
+    error::Result,
+    live_graph::{LiveGraph, NodeState},
+    node_graph::NodeId,
+    priority::Priority,
+};
 
 #[derive(Clone)]
 pub(crate) struct ProcessPack {
@@ -25,8 +30,9 @@ impl ProcessPackManager {
 
     /// Gets a vec of `ProcessPacks` and returns all the new `ProcessPacks` that fit within the
     /// `max_count` limit.
-    pub fn update(&mut self, mut process_packs: Vec<ProcessPack>) -> Vec<ProcessPack> {
+    pub fn update(&mut self, mut process_packs: Vec<ProcessPack>) -> Result<Vec<ProcessPack>> {
         let mut output_packs = Vec::new();
+        self.remove_clean()?;
         Self::sort_by_priority(&mut self.process_packs);
         self.process_packs.truncate(self.max_count);
 
@@ -55,7 +61,22 @@ impl ProcessPackManager {
             }
         }
 
-        output_packs
+        Ok(output_packs)
+    }
+
+    fn remove_clean(&mut self) -> Result<()> {
+        for i in (0..self.process_packs.len()).rev() {
+            if self.process_packs[i]
+                .live_graph
+                .read()?
+                .node_state(self.process_packs[i].node_id)?
+                == NodeState::Clean
+            {
+                self.process_packs.remove(i);
+            }
+        }
+
+        Ok(())
     }
 
     fn insert_by_priority(&mut self, process_pack: ProcessPack) {

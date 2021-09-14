@@ -149,7 +149,8 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
             .process_pack_manager
             .write()
             .unwrap()
-            .update(process_packs);
+            .update(process_packs)
+            .unwrap();
 
         for process_pack in process_packs {
             let node_id = process_pack.node_id;

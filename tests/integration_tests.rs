@@ -1,5 +1,5 @@
 use kanter_core::{
-    live_graph::LiveGraph,
+    live_graph::{LiveGraph, NodeState},
     node::{
         embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, Node, ResizeFilter,
         ResizePolicy,
@@ -341,19 +341,20 @@ fn request_empty_buffer() {
 }
 
 #[test]
+#[timeout(20_000)]
 fn input_output_intercept() {
-    const SIZE: u32 = 50;
-    const SIZE_LARGE: u32 = 30;
+    const SIZE: u32 = 30;
+    const SIZE_LARGE: u32 = 20;
     const SIZE_SMALL: u32 = 10;
     const PATH_IN: &str = IMAGE_2;
-    const PATH_OUT_INTERCEPT: &str = &"out/input_output_intercept.png";
-    const PATH_OUT: &str = &"out/input_output_intercept_out.png";
 
     let tex_pro = tex_pro_new();
     let live_graph = tex_pro.new_live_graph().unwrap();
 
     let (resize_node_1, output_node) = {
         let mut live_graph = live_graph.write().unwrap();
+        live_graph.auto_update = true;
+
         let input_node = live_graph
             .add_node(Node::new(NodeType::Image(PATH_IN.clone().into())))
             .unwrap();
@@ -404,37 +405,104 @@ fn input_output_intercept() {
 
     let mut intercepted = false;
     loop {
-        if !intercepted {
-            if let Ok(buffer) = LiveGraph::try_buffer_rgba(&live_graph, resize_node_1, SlotId(0)) {
-                ensure_out_dir();
-                image::save_buffer(
-                    &Path::new(&PATH_OUT_INTERCEPT),
-                    &image::RgbaImage::from_vec(SIZE_SMALL, SIZE_SMALL, buffer).unwrap(),
-                    SIZE_SMALL,
-                    SIZE_SMALL,
-                    image::ColorType::Rgba8,
-                )
-                .unwrap();
-                intercepted = true;
-            }
-        }
+        let live_graph = live_graph.read().unwrap();
 
-        if let Ok(buffer) = LiveGraph::try_buffer_rgba(&live_graph, output_node, SlotId(0)) {
-            ensure_out_dir();
-            image::save_buffer(
-                &Path::new(&PATH_OUT),
-                &image::RgbaImage::from_vec(SIZE, SIZE, buffer).unwrap(),
-                SIZE,
-                SIZE,
-                image::ColorType::Rgba8,
-            )
-            .unwrap();
-
+        if live_graph.node_state(output_node).unwrap() == NodeState::Clean {
+            break;
+        } else if live_graph.node_state(resize_node_1).unwrap() == NodeState::Clean {
+            intercepted = true;
             break;
         }
     }
-
     assert!(intercepted);
+}
+
+#[test]
+#[timeout(20_000)]
+fn priority() {
+    assert!(!priority_internal(3, -1));
+    assert!(!priority_internal(1, 0));
+    assert!(priority_internal(1, 1));
+    assert!(!priority_internal(2, 1));
+    assert!(!priority_internal(3, 1));
+}
+
+fn priority_internal(max_processing: usize, large_priority: i8) -> bool {
+    const SIZE_LARGE: u32 = 20;
+    const SIZE_SMALL: u32 = 10;
+
+    let tex_pro = tex_pro_new();
+    tex_pro.set_max_processing_nodes(max_processing).unwrap();
+
+    let live_graph = tex_pro.new_live_graph().unwrap();
+
+    let (resize_small_1, resize_small_2, resize_large) = {
+        let mut live_graph = live_graph.write().unwrap();
+
+        let value_node = live_graph
+            .add_node(Node::new(NodeType::Value(0.5)))
+            .unwrap();
+        let resize_small_1 = live_graph
+            .add_node(
+                Node::new(NodeType::Mix(MixType::default()))
+                    .resize_filter(ResizeFilter::Nearest)
+                    .resize_policy(ResizePolicy::SpecificSize(Size::new(
+                        SIZE_SMALL, SIZE_SMALL,
+                    ))),
+            )
+            .unwrap();
+        let resize_small_2 = live_graph
+            .add_node(
+                Node::new(NodeType::Mix(MixType::default()))
+                    .resize_filter(ResizeFilter::Nearest)
+                    .resize_policy(ResizePolicy::SpecificSize(Size::new(
+                        SIZE_SMALL, SIZE_SMALL,
+                    ))),
+            )
+            .unwrap();
+        let resize_large = live_graph
+            .add_node(
+                Node::new(NodeType::Mix(MixType::default()))
+                    .resize_filter(ResizeFilter::Lanczos3)
+                    .resize_policy(ResizePolicy::SpecificSize(Size::new(
+                        SIZE_LARGE, SIZE_LARGE,
+                    ))),
+            )
+            .unwrap();
+        live_graph
+            .node(resize_large)
+            .unwrap()
+            .priority
+            .set_priority(large_priority);
+
+        live_graph
+            .connect(value_node, resize_small_1, SlotId(0), SlotId(0))
+            .unwrap();
+        live_graph
+            .connect(value_node, resize_large, SlotId(0), SlotId(0))
+            .unwrap();
+        live_graph
+            .connect(value_node, resize_small_2, SlotId(0), SlotId(0))
+            .unwrap();
+
+        live_graph.auto_update = true;
+        (resize_small_1, resize_small_2, resize_large)
+    };
+
+    let mut large_done_first = false;
+    loop {
+        let live_graph = live_graph.read().unwrap();
+
+        if live_graph.node_state(resize_small_1).unwrap() == NodeState::Clean
+            || live_graph.node_state(resize_small_2).unwrap() == NodeState::Clean
+        {
+            break;
+        } else if live_graph.node_state(resize_large).unwrap() == NodeState::Clean {
+            large_done_first = true;
+            break;
+        }
+    }
+    large_done_first
 }
 
 #[test]
