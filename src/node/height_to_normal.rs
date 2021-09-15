@@ -61,13 +61,13 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
         }
     }
 
-    if buffer_normal.iter().map(|buf| buf.len()).sum::<usize>() == size.pixel_count() * 3 {
+    if node.cancel.load(Ordering::Relaxed) {
+        Err(TexProError::Canceled)
+    } else {
         Ok(vec![Arc::new(SlotData::new(
             node.node_id,
             SlotId(0),
             SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap(),
         ))])
-    } else {
-        Err(TexProError::Canceled)
     }
 }

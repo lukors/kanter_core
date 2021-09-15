@@ -8,7 +8,7 @@ use image::ImageBuffer;
 
 use crate::{
     edge::Edge,
-    error::Result,
+    error::{Result, TexProError},
     live_graph::{LiveGraph, NodeState},
     node::{embed::EmbeddedSlotData, node_type::process_node},
     node_graph::NodeId,
@@ -57,40 +57,51 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
 
                         live_graph.remove_nodes_data(node_id);
                         live_graph.slot_datas.append(&mut slot_datas.into());
-                    }
-                    Err(e) => {
-                        tex_pro.shutdown.store(true, Ordering::Relaxed);
-                        panic!(
-                            "Error when processing '{:?}' node with id '{}': {}",
-                            live_graph.node_graph.node(node_id).unwrap().node_type,
-                            node_id,
-                            e
-                        );
-                    }
-                }
 
-                if live_graph.set_state(node_id, NodeState::Clean).is_err() {
-                    tex_pro.shutdown.store(true, Ordering::Relaxed);
-                    return;
-                }
+                        if live_graph.set_state(node_id, NodeState::Clean).is_err() {
+                            tex_pro.shutdown.store(true, Ordering::Relaxed);
+                            return;
+                        }
 
-                if !live_graph.use_cache {
-                    for parent in live_graph.node_graph.get_parents(node_id) {
-                        if live_graph
-                            .node_graph
-                            .get_children(parent)
-                            .iter()
-                            .flatten()
-                            .all(|node_id| {
-                                matches![
-                                    live_graph.node_state(*node_id).unwrap(),
-                                    NodeState::Clean | NodeState::Processing
-                                ]
-                            })
-                        {
-                            live_graph.remove_nodes_data(parent);
+                        if !live_graph.use_cache {
+                            for parent in live_graph.node_graph.get_parents(node_id) {
+                                if live_graph
+                                    .node_graph
+                                    .get_children(parent)
+                                    .iter()
+                                    .flatten()
+                                    .all(|node_id| {
+                                        matches![
+                                            live_graph.node_state(*node_id).unwrap(),
+                                            NodeState::Clean | NodeState::Processing
+                                        ]
+                                    })
+                                {
+                                    live_graph.remove_nodes_data(parent);
+                                }
+                            }
                         }
                     }
+                    Err(e) => match e {
+                        TexProError::Canceled => {
+                            if let Ok(node) = live_graph.node(node_id) {
+                                node.cancel.store(false, Ordering::Relaxed);
+                            }
+                            if live_graph.set_state(node_id, NodeState::Dirty).is_err() {
+                                tex_pro.shutdown.store(true, Ordering::Relaxed);
+                                return;
+                            }
+                        }
+                        _ => {
+                            tex_pro.shutdown.store(true, Ordering::Relaxed);
+                            panic!(
+                                "Error when processing '{:?}' node with id '{}': {}",
+                                live_graph.node_graph.node(node_id).unwrap().node_type,
+                                node_id,
+                                e
+                            );
+                        }
+                    },
                 }
             }
         }
