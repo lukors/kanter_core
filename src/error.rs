@@ -5,6 +5,7 @@ pub type Result<T> = result::Result<T, TexProError>;
 #[derive(Debug)]
 pub enum TexProError {
     Generic, // Should come with an error message
+    Canceled,
     Image(image::ImageError),
     InvalidBufferCount,
     InvalidNodeId,
@@ -29,6 +30,7 @@ impl fmt::Display for TexProError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Self::Generic => f.write_str("Something went wrong"),
+            Self::Canceled => f.write_str("Node processing was canceled"),
             Self::Image(ref e) => e.fmt(f),
             Self::InvalidBufferCount => f.write_str("Invalid number of channels"),
             Self::InvalidNodeId => f.write_str("Invalid `NodeId`"),

@@ -32,6 +32,7 @@ impl Default for NodeState {
     }
 }
 
+#[derive(Debug)]
 pub struct LiveGraph {
     pub(crate) node_graph: NodeGraph,
     pub(crate) slot_datas: VecDeque<Arc<SlotData>>,
@@ -481,6 +482,7 @@ impl LiveGraph {
             .connect(output_node, input_node, output_slot, input_slot)?;
 
         self.changed.insert(input_node);
+        self.node(output_node)?.priority.touch();
         self.set_state(input_node, NodeState::Dirty)?;
 
         Ok(())
@@ -500,6 +502,7 @@ impl LiveGraph {
             .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)?;
 
         self.changed.insert(new_edge.input_id);
+        self.node(new_edge.output_id)?.priority.touch();
         self.set_state(new_edge.input_id, NodeState::Dirty)?;
 
         Ok(new_edge)
@@ -538,6 +541,7 @@ impl LiveGraph {
         for edge in &edges {
             disconnected_children
                 .append(&mut self.node_graph.get_children_recursive(edge.input_id)?);
+            self.node(edge.output_id)?.priority.touch();
         }
         disconnected_children.sort_unstable();
         disconnected_children.dedup();

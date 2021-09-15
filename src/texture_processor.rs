@@ -21,6 +21,7 @@ pub struct TextureProcessor {
     pub add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
     pub memory_threshold: Arc<AtomicUsize>,
     pub(crate) process_pack_manager: RwLock<ProcessPackManager>,
+    pub transient_buffer_queue: Arc<RwLock<TransientBufferQueue>>,
 }
 
 impl Drop for TextureProcessor {
@@ -33,9 +34,10 @@ impl TextureProcessor {
     pub fn new(memory_threshold: Arc<AtomicUsize>) -> Arc<Self> {
         let shutdown = Arc::new(AtomicBool::new(false));
 
-        let mut transient_buffer_queue =
+        let transient_buffer_queue =
             TransientBufferQueue::new(Arc::clone(&memory_threshold), Arc::clone(&shutdown));
         let add_buffer_queue = Arc::clone(&transient_buffer_queue.incoming_buffers);
+        let transient_buffer_queue = Arc::new(RwLock::new(transient_buffer_queue));
 
         let output = Arc::new(Self {
             live_graph: Arc::new(RwLock::new(Vec::new())),
@@ -43,6 +45,7 @@ impl TextureProcessor {
             memory_threshold,
             add_buffer_queue,
             process_pack_manager: RwLock::new(ProcessPackManager::new()),
+            transient_buffer_queue: Arc::clone(&transient_buffer_queue),
         });
         let output_send = Arc::clone(&output);
 
@@ -50,9 +53,7 @@ impl TextureProcessor {
             engine::process_loop(output_send);
         });
 
-        thread::spawn(move || {
-            transient_buffer_queue.thread_loop();
-        });
+        thread::spawn(move || TransientBufferQueue::thread_loop(transient_buffer_queue));
 
         output
     }

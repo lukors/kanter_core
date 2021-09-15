@@ -8,7 +8,7 @@ use crate::{
     priority::Priority,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct ProcessPack {
     pub node_id: NodeId,
     pub priority: Arc<Priority>,

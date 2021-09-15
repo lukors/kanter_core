@@ -21,7 +21,10 @@ use crate::{
 };
 use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
-use std::{fmt, sync::Arc};
+use std::{
+    fmt,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use self::node_type::NodeType;
 
@@ -113,6 +116,8 @@ pub struct Node {
     pub resize_filter: ResizeFilter,
     #[serde(skip)]
     pub priority: Arc<Priority>,
+    #[serde(skip)]
+    pub cancel: Arc<AtomicBool>,
 }
 
 impl Node {
@@ -123,6 +128,7 @@ impl Node {
             resize_policy: ResizePolicy::default(),
             resize_filter: ResizeFilter::default(),
             priority: Arc::new(Priority::new()),
+            cancel: Arc::new(false.into()),
         }
     }
 

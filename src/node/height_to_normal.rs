@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 use crate::{
-    error::Result,
+    error::{Result, TexProError},
     node::process_shared::{slot_data_with_name, Sampling},
     node_graph::SlotId,
     slot_data::SlotData,
@@ -32,23 +32,22 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
     ];
 
     {
-        // let slot_image_cache = slot_data.image_cache();
-        // let mut slot_image_cache = slot_image_cache.write().unwrap();
         let buffer_height = if let SlotImage::Gray(buf) = &slot_data.image {
             buf.transient_buffer()
         } else {
             return Ok(Vec::new());
         };
         let buffer_height = buffer_height.buffer();
+        let buffer_iterator = buffer_height.enumerate_pixels();
 
-        // This is a temporary workaround. Rust-analyzer does not support const params yet, so it
-        // shows a false positive error when using `Vector3::new()`, saying there are too few
-        // parameters when there are not.
+        // This funciton is a temporary workaround. Rust-analyzer does not support const params
+        // yet, so it shows a false positive error when using `Vector3::new()`, saying there are
+        // too few parameters when there are not.
         fn vec3<T>(x: T, y: T, z: T) -> Vector3<T> {
             Vector3::new(x, y, z)
         }
 
-        for (x, y, px) in buffer_height.enumerate_pixels() {
+        for (x, y, px) in buffer_iterator.take_while(|_| !node.cancel.load(Ordering::Relaxed)) {
             let sample_up = buffer_height.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
             let sample_left = buffer_height.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
 
@@ -62,9 +61,13 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
         }
     }
 
-    Ok(vec![Arc::new(SlotData::new(
-        node.node_id,
-        SlotId(0),
-        SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap(),
-    ))])
+    if buffer_normal.iter().map(|buf| buf.len()).sum::<usize>() == size.pixel_count() * 3 {
+        Ok(vec![Arc::new(SlotData::new(
+            node.node_id,
+            SlotId(0),
+            SlotImage::from_buffers_rgb(&mut buffer_normal).unwrap(),
+        ))])
+    } else {
+        Err(TexProError::Canceled)
+    }
 }

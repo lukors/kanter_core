@@ -185,11 +185,14 @@ fn drive_cache() {
         (rgba_node, value_nodes, mix_node_1, mix_node_2)
     };
 
-    calculate_slot(&live_graph, mix_node_2, SlotId(0));
-    thread::sleep(Duration::from_millis(2_000));
+    {
+        let _ = LiveGraph::await_clean_read(&live_graph, mix_node_2).unwrap();
+    }
+    thread::sleep(Duration::from_millis(100));
     {
         // Assert that the right things are on drive and in RAM.
-        let live_graph = live_graph.read().unwrap();
+        calculate_slot(&live_graph, mix_node_2, SlotId(0));
+        let live_graph = LiveGraph::await_clean_read(&live_graph, mix_node_2).unwrap();
 
         for node_id in &value_nodes {
             assert!(!live_graph.slot_in_memory(*node_id, SlotId(0)).unwrap());
@@ -231,11 +234,11 @@ fn drive_cache() {
 
     // Test if the right thing happens when a slot_data on drive is retrieved...
     // Loads this slot_data into RAM.
-    calculate_slot(&live_graph, rgba_node, SlotId(0));
-
-    thread::sleep(Duration::from_millis(2_000));
+    // calculate_slot(&live_graph, rgba_node, SlotId(0));
     {
-        let live_graph = live_graph.read().unwrap();
+        let live_graph = LiveGraph::await_clean_read(&live_graph, rgba_node).unwrap();
+
+        thread::sleep(Duration::from_millis(100));
 
         for node_id in value_nodes {
             assert!(live_graph.slot_in_memory(node_id, SlotId(0)).unwrap());
@@ -253,7 +256,7 @@ fn no_cache() {
     let tex_pro = tex_pro_new();
     let live_graph = tex_pro.new_live_graph().unwrap();
 
-    let value_node = {
+    let (value_node, output_node) = {
         let mut live_graph = live_graph.write().unwrap();
         let value_node = live_graph
             .add_node(Node::new(NodeType::Value(1.0)))
@@ -266,14 +269,10 @@ fn no_cache() {
             .connect(value_node, output_node, SlotId(0), SlotId(0))
             .unwrap();
 
-        live_graph.auto_update = true;
-        value_node
+        (value_node, output_node)
     };
 
-    thread::sleep(std::time::Duration::from_secs(1));
-
-    assert!(live_graph
-        .read()
+    assert!(LiveGraph::await_clean_read(&live_graph, output_node)
         .unwrap()
         .slot_data_new(value_node, SlotId(0))
         .is_err());
@@ -285,7 +284,7 @@ fn use_cache() {
     let tex_pro = tex_pro_new();
     let live_graph = tex_pro.new_live_graph().unwrap();
 
-    let value_node = {
+    let (value_node, output_node) = {
         let mut live_graph = live_graph.write().unwrap();
 
         let value_node = live_graph
@@ -300,13 +299,10 @@ fn use_cache() {
             .unwrap();
 
         live_graph.use_cache = true;
-        live_graph.auto_update = true;
-        value_node
+        (value_node, output_node)
     };
-    thread::sleep(std::time::Duration::from_secs(1));
 
-    assert!(live_graph
-        .write()
+    assert!(LiveGraph::await_clean_read(&live_graph, output_node)
         .unwrap()
         .slot_data_new(value_node, SlotId(0))
         .is_ok());
@@ -420,16 +416,14 @@ fn input_output_intercept() {
 #[test]
 #[timeout(20_000)]
 fn priority() {
-    assert!(!priority_internal(3, -1));
-    assert!(!priority_internal(1, 0));
+    assert!(!priority_internal(2, -1));
     assert!(priority_internal(1, 1));
-    assert!(!priority_internal(2, 1));
-    assert!(!priority_internal(3, 1));
+    assert!(priority_internal(2, 1));
 }
 
 fn priority_internal(max_processing: usize, large_priority: i8) -> bool {
-    const SIZE_LARGE: u32 = 20;
-    const SIZE_SMALL: u32 = 10;
+    const SIZE_LARGE: u32 = 400;
+    const SIZE_SMALL: u32 = 400;
 
     let tex_pro = tex_pro_new();
     tex_pro.set_max_processing_nodes(max_processing).unwrap();
@@ -463,7 +457,7 @@ fn priority_internal(max_processing: usize, large_priority: i8) -> bool {
         let resize_large = live_graph
             .add_node(
                 Node::new(NodeType::Mix(MixType::default()))
-                    .resize_filter(ResizeFilter::Lanczos3)
+                    .resize_filter(ResizeFilter::Nearest)
                     .resize_policy(ResizePolicy::SpecificSize(Size::new(
                         SIZE_LARGE, SIZE_LARGE,
                     ))),
@@ -489,20 +483,16 @@ fn priority_internal(max_processing: usize, large_priority: i8) -> bool {
         (resize_small_1, resize_small_2, resize_large)
     };
 
-    let mut large_done_first = false;
-    loop {
-        let live_graph = live_graph.read().unwrap();
+    // let mut large_done_first = false;
+    let live_graph = LiveGraph::await_clean_read(&live_graph, resize_large).unwrap();
 
-        if live_graph.node_state(resize_small_1).unwrap() == NodeState::Clean
-            || live_graph.node_state(resize_small_2).unwrap() == NodeState::Clean
-        {
-            break;
-        } else if live_graph.node_state(resize_large).unwrap() == NodeState::Clean {
-            large_done_first = true;
-            break;
-        }
+    if live_graph.node_state(resize_small_1).unwrap() == NodeState::Clean
+        && live_graph.node_state(resize_small_2).unwrap() == NodeState::Clean
+    {
+        false
+    } else {
+        true
     }
-    large_done_first
 }
 
 #[test]
@@ -1301,18 +1291,16 @@ fn wrong_slot_type() {
     let tex_pro = tex_pro_new();
     let live_graph = tex_pro.new_live_graph().unwrap();
 
-    {
-        let mut live_graph = live_graph.write().unwrap();
-        let image_node = live_graph
-            .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
-            .unwrap();
-        let gray_node = live_graph
-            .add_node(Node::new(NodeType::OutputGray("out".into())))
-            .unwrap();
-        live_graph
-            .connect(image_node, gray_node, SlotId(0), SlotId(0))
-            .unwrap();
-    }
+    let mut live_graph = live_graph.write().unwrap();
+    let image_node = live_graph
+        .add_node(Node::new(NodeType::Image(IMAGE_1.into())))
+        .unwrap();
+    let gray_node = live_graph
+        .add_node(Node::new(NodeType::OutputGray("out".into())))
+        .unwrap();
+    live_graph
+        .connect(image_node, gray_node, SlotId(0), SlotId(0))
+        .unwrap();
 }
 
 #[test]

@@ -181,7 +181,7 @@ impl TransientBufferContainer {
     ///
     /// The purpose is to allow for retrieving data from the outside when it is known that this can
     /// not have any bad effects.
-    pub(crate) fn transient_buffer_sneaky(&self) -> &RwLock<TransientBuffer> {
+    pub fn transient_buffer_sneaky(&self) -> &RwLock<TransientBuffer> {
         &self.transient_buffer
     }
 
@@ -191,7 +191,7 @@ impl TransientBufferContainer {
 }
 
 #[derive(Default)]
-pub(crate) struct TransientBufferQueue {
+pub struct TransientBufferQueue {
     queue: VecDeque<Arc<TransientBufferContainer>>,
     pub memory_threshold: Arc<AtomicUsize>,
     pub incoming_buffers: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
@@ -292,58 +292,62 @@ impl TransientBufferQueue {
     /// Moves any retrieved `TransientBufferContainer`s to the back of the `queue`.
     /// Also makes sure it stays below its `memory_limit` by moving `TransientBufferContainer`s to
     /// storage from the front of the `queue`.
-    pub fn thread_loop(&mut self) {
+    pub fn thread_loop(tbc: Arc<RwLock<Self>>) {
         loop {
             let mut bytes_in_memory = 0;
 
-            if self.shutdown.load(Ordering::Relaxed) {
+            if tbc.read().unwrap().shutdown.load(Ordering::Relaxed) {
                 return;
             }
-            self.handle_incoming();
 
-            for i in (0..self.queue.len()).rev() {
-                if Arc::strong_count(&self.queue[i]) == 1 {
-                    self.queue.remove(i);
-                    continue;
-                }
+            {
+                let mut tbc = tbc.write().unwrap();
+                tbc.handle_incoming();
 
-                let mut requested = false;
-                if let Ok(transient_buffer) = self.queue[i].transient_buffer.read() {
-                    if transient_buffer.in_memory() {
-                        bytes_in_memory += transient_buffer.bytes();
-                    } else if transient_buffer.requested() {
-                        requested = true;
+                for i in (0..tbc.queue.len()).rev() {
+                    if Arc::strong_count(&tbc.queue[i]) == 1 {
+                        tbc.queue.remove(i);
+                        continue;
                     }
-                }
 
-                if requested {
-                    if let Some(removed) = self.queue.remove(i) {
-                        if let Ok(mut transient_buffer) = removed.transient_buffer.write() {
-                            let _ = transient_buffer.move_to_memory();
+                    let mut requested = false;
+                    if let Ok(transient_buffer) = tbc.queue[i].transient_buffer.read() {
+                        if transient_buffer.in_memory() {
+                            bytes_in_memory += transient_buffer.bytes();
+                        } else if transient_buffer.requested() {
+                            requested = true;
                         }
-                        self.queue.push_back(removed);
+                    }
+
+                    if requested {
+                        if let Some(removed) = tbc.queue.remove(i) {
+                            if let Ok(mut transient_buffer) = removed.transient_buffer.write() {
+                                let _ = transient_buffer.move_to_memory();
+                            }
+                            tbc.queue.push_back(removed);
+                        }
                     }
                 }
-            }
 
-            let memory_threshold = self.memory_threshold.load(Ordering::Relaxed);
-            let mut i: usize = 0;
-            while bytes_in_memory > memory_threshold {
-                if let Some(tbuf_container) = self.queue.get(i) {
-                    let transient_buffer = &tbuf_container.transient_buffer;
+                let memory_threshold = tbc.memory_threshold.load(Ordering::Relaxed);
+                let mut i: usize = 0;
+                while bytes_in_memory > memory_threshold {
+                    if let Some(tbuf_container) = tbc.queue.get(i) {
+                        let transient_buffer = &tbuf_container.transient_buffer;
 
-                    if let Ok(mut transient_buffer) = transient_buffer.write() {
-                        if let Ok(moved) = transient_buffer.move_to_storage() {
-                            if moved {
-                                bytes_in_memory -= transient_buffer.bytes();
+                        if let Ok(mut transient_buffer) = transient_buffer.write() {
+                            if let Ok(moved) = transient_buffer.move_to_storage() {
+                                if moved {
+                                    bytes_in_memory -= transient_buffer.bytes();
+                                }
                             }
                         }
+                    } else {
+                        break;
                     }
-                } else {
-                    break;
-                }
 
-                i += 1;
+                    i += 1;
+                }
             }
 
             thread::sleep(Duration::from_millis(1));
@@ -366,5 +370,9 @@ impl TransientBufferQueue {
             .filter(|tb| !tb.in_memory())
             .map(|tb| tb.bytes())
             .sum()
+    }
+
+    pub fn queue(&self) -> &VecDeque<Arc<TransientBufferContainer>> {
+        &self.queue
     }
 }
