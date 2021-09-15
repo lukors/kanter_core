@@ -186,7 +186,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                         if let Ok(slot_data) =
                             live_graph.slot_data(edge.output_id, edge.output_slot)
                         {
-                            Arc::clone(&slot_data)
+                            Arc::clone(slot_data)
                         } else {
                             Arc::new(SlotData::new(
                                 edge.output_id,

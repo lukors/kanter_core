@@ -412,11 +412,10 @@ impl LiveGraph {
     /// This is only accessible to the crate on purpose because using the `Arc<SlotData>` in another
     /// `TextureProcessor` would cause a memory leak.
     pub(crate) fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<&Arc<SlotData>> {
-        Ok(self
-            .slot_datas
+        self.slot_datas
             .iter()
             .find(|slot_data| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
-            .ok_or(TexProError::NoSlotData)?)
+            .ok_or(TexProError::NoSlotData)
     }
 
     /// This function creates a new `SlotData` from the one in the given slot.
