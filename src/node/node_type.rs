@@ -54,6 +54,8 @@ fn process_node_internal(
     input_slot_datas: &[Arc<SlotData>],
     tex_pro: &Arc<TextureProcessor>,
 ) -> Result<Vec<Arc<SlotData>>> {
+    let shutdown = Arc::clone(&tex_pro.shutdown);
+
     Ok(match node.node_type {
         NodeType::InputRgba(_) => input_rgba::process(&node, input_slot_datas),
         NodeType::InputGray(_) => input_gray::process(&node, input_slot_datas),
@@ -66,7 +68,7 @@ fn process_node_internal(
         NodeType::Write(ref path) => write::process(slot_datas, path)?,
         NodeType::Value(val) => value::process(&node, val),
         NodeType::Mix(mix_type) => mix::process(slot_datas, &node, mix_type)?,
-        NodeType::HeightToNormal => height_to_normal::process(slot_datas, &node)?,
+        NodeType::HeightToNormal => height_to_normal::process(shutdown, slot_datas, &node)?,
         NodeType::SeparateRgba => separate_rgba::process(slot_datas, &node)?,
         NodeType::CombineRgba => combine_rgba::process(slot_datas, &node)?,
     })

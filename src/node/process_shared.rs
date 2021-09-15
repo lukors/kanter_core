@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use crate::{node_graph::SlotId, slot_data::SlotData};
 
@@ -59,4 +62,8 @@ impl Sampling for u32 {
     fn coordinate_to_fraction(self, size: Self) -> f32 {
         self as f32 / size as f32
     }
+}
+
+pub(crate) fn cancelling(a: &Arc<AtomicBool>, b: &Arc<AtomicBool>) -> bool {
+    a.load(Ordering::Relaxed) || b.load(Ordering::Relaxed)
 }

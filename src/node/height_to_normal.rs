@@ -1,8 +1,8 @@
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{atomic::AtomicBool, Arc};
 
 use crate::{
     error::{Result, TexProError},
-    node::process_shared::{slot_data_with_name, Sampling},
+    node::process_shared::{cancelling, slot_data_with_name, Sampling},
     node_graph::SlotId,
     slot_data::SlotData,
     slot_image::{Buffer, SlotImage},
@@ -13,7 +13,11 @@ use super::Node;
 use image::{ImageBuffer, Luma};
 use nalgebra::Vector3;
 
-pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<Arc<SlotData>>> {
+pub(crate) fn process(
+    shutdown: Arc<AtomicBool>,
+    slot_datas: &[Arc<SlotData>],
+    node: &Node,
+) -> Result<Vec<Arc<SlotData>>> {
     let slot_data = if let Some(slot_data) = slot_data_with_name(slot_datas, node, "input") {
         slot_data
     } else {
@@ -47,7 +51,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
             Vector3::new(x, y, z)
         }
 
-        for (x, y, px) in buffer_iterator.take_while(|_| !node.cancel.load(Ordering::Relaxed)) {
+        for (x, y, px) in buffer_iterator.take_while(|_| !cancelling(&node.cancel, &shutdown)) {
             let sample_up = buffer_height.get_pixel(x, y.wrapping_sample_subtract(1, height))[0];
             let sample_left = buffer_height.get_pixel(x.wrapping_sample_subtract(1, width), y)[0];
 
@@ -61,7 +65,7 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
         }
     }
 
-    if node.cancel.load(Ordering::Relaxed) {
+    if cancelling(&node.cancel, &shutdown) {
         Err(TexProError::Canceled)
     } else {
         Ok(vec![Arc::new(SlotData::new(
