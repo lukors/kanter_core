@@ -118,7 +118,12 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                         .node_states()
                         .iter()
                         .filter(|(_, node_state)| {
-                            !matches!(node_state, NodeState::Processing | NodeState::Clean)
+                            !matches!(
+                                node_state,
+                                NodeState::Processing
+                                    | NodeState::ProcessingDirty
+                                    | NodeState::Clean
+                            )
                         })
                         .map(|(node_id, _)| *node_id)
                         .collect::<Vec<NodeId>>()

@@ -24,6 +24,7 @@ pub enum NodeState {
     Requested,
     Prioritised,
     Processing,
+    ProcessingDirty,
 }
 
 impl Default for NodeState {
@@ -257,7 +258,7 @@ impl LiveGraph {
         let mut processing = Vec::new();
         for node_id in self.node_graph.get_parents(node_id) {
             match self.node_state(node_id).unwrap() {
-                NodeState::Processing => processing.push(node_id),
+                NodeState::Processing | NodeState::ProcessingDirty => processing.push(node_id),
                 NodeState::Dirty | NodeState::Requested | NodeState::Prioritised => {
                     dirty.push(node_id)
                 }
@@ -507,13 +508,14 @@ impl LiveGraph {
         Ok(new_edge)
     }
 
-    /// Sets the state of a node and updates the `state_generation`. This function should be used
-    /// any time a `Node`'s state is changed to ensure the node's `state_generation` is kept up to
-    /// date.
+    /// Sets the state of a node and adds it to the `changed` list. This function should be used
+    /// any time a `Node`'s state is changed to keep it up to date.
     pub(crate) fn set_state(&mut self, node_id: NodeId, node_state: NodeState) -> Result<()> {
         let node_state_old = self.node_state(node_id)?;
 
-        if node_state != node_state_old {
+        if node_state != node_state_old
+            && !(node_state == NodeState::Dirty && node_state_old == NodeState::ProcessingDirty)
+        {
             // If the state becomes dirty, propagate it to all children.
             if node_state == NodeState::Dirty {
                 for node_id in self.node_graph.get_children(node_id)? {
@@ -521,8 +523,14 @@ impl LiveGraph {
                 }
             }
 
+            *self.node_state_mut(node_id)? =
+                if node_state == NodeState::Dirty && node_state_old == NodeState::Processing {
+                    NodeState::ProcessingDirty
+                } else {
+                    node_state
+                };
+
             self.changed.insert(node_id);
-            *self.node_state_mut(node_id)? = node_state;
         }
 
         Ok(())
@@ -536,16 +544,20 @@ impl LiveGraph {
     ) -> Result<Vec<Edge>> {
         let edges = self.node_graph.disconnect_slot(node_id, side, slot_id)?;
 
-        let mut disconnected_children = Vec::new();
+        let mut dirty_nodes = Vec::new();
         for edge in &edges {
-            disconnected_children
-                .append(&mut self.node_graph.get_children_recursive(edge.input_id)?);
+            dirty_nodes.append(&mut self.node_graph.get_children_recursive(edge.input_id)?);
             self.node(edge.output_id)?.priority.touch();
         }
-        disconnected_children.sort_unstable();
-        disconnected_children.dedup();
+        if side == Side::Input {
+            dirty_nodes.push(node_id);
+        } else {
+            self.changed.insert(node_id);
+        }
+        dirty_nodes.sort_unstable();
+        dirty_nodes.dedup();
 
-        for node_id in disconnected_children.into_iter().chain(vec![node_id]) {
+        for node_id in dirty_nodes.into_iter() {
             self.set_state(node_id, NodeState::Dirty)?;
         }
 

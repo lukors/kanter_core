@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{atomic::Ordering, Arc, RwLock};
 extern crate num_cpus;
 
 use crate::{
@@ -42,7 +42,7 @@ impl ProcessPackManager {
             let process_pack = process_packs.pop().expect("Unfailable");
 
             if self.process_packs.len() < self.max_count {
-                self.insert_by_priority(process_pack.clone());
+                self.insert_by_priority(process_pack.clone())?;
                 output_packs.push(process_pack);
             } else if process_pack.priority.propagated_priority()
                 > self
@@ -52,9 +52,16 @@ impl ProcessPackManager {
                     .priority
                     .propagated_priority()
             {
-                self.insert_by_priority(process_pack.clone());
-                // todo: cancel the processing of the removed node.
-                self.process_packs.remove(0);
+                self.insert_by_priority(process_pack.clone())?;
+
+                let removed_pack = self.process_packs.remove(0);
+                removed_pack
+                    .live_graph
+                    .read()?
+                    .node(removed_pack.node_id)?
+                    .cancel
+                    .store(true, Ordering::Relaxed);
+
                 output_packs.push(process_pack);
             } else {
                 break;
@@ -79,7 +86,14 @@ impl ProcessPackManager {
         Ok(())
     }
 
-    fn insert_by_priority(&mut self, process_pack: ProcessPack) {
+    fn insert_by_priority(&mut self, process_pack: ProcessPack) -> Result<()> {
+        process_pack
+            .live_graph
+            .read()?
+            .node(process_pack.node_id)?
+            .cancel
+            .store(false, Ordering::Relaxed);
+
         let pos = self
             .process_packs
             .binary_search_by(|pp| {
@@ -89,6 +103,8 @@ impl ProcessPackManager {
             })
             .unwrap_or_else(|e| e);
         self.process_packs.insert(pos, process_pack);
+
+        Ok(())
     }
 
     fn sort_by_priority(process_packs: &mut Vec<ProcessPack>) {
