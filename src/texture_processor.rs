@@ -16,7 +16,7 @@ use std::{
 };
 
 pub struct TextureProcessor {
-    live_graph: Arc<RwLock<Vec<Arc<RwLock<LiveGraph>>>>>,
+    live_graphs: Arc<RwLock<Vec<Arc<RwLock<LiveGraph>>>>>,
     pub shutdown: Arc<AtomicBool>,
     pub add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
     pub memory_threshold: Arc<AtomicUsize>,
@@ -40,7 +40,7 @@ impl TextureProcessor {
         let transient_buffer_queue = Arc::new(RwLock::new(transient_buffer_queue));
 
         let output = Arc::new(Self {
-            live_graph: Arc::new(RwLock::new(Vec::new())),
+            live_graphs: Arc::new(RwLock::new(Vec::new())),
             shutdown: Arc::clone(&shutdown),
             memory_threshold,
             add_buffer_queue,
@@ -62,17 +62,17 @@ impl TextureProcessor {
         let live_graph = Arc::new(RwLock::new(LiveGraph::new(Arc::clone(
             &self.add_buffer_queue,
         ))));
-        self.live_graph.write()?.push(Arc::clone(&live_graph));
+        self.live_graphs.write()?.push(Arc::clone(&live_graph));
         Ok(live_graph)
     }
 
     pub fn push_live_graph(&self, live_graph: Arc<RwLock<LiveGraph>>) -> Result<()> {
-        self.live_graph.write()?.push(live_graph);
+        self.live_graphs.write()?.push(live_graph);
         Ok(())
     }
 
     pub fn live_graph(&self) -> &Arc<RwLock<Vec<Arc<RwLock<LiveGraph>>>>> {
-        &self.live_graph
+        &self.live_graphs
     }
 
     pub fn buffer_rgba(
