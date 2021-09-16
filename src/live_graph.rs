@@ -360,7 +360,7 @@ impl LiveGraph {
     }
 
     /// Gets all `SlotData`s associated with a given `NodeId`.
-    pub(crate) fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
+    pub fn node_slot_datas(&self, node_id: NodeId) -> Result<Vec<Arc<SlotData>>> {
         let mut output: Vec<Arc<SlotData>> = Vec::new();
 
         let slot_ids: Vec<SlotId> = self
@@ -377,31 +377,6 @@ impl LiveGraph {
         Ok(output)
     }
 
-    /// Finds all `SlotData`s associated with the given `NodeId`, clones them and returns a vector
-    /// of new `SlotData`s.
-    ///
-    /// This function can be used to retrieve buffers from the `LiveGraph`. The returned
-    /// `SlotData`s can be used inside another `LiveGraph`, and in that case no buffers are being
-    /// cloned, they are sharing the same memory.
-    ///
-    /// Note that cloning a `SlotData` is very cheap since it is very lightweight.
-    pub fn node_slot_datas_new(&mut self, node_id: NodeId) -> Result<Vec<SlotData>> {
-        let mut output: Vec<SlotData> = Vec::new();
-
-        let slot_ids: Vec<SlotId> = self
-            .slot_datas
-            .iter()
-            .filter(|slot_data| slot_data.node_id == node_id)
-            .map(|slot_data| slot_data.slot_id)
-            .collect();
-
-        for slot_id in slot_ids {
-            output.push(self.slot_data_new(node_id, slot_id)?);
-        }
-
-        Ok(output)
-    }
-
     pub fn slot_data_size(&self, node_id: NodeId, slot_id: SlotId) -> Result<Size> {
         self.slot_data(node_id, slot_id)?.size()
     }
@@ -410,31 +385,12 @@ impl LiveGraph {
         self.slot_data(node_id, slot_id)?.in_memory()
     }
 
-    /// This is only accessible to the crate on purpose because using the `Arc<SlotData>` in another
-    /// `TextureProcessor` would cause a memory leak.
-    pub(crate) fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<&Arc<SlotData>> {
+    /// Warning: Using the `Arc<SlotData>` in another `TextureProcessor` would cause a memory leak.
+    pub fn slot_data(&self, node_id: NodeId, slot_id: SlotId) -> Result<&Arc<SlotData>> {
         self.slot_datas
             .iter()
             .find(|slot_data| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
             .ok_or(TexProError::NoSlotData)
-    }
-
-    /// This function creates a new `SlotData` from the one in the given slot.
-    /// It returns a new totally independent `SlotData`.
-    ///
-    /// The reason for this is that if you were
-    /// able to clone the `Arc<SlotData>`, it would be very tempting to do so and then put it in
-    /// another `TextureProcessor`. However, that would cause a memory leak as both
-    /// `TextureProcessor`s would be holding a reference to the same `Arc`, so it would never be
-    /// dropped.
-    pub fn slot_data_new(&self, node_id: NodeId, slot_id: SlotId) -> Result<SlotData> {
-        let slot_data = self
-            .slot_datas
-            .iter()
-            .find(|slot_data| slot_data.node_id == node_id && slot_data.slot_id == slot_id)
-            .ok_or(TexProError::NoSlotData)?;
-
-        Ok(slot_data.from_self())
     }
 
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {

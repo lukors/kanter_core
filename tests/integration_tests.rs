@@ -2,7 +2,7 @@ use kanter_core::{
     live_graph::{LiveGraph, NodeState},
     node::{
         embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, Node, ResizeFilter,
-        ResizePolicy,
+        ResizePolicy, Side,
     },
     node_graph::{NodeGraph, NodeId, SlotId},
     slot_data::Size,
@@ -97,7 +97,7 @@ fn input_output() {
 fn calculate_slot(live_graph: &Arc<RwLock<LiveGraph>>, node_id: NodeId, slot_id: SlotId) {
     for buf in LiveGraph::await_clean_read(live_graph, node_id)
         .unwrap()
-        .slot_data_new(node_id, slot_id)
+        .slot_data(node_id, slot_id)
         .unwrap()
         .image
         .bufs()
@@ -133,7 +133,7 @@ fn deadlock() {
 
     LiveGraph::await_clean_read(&live_graph, mix_node_1)
         .unwrap()
-        .slot_data_new(mix_node_1, SlotId(0))
+        .slot_data(mix_node_1, SlotId(0))
         .unwrap();
 }
 
@@ -205,11 +205,7 @@ fn drive_cache() {
 
     {
         let live_graph = live_graph.write().unwrap();
-        if let SlotImage::Rgba(bufs) = &live_graph
-            .slot_data_new(rgba_node, SlotId(0))
-            .unwrap()
-            .image
-        {
+        if let SlotImage::Rgba(bufs) = &live_graph.slot_data(rgba_node, SlotId(0)).unwrap().image {
             let pixel = {
                 let pixel = [
                     bufs[0].transient_buffer(),
@@ -274,7 +270,7 @@ fn no_cache() {
 
     assert!(LiveGraph::await_clean_read(&live_graph, output_node)
         .unwrap()
-        .slot_data_new(value_node, SlotId(0))
+        .slot_data(value_node, SlotId(0))
         .is_err());
 }
 
@@ -304,7 +300,7 @@ fn use_cache() {
 
     assert!(LiveGraph::await_clean_read(&live_graph, output_node)
         .unwrap()
-        .slot_data_new(value_node, SlotId(0))
+        .slot_data(value_node, SlotId(0))
         .is_ok());
 }
 
@@ -589,10 +585,12 @@ fn embedded_node_data() {
         output_node
     };
 
-    let node_data = LiveGraph::await_clean_read(&live_graph_embed, output_node_embed)
-        .unwrap()
-        .slot_data_new(output_node_embed, SlotId(0))
-        .unwrap();
+    let slot_data = Arc::clone(
+        LiveGraph::await_clean_read(&live_graph_embed, output_node_embed)
+            .unwrap()
+            .slot_data(output_node_embed, SlotId(0))
+            .unwrap(),
+    );
 
     // Second graph
     let live_graph_out = tex_pro.new_live_graph().unwrap();
@@ -604,7 +602,7 @@ fn embedded_node_data() {
             .unwrap();
 
         let esd_id = live_graph
-            .embed_slot_data_with_id(Arc::new(node_data), EmbeddedSlotDataId(0))
+            .embed_slot_data_with_id(slot_data, EmbeddedSlotDataId(0))
             .unwrap();
         let input = live_graph
             .add_node(Node::new(NodeType::Embed(esd_id)))
@@ -1338,6 +1336,64 @@ fn height_to_normal_node() {
     };
 
     save_and_compare(&live_graph, output_node, "height_to_normal_node.png");
+}
+
+#[test]
+#[timeout(20_000)]
+fn read_dirty_read() {
+    const VALUE: f32 = 0.5;
+
+    let tex_pro = tex_pro_new();
+    let live_graph = tex_pro.new_live_graph().unwrap();
+
+    let (val_node, combine_node) = {
+        let mut live_graph = live_graph.write().unwrap();
+        let val_node = live_graph
+            .add_node(Node::new(NodeType::Value(VALUE)))
+            .unwrap();
+        let combine_node = live_graph
+            .add_node(Node::new(NodeType::CombineRgba))
+            .unwrap();
+
+        live_graph
+            .connect(val_node, combine_node, SlotId(0), SlotId(0))
+            .unwrap();
+
+        (val_node, combine_node)
+    };
+
+    fn verify_pixel(live_graph: &Arc<RwLock<LiveGraph>>, node_id: NodeId, identifier: String) {
+        let pixels = {
+            let live_graph = LiveGraph::await_clean_read(&live_graph, node_id).unwrap();
+            let slot_data = live_graph.slot_data(node_id, SlotId(0)).unwrap();
+            let pixels = slot_data.image.to_u8().unwrap();
+            pixels
+        };
+    
+        assert!(pixels == [
+            127,
+            255,
+            255,
+            255,
+        ]);
+    }
+
+    verify_pixel(&live_graph, combine_node);
+    // assert!(verify_pixel(&live_graph, combine_node));
+
+    {
+        // Dirty
+        let mut live_graph = live_graph.write().unwrap();
+        live_graph
+            .disconnect_slot(val_node, Side::Output, SlotId(0))
+            .unwrap();
+        live_graph
+            .connect(val_node, combine_node, SlotId(0), SlotId(0))
+            .unwrap();
+    }
+
+    verify_pixel(&live_graph, combine_node);
+    // assert!(verify_pixel(&live_graph, combine_node));
 }
 
 fn mix_node_test_gray(mix_type: MixType, name: &str) {
