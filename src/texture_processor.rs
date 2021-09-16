@@ -16,7 +16,7 @@ use std::{
 };
 
 pub struct TextureProcessor {
-    live_graphs: Arc<RwLock<Vec<Arc<RwLock<LiveGraph>>>>>,
+    pub(crate) live_graphs: Arc<RwLock<Vec<Arc<RwLock<LiveGraph>>>>>,
     pub shutdown: Arc<AtomicBool>,
     pub add_buffer_queue: Arc<RwLock<Vec<Arc<TransientBufferContainer>>>>,
     pub memory_threshold: Arc<AtomicUsize>,
@@ -49,10 +49,7 @@ impl TextureProcessor {
         });
         let output_send = Arc::clone(&output);
 
-        thread::spawn(move || {
-            engine::process_loop(output_send);
-        });
-
+        thread::spawn(move || engine::process_loop(output_send));
         thread::spawn(move || TransientBufferQueue::thread_loop(transient_buffer_queue));
 
         output

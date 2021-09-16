@@ -591,4 +591,13 @@ impl LiveGraph {
     pub fn edges(&self) -> Vec<Edge> {
         self.node_graph.edges.to_owned()
     }
+
+    pub(crate) fn drop_unused_live_graphs(live_graphs: &mut Vec<Arc<RwLock<LiveGraph>>>) {
+        for i in (0..live_graphs.len()).rev() {
+            if Arc::strong_count(&live_graphs[i]) == 1 {
+                live_graphs.remove(i);
+                continue;
+            }
+        }
+    }
 }

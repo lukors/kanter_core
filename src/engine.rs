@@ -107,6 +107,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
         }
 
         let mut process_packs: Vec<ProcessPack> = Vec::new();
+        LiveGraph::drop_unused_live_graphs(&mut tex_pro.live_graphs.write().unwrap());
 
         for live_graph in tex_pro.live_graph().read().unwrap().iter() {
             let closest_processable = {
