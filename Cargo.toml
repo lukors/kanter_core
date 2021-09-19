@@ -1,6 +1,6 @@
 [package]
 name = "kanter_core"
-version = "0.9.0"
+version = "0.9.1"
 authors = ["Lukas Orsvärn <lukas@orsvarn.com>"]
 edition = "2018"
 
