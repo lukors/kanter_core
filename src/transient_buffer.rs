@@ -128,7 +128,7 @@ impl TransientBuffer {
 }
 
 /// A container for a `TransientBuffer`. Keeps track of if its `TransientBuffer` has been retrieved.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TransientBufferContainer {
     transient_buffer: Arc<RwLock<TransientBuffer>>,
     size: Size,

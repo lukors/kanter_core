@@ -4,8 +4,6 @@ use std::{
     time::Duration,
 };
 
-use image::ImageBuffer;
-
 use crate::{
     edge::Edge,
     error::{Result, TexProError},
@@ -14,9 +12,8 @@ use crate::{
     node_graph::NodeId,
     process_pack::ProcessPack,
     slot_data::SlotData,
-    slot_image::SlotImage,
     texture_processor::TextureProcessor,
-    transient_buffer::{TransientBuffer, TransientBufferContainer, TransientBufferQueue},
+    transient_buffer::TransientBufferQueue,
 };
 
 struct ThreadMessage {
@@ -169,7 +166,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
             .update(process_packs)
             .unwrap();
 
-        for process_pack in process_packs {
+        'process: for process_pack in process_packs {
             let node_id = process_pack.node_id;
             let mut live_graph = process_pack.live_graph.write().unwrap();
 
@@ -197,26 +194,19 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                 .collect::<Vec<Edge>>();
 
             let input_data = {
-                edges
-                    .iter()
-                    .map(|edge| {
-                        if let Ok(slot_data) =
-                            live_graph.slot_data(edge.output_id, edge.output_slot)
-                        {
-                            Arc::clone(slot_data)
-                        } else {
-                            Arc::new(SlotData::new(
-                                edge.output_id,
-                                edge.output_slot,
-                                SlotImage::Gray(Arc::new(TransientBufferContainer::new(Arc::new(
-                                    RwLock::new(TransientBuffer::new(Box::new(
-                                        ImageBuffer::from_raw(1, 1, vec![0.0]).unwrap(),
-                                    ))),
-                                )))),
-                            ))
-                        }
-                    })
-                    .collect::<Vec<Arc<SlotData>>>()
+                let mut input_data = Vec::new();
+                for edge in edges.iter() {
+                    if let Ok(slot_data) = live_graph.slot_data(edge.output_id, edge.output_slot) {
+                        input_data.push(Arc::clone(slot_data));
+                    } else {
+                        live_graph
+                            .set_state(edge.output_id, NodeState::Dirty)
+                            .unwrap();
+                        live_graph.set_state(node_id, NodeState::Dirty).unwrap();
+                        continue 'process;
+                    }
+                }
+                input_data
             };
 
             assert_eq!(
