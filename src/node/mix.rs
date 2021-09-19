@@ -75,7 +75,11 @@ pub(crate) fn process(
 
             (image_left, slot_data_right.image.clone())
         } else {
-            return Ok(Vec::new());
+            return Ok(vec![Arc::new(SlotData::new(
+                node.node_id,
+                SlotId(0),
+                SlotImage::from_value(Size::new(1, 1), 0.0, false),
+            ))]);
         }
     };
 
