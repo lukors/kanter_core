@@ -1348,6 +1348,8 @@ fn read_dirty_read() {
 
     let (val_node, combine_node) = {
         let mut live_graph = live_graph.write().unwrap();
+        live_graph.use_cache = true;
+        
         let val_node = live_graph
             .add_node(Node::new(NodeType::Value(VALUE)))
             .unwrap();
@@ -1375,11 +1377,10 @@ fn read_dirty_read() {
             255,
             255,
             255,
-        ]);
+        ], "{}", identifier);
     }
 
-    verify_pixel(&live_graph, combine_node);
-    // assert!(verify_pixel(&live_graph, combine_node));
+    verify_pixel(&live_graph, combine_node, "Before dirty".into());
 
     {
         // Dirty
@@ -1392,8 +1393,7 @@ fn read_dirty_read() {
             .unwrap();
     }
 
-    verify_pixel(&live_graph, combine_node);
-    // assert!(verify_pixel(&live_graph, combine_node));
+    verify_pixel(&live_graph, combine_node, "After dirty".into());
 }
 
 fn mix_node_test_gray(mix_type: MixType, name: &str) {
