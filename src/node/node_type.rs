@@ -47,6 +47,54 @@ impl fmt::Debug for NodeType {
     }
 }
 
+impl PartialEq for NodeType {
+    fn eq(&self, other: &Self) -> bool {
+        mem::discriminant(self) == mem::discriminant(other)
+    }
+}
+
+impl NodeType {
+    pub fn is_input(&self) -> bool {
+        *self == Self::InputGray(String::new()) || *self == Self::InputRgba(String::new())
+    }
+
+    pub fn is_output(&self) -> bool {
+        *self == Self::OutputGray(String::new()) || *self == Self::OutputRgba(String::new())
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        if let Self::InputGray(name)
+        | Self::InputRgba(name)
+        | Self::OutputGray(name)
+        | Self::OutputRgba(name) = self
+        {
+            Some(name)
+        } else {
+            None
+        }
+    }
+
+    pub fn name_mut(&mut self) -> Option<&mut String> {
+        if let Self::InputGray(name)
+        | Self::InputRgba(name)
+        | Self::OutputGray(name)
+        | Self::OutputRgba(name) = self
+        {
+            Some(name)
+        } else {
+            None
+        }
+    }
+
+    pub fn to_slot_type(&self) -> Option<SlotType> {
+        match self {
+            Self::InputGray(_) | Self::OutputGray(_) => Some(SlotType::Gray),
+            Self::InputRgba(_) | Self::OutputRgba(_) => Some(SlotType::Rgba),
+            _ => None,
+        }
+    }
+}
+
 fn process_node_internal(
     node: Node,
     slot_datas: &[Arc<SlotData>],
@@ -201,52 +249,4 @@ fn assign_slot_ids(slot_datas: &[Arc<SlotData>], edges: &[Edge]) -> Vec<Arc<Slot
             ))
         })
         .collect::<Vec<Arc<SlotData>>>()
-}
-
-impl PartialEq for NodeType {
-    fn eq(&self, other: &Self) -> bool {
-        mem::discriminant(self) == mem::discriminant(other)
-    }
-}
-
-impl NodeType {
-    pub fn is_input(&self) -> bool {
-        *self == Self::InputGray(String::new()) || *self == Self::InputRgba(String::new())
-    }
-
-    pub fn is_output(&self) -> bool {
-        *self == Self::OutputGray(String::new()) || *self == Self::OutputRgba(String::new())
-    }
-
-    pub fn name(&self) -> Option<&String> {
-        if let Self::InputGray(name)
-        | Self::InputRgba(name)
-        | Self::OutputGray(name)
-        | Self::OutputRgba(name) = self
-        {
-            Some(name)
-        } else {
-            None
-        }
-    }
-
-    pub fn name_mut(&mut self) -> Option<&mut String> {
-        if let Self::InputGray(name)
-        | Self::InputRgba(name)
-        | Self::OutputGray(name)
-        | Self::OutputRgba(name) = self
-        {
-            Some(name)
-        } else {
-            None
-        }
-    }
-
-    pub fn to_slot_type(&self) -> Option<SlotType> {
-        match self {
-            Self::InputGray(_) | Self::OutputGray(_) => Some(SlotType::Gray),
-            Self::InputRgba(_) | Self::OutputRgba(_) => Some(SlotType::Rgba),
-            _ => None,
-        }
-    }
 }
