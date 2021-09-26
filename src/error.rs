@@ -1,4 +1,4 @@
-use std::{fmt, io, result};
+use std::{error::Error, fmt, io, result};
 
 pub type Result<T> = result::Result<T, TexProError>;
 
@@ -25,6 +25,8 @@ pub enum TexProError {
     // RwLockWriteGuard(),
     InvalidName,
 }
+
+impl Error for TexProError {}
 
 impl fmt::Display for TexProError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
