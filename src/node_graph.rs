@@ -411,16 +411,8 @@ impl NodeGraph {
         }
     }
 
-    pub fn remove_edge(
-        &mut self,
-        output_node: NodeId,
-        input_node: NodeId,
-        output_slot: SlotId,
-        input_slot: SlotId,
-    ) -> Result<Edge> {
-        let edge_compare = Edge::new(output_node, input_node, output_slot, input_slot);
-
-        if let Some(index_to_remove) = self.edges.iter().position(|edge| *edge == edge_compare) {
+    pub fn remove_edge(&mut self, edge: Edge) -> Result<Edge> {
+        if let Some(index_to_remove) = self.edges.iter().position(|edge_cmp| *edge_cmp == edge) {
             Ok(self.edges.remove(index_to_remove))
         } else {
             Err(TexProError::InvalidEdge)

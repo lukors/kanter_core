@@ -492,6 +492,10 @@ impl LiveGraph {
         Ok(())
     }
 
+    pub fn remove_edge(&mut self, edge: Edge) -> Result<Edge> {
+        self.node_graph.remove_edge(edge)
+    }
+
     pub fn disconnect_slot(
         &mut self,
         node_id: NodeId,
