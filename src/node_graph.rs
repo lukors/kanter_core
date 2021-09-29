@@ -16,6 +16,8 @@ use std::{
 pub struct NodeGraph {
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
+    #[serde(skip)]
+    node_id_counter: NodeId,
 }
 
 impl NodeGraph {
@@ -23,11 +25,23 @@ impl NodeGraph {
         Self {
             nodes: Vec::new(),
             edges: Vec::new(),
+            node_id_counter: NodeId(0),
         }
     }
 
     pub fn from_path(path: String) -> io::Result<Self> {
-        Self::import_json(path)
+        let mut graph = Self::import_json(path)?;
+
+        let node_id_counter =
+            if let Some(node_id) = graph.nodes.iter().map(|node| node.node_id).max() {
+                NodeId(node_id.0 + 1)
+            } else {
+                NodeId(0)
+            };
+
+        graph.node_id_counter = node_id_counter;
+
+        Ok(graph)
     }
 
     pub fn set_mix_type(&mut self, node_id: NodeId, mix_type: MixType) -> Result<()> {
@@ -69,12 +83,15 @@ impl NodeGraph {
 
     /// Generates a new unique NodeId.
     pub fn new_id(&mut self) -> NodeId {
-        loop {
-            let id = NodeId(rand::random());
-            if self.has_node_with_id(id).is_err() {
-                return id;
-            }
+        let mut output = self.node_id_counter;
+        self.node_id_counter.0 += 1;
+
+        while self.has_node_with_id(output).is_ok() {
+            output = self.node_id_counter;
+            self.node_id_counter.0 += 1;
         }
+
+        output
     }
 
     pub fn export_json(&self, path: String) -> io::Result<()> {
@@ -261,14 +278,15 @@ impl NodeGraph {
         Ok(node_id)
     }
 
-    pub fn add_node_with_id(&mut self, node: Node, node_id: NodeId) -> Result<NodeId> {
-        if self.node(node_id).is_err() {
+    pub fn add_node_with_id(&mut self, node: Node) -> Result<()> {
+        if self.node(node.node_id).is_err() {
+            let node_id = node.node_id;
             self.add_node_internal(node, node_id)?;
         } else {
             return Err(TexProError::InvalidNodeId);
         }
 
-        Ok(node_id)
+        Ok(())
     }
 
     /// Returns all `NodeId`s that belong to `OutputRgba` or `OutputGray` nodes.

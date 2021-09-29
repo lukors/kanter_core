@@ -132,6 +132,17 @@ impl Node {
         }
     }
 
+    pub fn with_id(node_type: NodeType, node_id: NodeId) -> Self {
+        Self {
+            node_id,
+            node_type,
+            resize_policy: ResizePolicy::default(),
+            resize_filter: ResizeFilter::default(),
+            priority: Arc::new(Priority::new()),
+            cancel: Arc::new(false.into()),
+        }
+    }
+
     pub fn node_id(mut self, node_id: NodeId) -> Self {
         self.node_id = node_id;
         self

@@ -6,7 +6,7 @@ use crate::{
         Node, Side,
     },
     node_graph::*,
-    priority::PriorityPropagator,
+    priority::{Priority, PriorityPropagator},
     slot_data::*,
     transient_buffer::{TransientBufferContainer, TransientBufferQueue},
 };
@@ -393,15 +393,34 @@ impl LiveGraph {
             .ok_or(TexProError::NoSlotData)
     }
 
+    pub fn new_id(&mut self) -> NodeId {
+        self.node_graph.new_id()
+    }
+
     pub fn add_node(&mut self, node: Node) -> Result<NodeId> {
         let priority = Arc::clone(&node.priority);
         let node_id = self.node_graph.add_node(node)?;
 
+        self.add_node_internal(priority, node_id);
+
+        Ok(node_id)
+    }
+
+    pub fn add_node_with_id(&mut self, node: Node) -> Result<()> {
+        let priority = Arc::clone(&node.priority);
+        let node_id = node.node_id;
+
+        self.node_graph.add_node_with_id(node)?;
+
+        self.add_node_internal(priority, node_id);
+
+        Ok(())
+    }
+
+    fn add_node_internal(&mut self, priority: Arc<Priority>, node_id: NodeId) {
         self.changed.insert(node_id);
         self.node_state.insert(node_id, NodeState::Dirty);
         self.priority_propagator.push_priority(node_id, priority);
-
-        Ok(node_id)
     }
 
     pub fn remove_node(&mut self, node_id: NodeId) -> Result<Vec<Edge>> {
