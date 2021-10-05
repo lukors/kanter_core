@@ -2,6 +2,7 @@
 name = "kanter_core"
 version = "0.9.2"
 authors = ["Lukas Orsvärn <lukas@orsvarn.com>"]
+license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [dependencies]
