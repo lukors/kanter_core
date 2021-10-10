@@ -320,12 +320,7 @@ impl NodeGraph {
     }
 
     /// Returns the indices of all `Edge`s that connect to the given `SlotId`.
-    pub fn edge_indices_slot(
-        &mut self,
-        node_id: NodeId,
-        side: Side,
-        slot_id: SlotId,
-    ) -> Vec<usize> {
+    pub fn edge_indices_slot(&self, node_id: NodeId, side: Side, slot_id: SlotId) -> Vec<usize> {
         self.edges
             .iter()
             .enumerate()
@@ -370,6 +365,8 @@ impl NodeGraph {
         output_slot_id: SlotId,
         input_slot_id: SlotId,
     ) -> Result<&Edge> {
+        let new_edge = Edge::new(output_node_id, input_node_id, output_slot_id, input_slot_id);
+
         let output_node = self.node(output_node_id)?;
         let input_node = self.node(input_node_id)?;
 
@@ -378,40 +375,18 @@ impl NodeGraph {
 
         output_slot_type.fits(input_slot_type)?;
 
+        // Discarding this result because we don't care if anything got disconnected.
         let _ = self.disconnect_slot(input_node_id, Side::Input, input_slot_id);
 
-        self.edges.push(Edge::new(
-            output_node_id,
-            input_node_id,
-            output_slot_id,
-            input_slot_id,
-        ));
+        if self.edges.contains(&new_edge) {
+            return Err(TexProError::InvalidEdge);
+        }
+        self.edges.push(new_edge);
 
         if let Some(edge) = self.edges.last() {
             Ok(edge)
         } else {
             unreachable!("We just added an edge, it can't possibly be empty.");
-        }
-    }
-
-    /// Attempt to make a connection without knowing which the given `SlotId`s are an input or an
-    /// output slot.
-    pub fn connect_arbitrary(
-        &mut self,
-        a_node: NodeId,
-        a_side: Side,
-        a_slot: SlotId,
-        b_node: NodeId,
-        b_side: Side,
-        b_slot: SlotId,
-    ) -> Result<&Edge> {
-        if a_node == b_node || a_side == b_side {
-            return Err(TexProError::Generic);
-        }
-
-        match a_side {
-            Side::Input => self.connect(b_node, a_node, b_slot, a_slot),
-            Side::Output => self.connect(a_node, b_node, a_slot, b_slot),
         }
     }
 
@@ -458,7 +433,7 @@ impl NodeGraph {
         Ok(removed_edges)
     }
 
-    /// Removes all `Edge`s plugged into hte given `SlotId`.
+    /// Removes all `Edge`s plugged into the given `SlotId`.
     pub fn disconnect_slot(
         &mut self,
         node_id: NodeId,
@@ -477,6 +452,28 @@ impl NodeGraph {
             Err(TexProError::SlotNotOccupied)
         } else {
             Ok(removed_edges)
+        }
+    }
+
+    /// Returns all `Edge`s plugged into the given `SlotId`.
+    pub fn connected_edges(
+        &self,
+        node_id: NodeId,
+        side: Side,
+        slot_id: SlotId,
+    ) -> Result<Vec<Edge>> {
+        self.has_node_with_id(node_id)?;
+
+        let mut edges = Vec::new();
+
+        for edge_index in self.edge_indices_slot(node_id, side, slot_id) {
+            edges.push(self.edges[edge_index]);
+        }
+
+        if edges.is_empty() {
+            Err(TexProError::SlotNotOccupied)
+        } else {
+            Ok(edges)
         }
     }
 

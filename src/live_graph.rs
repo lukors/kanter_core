@@ -452,35 +452,16 @@ impl LiveGraph {
         input_node: NodeId,
         output_slot: SlotId,
         input_slot: SlotId,
-    ) -> Result<()> {
-        self.node_graph
+    ) -> Result<Edge> {
+        let edge = *self
+            .node_graph
             .connect(output_node, input_node, output_slot, input_slot)?;
 
         self.changed.insert(input_node);
         self.node(output_node)?.priority.touch();
         self.set_state(input_node, NodeState::Dirty)?;
 
-        Ok(())
-    }
-
-    pub fn connect_arbitrary(
-        &mut self,
-        a_node: NodeId,
-        a_side: Side,
-        a_slot: SlotId,
-        b_node: NodeId,
-        b_side: Side,
-        b_slot: SlotId,
-    ) -> Result<Edge> {
-        let new_edge = *self
-            .node_graph
-            .connect_arbitrary(a_node, a_side, a_slot, b_node, b_side, b_slot)?;
-
-        self.changed.insert(new_edge.input_id);
-        self.node(new_edge.output_id)?.priority.touch();
-        self.set_state(new_edge.input_id, NodeState::Dirty)?;
-
-        Ok(new_edge)
+        Ok(edge)
     }
 
     /// Sets the state of a node and adds it to the `changed` list. This function should be used
@@ -541,6 +522,15 @@ impl LiveGraph {
         }
 
         Ok(edges)
+    }
+
+    pub fn connected_edges(
+        &self,
+        node_id: NodeId,
+        side: Side,
+        slot_id: SlotId,
+    ) -> Result<Vec<Edge>> {
+        self.node_graph.connected_edges(node_id, side, slot_id)
     }
 
     pub fn set_node_graph(&mut self, node_graph: NodeGraph) {
