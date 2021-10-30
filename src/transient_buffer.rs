@@ -30,6 +30,12 @@ pub enum TransientBuffer {
     Storage(PathBuf, Size, Salt, AtomicBool), // Turn the contents of this enum into a struct
 }
 
+impl Drop for TransientBuffer {
+    fn drop(&mut self) {
+        self.remove_file();
+    }
+}
+
 impl TransientBuffer {
     pub fn new(buffer: Box<Buffer>) -> Self {
         Self::Memory(buffer)
@@ -79,6 +85,12 @@ impl TransientBuffer {
         match self {
             Self::Memory(_) => true,
             Self::Storage(_, _, _, _) => false,
+        }
+    }
+
+    fn remove_file(&self) {
+        if let Self::Storage(path, _, _, _) = self {
+            let _ = std::fs::remove_file(path);
         }
     }
 
