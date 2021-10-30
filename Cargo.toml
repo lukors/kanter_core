@@ -10,7 +10,6 @@ image = "0.23"
 nalgebra = "0.29"
 num_cpus = "1.0"
 rand = "0.8"
-tempfile = "3.2"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 

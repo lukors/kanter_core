@@ -1,9 +1,12 @@
+use std::hash::{Hash, Hasher};
 use std::{
-    collections::VecDeque,
+    collections::{hash_map::DefaultHasher, VecDeque},
+    ffi::OsStr,
     fmt::{self, Display},
     fs::File,
     io::{Read, Seek, SeekFrom, Write},
     mem::size_of,
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, RwLock, RwLockReadGuard,
@@ -11,7 +14,6 @@ use std::{
     thread,
     time::Duration,
 };
-use tempfile::tempfile;
 
 use crate::{
     error::{Result, TexProError},
@@ -19,11 +21,13 @@ use crate::{
     slot_image::Buffer,
 };
 
+type Salt = usize;
+
 /// A buffer that can be either in memory or in storage, getting it puts it in memory.
 #[derive(Debug)]
 pub enum TransientBuffer {
     Memory(Box<Buffer>),
-    Storage(File, Size, AtomicBool), // Turn the contents of this enum into a struct
+    Storage(PathBuf, Size, Salt, AtomicBool), // Turn the contents of this enum into a struct
 }
 
 impl TransientBuffer {
@@ -39,10 +43,17 @@ impl TransientBuffer {
         }
     }
 
+    pub fn path(&self) -> Result<&PathBuf> {
+        match self {
+            Self::Memory(_) => Err(TexProError::Generic),
+            Self::Storage(path, _, _, _) => Ok(path),
+        }
+    }
+
     pub fn size(&self) -> Size {
         match self {
             Self::Memory(box_buffer) => box_buffer.dimensions().into(),
-            Self::Storage(_, size, _) => *size,
+            Self::Storage(_, size, _, _) => *size,
         }
     }
 
@@ -51,13 +62,13 @@ impl TransientBuffer {
     }
 
     pub fn request(&self) {
-        if let Self::Storage(_, _, requested) = self {
+        if let Self::Storage(_, _, _, requested) = self {
             requested.store(true, Ordering::Relaxed);
         }
     }
 
     pub fn requested(&self) -> bool {
-        if let Self::Storage(_, _, requested) = self {
+        if let Self::Storage(_, _, _, requested) = self {
             requested.load(Ordering::Relaxed)
         } else {
             false
@@ -67,20 +78,41 @@ impl TransientBuffer {
     pub fn in_memory(&self) -> bool {
         match self {
             Self::Memory(_) => true,
-            Self::Storage(_, _, _) => false,
+            Self::Storage(_, _, _, _) => false,
         }
     }
 
     /// Ensures the `TransientBuffer` is in storage, returns true if it was moved.
     fn move_to_storage(&mut self) -> Result<bool> {
         if let Self::Memory(box_buffer) = self {
-            let mut file = tempfile()?;
+            let salt: usize = rand::random();
+            let hash = {
+                let mut hasher = DefaultHasher::new();
 
+                salt.hash(&mut hasher);
+                for pixel in box_buffer.iter() {
+                    (*pixel).to_ne_bytes().hash(&mut hasher);
+                }
+
+                hasher.finish()
+            };
+
+            let mut path = std::env::temp_dir();
+            path.push("vismut_cache");
+
+            std::fs::create_dir_all(&path)?;
+            path.push(hash.to_string());
+            let mut file = File::create(&path)?;
             for pixel in box_buffer.iter() {
                 file.write_all(&pixel.to_ne_bytes())?;
             }
 
-            *self = Self::Storage(file, box_buffer.dimensions().into(), AtomicBool::new(false));
+            *self = Self::Storage(
+                path,
+                box_buffer.dimensions().into(),
+                salt,
+                AtomicBool::new(false),
+            );
 
             Ok(true)
         } else {
@@ -90,7 +122,9 @@ impl TransientBuffer {
 
     /// Ensures the `TransientBuffer` is in memory, returns true if it was moved.
     fn move_to_memory(&mut self) -> Result<bool> {
-        if let Self::Storage(file, size, _) = self {
+        if let Self::Storage(path, size, salt, _) = self {
+            let mut file = File::open(&path)?;
+
             let buffer_f32: Vec<f32> = {
                 let buffer_int: Vec<u8> = {
                     let mut buffer = Vec::<u8>::new();
@@ -102,6 +136,8 @@ impl TransientBuffer {
                 let pixel_count = buffer_int.len() / size_of::<ChannelPixel>();
                 let mut buffer = Vec::with_capacity(pixel_count);
 
+                let mut hasher = DefaultHasher::new();
+                (*salt).hash(&mut hasher);
                 for i in (0..buffer_int.len()).step_by(4) {
                     let bytes: [u8; 4] = [
                         buffer_int[i],
@@ -109,10 +145,18 @@ impl TransientBuffer {
                         buffer_int[i + 2],
                         buffer_int[i + 3],
                     ];
+                    bytes.hash(&mut hasher);
                     buffer.push(f32::from_ne_bytes(bytes));
                 }
+                let hash = hasher.finish().to_string();
+                let hash = OsStr::new(&hash);
 
-                buffer
+                let _ = std::fs::remove_file(&path);
+                if Some(hash) == path.file_name() {
+                    buffer
+                } else {
+                    return Err(TexProError::Generic);
+                }
             };
 
             *self = Self::Memory(Box::new(
@@ -374,5 +418,38 @@ impl TransientBufferQueue {
 
     pub fn queue(&self) -> &VecDeque<Arc<TransientBufferContainer>> {
         &self.queue
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use image::ImageBuffer;
+
+    use super::TransientBuffer;
+
+    const SIZE: u32 = 1;
+    const VALUE: f32 = 0.0;
+
+    #[test]
+    fn cache_uncache() {
+        let image_buffer = ImageBuffer::from_raw(SIZE, SIZE, vec![VALUE]).unwrap();
+
+        let mut tb_1 = TransientBuffer::new(Box::new(image_buffer.clone()));
+        let mut tb_2 = TransientBuffer::new(Box::new(image_buffer));
+
+        tb_1.move_to_storage().unwrap();
+        tb_2.move_to_storage().unwrap();
+
+        let tb_1_path = tb_1.path().unwrap().clone();
+        let tb_2_path = tb_2.path().unwrap().clone();
+
+        assert!(std::path::Path::new(&tb_1_path).exists());
+        assert!(std::path::Path::new(&tb_2_path).exists());
+
+        tb_1.move_to_memory().unwrap();
+        tb_2.move_to_memory().unwrap();
+
+        assert!(!std::path::Path::new(&tb_1_path).exists());
+        assert!(!std::path::Path::new(&tb_2_path).exists());
     }
 }
