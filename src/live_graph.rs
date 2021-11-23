@@ -493,7 +493,20 @@ impl LiveGraph {
     }
 
     pub fn remove_edge(&mut self, edge: Edge) -> Result<Edge> {
-        self.node_graph.remove_edge(edge)
+        let mut dirty_nodes = self.node_graph.get_children_recursive(edge.input_id)?;
+        dirty_nodes.push(edge.input_id);
+        dirty_nodes.sort_unstable();
+        dirty_nodes.dedup();
+
+        let edge = self.node_graph.remove_edge(edge)?;
+
+        for node_id in dirty_nodes {
+            self.set_state(node_id, NodeState::Dirty)?;
+            self.node(edge.output_id)?.priority.touch();
+            self.remove_nodes_data(node_id);
+        }
+
+        Ok(edge)
     }
 
     pub fn disconnect_slot(
