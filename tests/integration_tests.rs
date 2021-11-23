@@ -1160,6 +1160,51 @@ fn invert_graph_node_import() {
 }
 
 #[test]
+#[timeout(1000)]
+fn temp() {
+    let tex_pro = tex_pro_new();
+    
+    let mut live_graph = LiveGraph::new(Arc::clone(&tex_pro.add_buffer_queue));
+    live_graph.auto_update = true;
+    live_graph.use_cache = true;
+    let live_graph = Arc::new(RwLock::new(live_graph));
+    
+    tex_pro
+        .push_live_graph(Arc::clone(&live_graph))
+        .expect("Unable to add graph");
+
+    let combine_node = {
+        let mut live_graph = live_graph.write().unwrap();
+
+        let value_node = live_graph
+            .add_node(Node::new(NodeType::Value(0.5)))
+            .unwrap();
+        let combine_node = live_graph
+            .add_node(Node::new(NodeType::CombineRgba))
+            .unwrap();
+        let separate_node = live_graph
+            .add_node(Node::new(NodeType::SeparateRgba))
+            .unwrap();
+
+        live_graph
+            .connect(combine_node, separate_node, SlotId(0), SlotId(0))
+            .unwrap();
+        thread::sleep(Duration::from_millis(100));
+        live_graph
+            .connect(value_node, combine_node, SlotId(0), SlotId(0))
+            .unwrap();
+        thread::sleep(Duration::from_millis(100));
+
+        combine_node
+    };
+
+    LiveGraph::await_clean_read(&live_graph, combine_node)
+        .unwrap()
+        .slot_data_size(combine_node, SlotId(0))
+        .unwrap();
+}
+
+#[test]
 #[timeout(20_000)]
 fn graph_node_rgba() {
     let nested_graph = {
