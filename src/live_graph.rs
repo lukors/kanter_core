@@ -17,13 +17,21 @@ use std::{
     time::Duration,
 };
 
+/// Indicates what is going on with the node.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeState {
+    // The node's outputs match the inputs and settings
     Clean,
+    // Some input or setting was changed, so the outputs do not match
     Dirty,
+    // Node is in processing queue
     Requested,
+    // Node is in priority processing queue (this is no longer used)
     Prioritised,
+    // Node is being processed
     Processing,
+    // Some input or setting was changed while the node was being processed, it will be processed
+    // again when it's finished.
     ProcessingDirty,
 }
 
