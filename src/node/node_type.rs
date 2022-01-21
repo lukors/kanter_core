@@ -3,11 +3,7 @@ use crate::{
     texture_processor::TextureProcessor,
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt, mem,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{fmt, mem, path::PathBuf, sync::Arc};
 
 use super::{
     embed::{EmbeddedSlotData, EmbeddedSlotDataId},

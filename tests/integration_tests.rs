@@ -1163,12 +1163,12 @@ fn invert_graph_node_import() {
 #[timeout(1000)]
 fn temp() {
     let tex_pro = tex_pro_new();
-    
+
     let mut live_graph = LiveGraph::new(Arc::clone(&tex_pro.add_buffer_queue));
     live_graph.auto_update = true;
     live_graph.use_cache = true;
     let live_graph = Arc::new(RwLock::new(live_graph));
-    
+
     tex_pro
         .push_live_graph(Arc::clone(&live_graph))
         .expect("Unable to add graph");

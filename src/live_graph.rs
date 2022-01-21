@@ -477,8 +477,7 @@ impl LiveGraph {
     pub(crate) fn set_state(&mut self, node_id: NodeId, node_state: NodeState) -> Result<()> {
         let node_state_old = self.node_state(node_id)?;
 
-        if node_state != node_state_old
-        {
+        if node_state != node_state_old {
             // If the state becomes dirty, propagate it to all children.
             if node_state == NodeState::Dirty {
                 for node_id in self.node_graph.get_children(node_id)? {
