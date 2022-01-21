@@ -58,32 +58,32 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
 
     let mut arc_buffer_default: Option<Arc<TransientBufferContainer>> = None;
 
-    if let Some(slot_data) = slot_datas.get(0) {
-        let size = slot_data.size()?;
-
-        Ok(vec![Arc::new(SlotData::new(
-            node.node_id,
-            SlotId(0),
-            SlotImage::Rgba([
-                rgba_slot_data_to_buffer(
-                    slot_datas.get(0),
-                    &buffer_default(&mut arc_buffer_default, size, false),
-                ),
-                rgba_slot_data_to_buffer(
-                    slot_datas.get(1),
-                    &buffer_default(&mut arc_buffer_default, size, false),
-                ),
-                rgba_slot_data_to_buffer(
-                    slot_datas.get(2),
-                    &buffer_default(&mut arc_buffer_default, size, false),
-                ),
-                rgba_slot_data_to_buffer(
-                    slot_datas.get(3),
-                    &buffer_default(&mut arc_buffer_default, size, true),
-                ),
-            ]),
-        ))])
+    let size = if let Some(slot_data) = slot_datas.get(0) {
+        slot_data.size()?
     } else {
-        Ok(Vec::new())
-    }
+        Size::new(1, 1)
+    };
+
+    Ok(vec![Arc::new(SlotData::new(
+        node.node_id,
+        SlotId(0),
+        SlotImage::Rgba([
+            rgba_slot_data_to_buffer(
+                slot_datas.get(0),
+                &buffer_default(&mut arc_buffer_default, size, false),
+            ),
+            rgba_slot_data_to_buffer(
+                slot_datas.get(1),
+                &buffer_default(&mut arc_buffer_default, size, false),
+            ),
+            rgba_slot_data_to_buffer(
+                slot_datas.get(2),
+                &buffer_default(&mut arc_buffer_default, size, false),
+            ),
+            rgba_slot_data_to_buffer(
+                slot_datas.get(3),
+                &buffer_default(&mut arc_buffer_default, size, true),
+            ),
+        ]),
+    ))])
 }
