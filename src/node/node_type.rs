@@ -3,7 +3,11 @@ use crate::{
     texture_processor::TextureProcessor,
 };
 use serde::{Deserialize, Serialize};
-use std::{fmt, mem, path::PathBuf, sync::Arc};
+use std::{
+    fmt, mem,
+    path::PathBuf,
+    sync::{atomic::Ordering, Arc},
+};
 
 use super::{
     embed::{EmbeddedSlotData, EmbeddedSlotDataId},
@@ -104,7 +108,7 @@ fn process_node_internal(
 ) -> Result<Vec<Arc<SlotData>>> {
     let shutdown = Arc::clone(&tex_pro.shutdown);
 
-    Ok(match node.node_type {
+    let output = match node.node_type {
         NodeType::InputRgba(_) => input_rgba::process(&node, input_slot_datas),
         NodeType::InputGray(_) => input_gray::process(&node, input_slot_datas),
         NodeType::OutputRgba(_) | NodeType::OutputGray(_) => output::process(slot_datas, &node),
@@ -119,7 +123,22 @@ fn process_node_internal(
         NodeType::HeightToNormal => height_to_normal::process(shutdown, slot_datas, &node)?,
         NodeType::SeparateRgba => separate_rgba::process(slot_datas, &node)?,
         NodeType::CombineRgba => combine_rgba::process(slot_datas, &node)?,
-    })
+    };
+
+    if !matches!(
+        node.node_type,
+        NodeType::OutputGray(..) | NodeType::OutputRgba(..)
+    ) && output.len() != node.output_slots().len()
+    {
+        println!(
+            "ERROR: the number of output buffers {} does not match the number of output slots {}",
+            output.len(),
+            node.output_slots().len()
+        );
+        Err(TexProError::InvalidBufferCount)
+    } else {
+        Ok(output)
+    }
 }
 
 impl Node {
