@@ -1,8 +1,45 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
-use crate::{error::Result, node_graph::SlotId, slot_data::SlotData, slot_image::SlotImage};
+use crate::{
+    error::Result,
+    node_graph::{NodeId, SlotId},
+    slot_data::SlotData,
+    slot_image::{Buffer, SlotImage},
+    transient_buffer::{TransientBuffer, TransientBufferContainer},
+};
 
 use super::Node;
+
+fn black_pixel_buffer() -> Arc<TransientBufferContainer> {
+    Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
+        TransientBuffer::new(Box::new(Buffer::from_raw(1, 1, vec![0.0]).unwrap())),
+    ))))
+}
+
+fn default_output(node_id: NodeId) -> Vec<Arc<SlotData>> {
+    vec![
+        Arc::new(SlotData::new(
+            node_id,
+            SlotId(0),
+            SlotImage::Gray(black_pixel_buffer()),
+        )),
+        Arc::new(SlotData::new(
+            node_id,
+            SlotId(1),
+            SlotImage::Gray(black_pixel_buffer()),
+        )),
+        Arc::new(SlotData::new(
+            node_id,
+            SlotId(2),
+            SlotImage::Gray(black_pixel_buffer()),
+        )),
+        Arc::new(SlotData::new(
+            node_id,
+            SlotId(3),
+            SlotImage::Gray(black_pixel_buffer()),
+        )),
+    ]
+}
 
 pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<Arc<SlotData>>> {
     if let Some(slot_data) = slot_datas.get(0) {
@@ -30,9 +67,9 @@ pub(crate) fn process(slot_datas: &[Arc<SlotData>], node: &Node) -> Result<Vec<A
                 )),
             ])
         } else {
-            Ok(Vec::new())
+            Ok(default_output(node.node_id))
         }
     } else {
-        Ok(Vec::new())
+        Ok(default_output(node.node_id))
     }
 }
