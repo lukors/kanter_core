@@ -22,11 +22,11 @@ use std::{
 pub enum NodeState {
     // The node's outputs match the inputs and settings
     Clean,
-    // Some input or setting was changed, so the outputs do not match
+    // Some input or setting was changed, so the outputs do not match them
     Dirty,
     // Node is in processing queue
     Requested,
-    // Node is in priority processing queue (this is no longer used)
+    // Node is in priority processing queue (this is not used)
     Prioritised,
     // Node is being processed
     Processing,
@@ -478,7 +478,6 @@ impl LiveGraph {
         let node_state_old = self.node_state(node_id)?;
 
         if node_state != node_state_old
-            && !(node_state == NodeState::Dirty && node_state_old == NodeState::ProcessingDirty)
         {
             // If the state becomes dirty, propagate it to all children.
             if node_state == NodeState::Dirty {
