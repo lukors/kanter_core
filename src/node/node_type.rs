@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt, mem,
     path::PathBuf,
-    sync::{atomic::Ordering, Arc},
+    sync::Arc,
 };
 
 use super::{
