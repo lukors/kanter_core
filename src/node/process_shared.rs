@@ -25,7 +25,7 @@ pub(crate) fn slot_data_with_slot_id(
     slot_datas
         .iter()
         .find(|slot_data| slot_data.slot_id == slot_id)
-        .map(|slot_data| Arc::clone(slot_data))
+        .map(Arc::clone)
 }
 
 pub(crate) trait Sampling {

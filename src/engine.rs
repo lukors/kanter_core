@@ -187,13 +187,13 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
             let embedded_node_datas: Vec<Arc<EmbeddedSlotData>> = live_graph
                 .embedded_slot_datas()
                 .iter()
-                .map(|end| Arc::clone(end))
+                .map(Arc::clone)
                 .collect();
 
             let input_node_datas: Vec<Arc<SlotData>> = live_graph
                 .input_slot_datas()
                 .iter()
-                .map(|nd| Arc::clone(nd))
+                .map(Arc::clone)
                 .collect();
 
             let edges = live_graph
