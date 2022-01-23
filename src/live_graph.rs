@@ -13,7 +13,7 @@ use crate::{
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     fmt::Display,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{atomic::Ordering, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     thread,
     time::Duration,
 };
@@ -486,6 +486,13 @@ impl LiveGraph {
         self.changed.insert(input_node);
         self.node(output_node)?.priority.touch();
         self.set_state(input_node, NodeState::Dirty)?;
+
+        if let Ok(node) = self.node(input_node) {
+            node.cancel.store(true, Ordering::Relaxed);
+        } else {
+            // Assume the node has been removed.
+            return Err(TexProError::InvalidNodeId);
+        }
 
         Ok(edge)
     }
