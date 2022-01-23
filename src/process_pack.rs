@@ -42,11 +42,11 @@ impl ProcessPackManager {
             let process_pack = process_packs.pop().expect("Unfailable");
 
             if self.process_packs.len() < self.max_count {
-                if let Err(e) = self.insert_by_priority(process_pack.clone()) {
-                    if let TexProError::InvalidNodeId = e {
-                        // Assuming the node has been deleted.
-                        continue;
-                    }
+                if let Err(TexProError::InvalidNodeId) =
+                    self.insert_by_priority(process_pack.clone())
+                {
+                    // Assuming the node has been deleted.
+                    continue;
                 }
 
                 output_packs.push(process_pack);
@@ -58,11 +58,11 @@ impl ProcessPackManager {
                     .priority
                     .propagated_priority()
             {
-                if let Err(e) = self.insert_by_priority(process_pack.clone()) {
-                    if let TexProError::InvalidNodeId = e {
-                        // Assuming the node has been deleted.
-                        continue;
-                    }
+                if let Err(TexProError::InvalidNodeId) =
+                    self.insert_by_priority(process_pack.clone())
+                {
+                    // Assuming the node has been deleted.
+                    continue;
                 }
 
                 {
