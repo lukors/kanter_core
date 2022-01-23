@@ -43,6 +43,22 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
 
                 let node_id = message.node_id;
 
+                if let Ok(node) = live_graph.node(node_id) {
+                    if node.cancel.load(Ordering::Relaxed) == true {
+                        let _ = live_graph.force_state(node_id, NodeState::Dirty);
+                        continue;
+                    }
+                }
+
+                if let Ok(node_state) = live_graph.node_state(node_id) {
+                    let processing_dirty = node_state == NodeState::ProcessingDirty;
+
+                    if processing_dirty {
+                        let _ = live_graph.force_state(node_id, NodeState::Dirty);
+                        continue;
+                    }
+                }
+
                 match message.slot_datas {
                     Ok(slot_datas) => {
                         for slot_data in &slot_datas {
@@ -63,7 +79,6 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                                     .iter()
                                     .flatten()
                                     .all(|node_id| {
-                                        // Todo: Should this also match on `NodeState::ProcessingDirty`?
                                         matches![
                                             live_graph.node_state(*node_id).unwrap(),
                                             NodeState::Clean | NodeState::Processing
@@ -198,6 +213,14 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
 
             let mut live_graph = process_pack.live_graph.write().unwrap();
 
+            // We set it as processing before getting the list of edges to guarantee that no more
+            // edges sneak in without us noticing.
+            if let Ok(node_state) = live_graph.node_state_mut(node_id) {
+                *node_state = NodeState::Processing;
+            } else {
+                continue;
+            }
+            
             let edges = live_graph
                 .edges()
                 .iter()
@@ -205,7 +228,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                 .copied()
                 .collect::<Vec<Edge>>();
 
-            // Ensure that all nodes are ready to be processed.
+            // Ensure that all inputs are clean.
             for edge in &edges {
                 let node_state = live_graph.node_state(edge.output_id);
 
@@ -222,19 +245,14 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                                 continue;
                             }
                             _ => {
-                                // At time of writing there is only the `InvalidNodeId` error.
+                                // At time of writing there only the `InvalidNodeId` error can
+                                // come from this function.
                                 println!("unexpected error");
                                 tex_pro.shutdown.store(true, Ordering::Relaxed);
                             }
                         }
                     }
                 }
-            }
-
-            if let Ok(node_state) = live_graph.node_state_mut(node_id) {
-                *node_state = NodeState::Processing;
-            } else {
-                continue;
             }
 
             let node = live_graph.node_graph.node(node_id).unwrap();

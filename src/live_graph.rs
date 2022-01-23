@@ -516,6 +516,15 @@ impl LiveGraph {
         Ok(())
     }
 
+    pub(crate) fn force_state(&mut self, node_id: NodeId, node_state: NodeState) -> Result<()> {
+        self.set_state(node_id, node_state)?;
+
+        let node_state_mut = self.node_state_mut(node_id)?;
+        *node_state_mut = node_state;
+        
+        Ok(())
+    }
+
     pub fn remove_edge(&mut self, edge: Edge) -> Result<Edge> {
         let mut dirty_nodes = self.node_graph.get_children_recursive(edge.input_id)?;
         dirty_nodes.push(edge.input_id);
