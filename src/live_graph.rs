@@ -467,6 +467,8 @@ impl LiveGraph {
             }
         }
 
+        self.remove_nodes_data(node_id);
+
         self.node_state.remove(&node_id);
 
         Ok(edges)
