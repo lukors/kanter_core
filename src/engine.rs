@@ -220,7 +220,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
             } else {
                 continue;
             }
-            
+
             let edges = live_graph
                 .edges()
                 .iter()

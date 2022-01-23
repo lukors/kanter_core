@@ -521,7 +521,7 @@ impl LiveGraph {
 
         let node_state_mut = self.node_state_mut(node_id)?;
         *node_state_mut = node_state;
-        
+
         Ok(())
     }
 
