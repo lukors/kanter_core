@@ -55,21 +55,6 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                         live_graph.remove_nodes_data(node_id);
                         live_graph.slot_datas.append(&mut slot_datas.into());
 
-                        if let Ok(node_state) = live_graph.node_state(node_id) {
-                            if node_state == NodeState::ProcessingDirty {
-                                if live_graph.set_state(node_id, NodeState::Dirty).is_err() {
-                                    tex_pro.shutdown.store(true, Ordering::Relaxed);
-                                    return;
-                                }
-                            } else if live_graph.set_state(node_id, NodeState::Clean).is_err() {
-                                tex_pro.shutdown.store(true, Ordering::Relaxed);
-                                return;
-                            }
-                        } else {
-                            tex_pro.shutdown.store(true, Ordering::Relaxed);
-                            return;
-                        }
-
                         if !live_graph.use_cache {
                             for parent in live_graph.node_graph.get_parents(node_id) {
                                 if live_graph
@@ -78,6 +63,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                                     .iter()
                                     .flatten()
                                     .all(|node_id| {
+                                        // Todo: Should this also match on `NodeState::ProcessingDirty`?
                                         matches![
                                             live_graph.node_state(*node_id).unwrap(),
                                             NodeState::Clean | NodeState::Processing
@@ -88,15 +74,34 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                                 }
                             }
                         }
+                        
+                        if let Ok(node_state) = live_graph.node_state(node_id) {
+                            if node_state == NodeState::ProcessingDirty {
+                                if live_graph.set_state(node_id, NodeState::Dirty).is_err() {
+                                    // Assuming the node has been removed.
+                                    continue;
+                                }
+                            } else if live_graph.set_state(node_id, NodeState::Clean).is_err() {
+                                // Assuming the node has been removed.
+                                continue;
+                            }
+                        } else {
+                            // Assuming the node has been removed.
+                            live_graph.remove_nodes_data(node_id);
+                            continue;
+                        }
                     }
                     Err(e) => match e {
                         TexProError::Canceled => {
                             if let Ok(node) = live_graph.node(node_id) {
                                 node.cancel.store(false, Ordering::Relaxed);
+                            } else {
+                                // Assuming the node has been removed.
+                                continue;
                             }
                             if live_graph.set_state(node_id, NodeState::Dirty).is_err() {
-                                tex_pro.shutdown.store(true, Ordering::Relaxed);
-                                return;
+                                // Assuming the node has been removed.
+                                continue;
                             }
                         }
                         _ => {
@@ -117,12 +122,12 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
         LiveGraph::drop_unused_live_graphs(&mut tex_pro.live_graphs.write().unwrap());
 
         for live_graph in tex_pro.live_graph().read().unwrap().iter() {
-            let closest_processable = {
-                let live_graph = live_graph.read().unwrap();
+            let mut live_graph_write = live_graph.write().unwrap();
 
+            let closest_processable = {
                 // Get requested nodes
-                let requested = if live_graph.auto_update {
-                    live_graph
+                let requested = if live_graph_write.auto_update {
+                    live_graph_write
                         .node_states()
                         .iter()
                         .filter(|(_, node_state)| {
@@ -136,7 +141,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                         .map(|(node_id, _)| *node_id)
                         .collect::<Vec<NodeId>>()
                 } else {
-                    live_graph
+                    live_graph_write
                         .node_states()
                         .iter()
                         .filter(|(_, node_state)| {
@@ -149,7 +154,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                 // Get the closest non-clean parents
                 let mut closest_processable = Vec::new();
                 for node_id in requested {
-                    closest_processable.append(&mut live_graph.get_closest_processable(node_id));
+                    closest_processable.append(&mut live_graph_write.get_closest_processable(node_id));
                 }
                 closest_processable.sort_unstable();
                 closest_processable.dedup();
@@ -157,30 +162,79 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
             };
 
             for node_id in closest_processable {
-                process_packs.push(ProcessPack {
-                    node_id,
-                    priority: Arc::clone(
-                        &live_graph.read().unwrap().node(node_id).unwrap().priority,
-                    ),
-                    live_graph: Arc::clone(live_graph),
-                });
+                if let Ok(node) = live_graph_write.node(node_id) {
+                    process_packs.push(ProcessPack {
+                        node_id,
+                        priority: Arc::clone(&node.priority),
+                        live_graph: Arc::clone(live_graph),
+                    });
+                } else {
+                    // Assuming the node has been deleted.
+                    continue;
+                }
             }
 
-            live_graph.write().unwrap().propagate_priorities();
+            live_graph_write.propagate_priorities();
         }
 
-        let process_packs = tex_pro
-            .process_pack_manager
-            .write()
-            .unwrap()
-            .update(process_packs)
-            .unwrap();
+        let process_packs = {
+            let mut process_pack_manager = tex_pro.process_pack_manager.write().unwrap();
+
+            match process_pack_manager.update(process_packs) {
+                Ok(process_packs) => process_packs,
+                Err(e) => {
+                    // All `InvalidNodeId` errors should already be handled in the function. If
+                    // there is another error, it is unhandled.
+                    println!("Unexpected error: {}", e);
+                    tex_pro.shutdown.store(true, Ordering::Relaxed);
+                    return;
+                },
+            }
+        };
 
         'process: for process_pack in process_packs {
             let node_id = process_pack.node_id;
+            
             let mut live_graph = process_pack.live_graph.write().unwrap();
 
-            *live_graph.node_state_mut(node_id).unwrap() = NodeState::Processing;
+            let edges = live_graph
+                .edges()
+                .iter()
+                .filter(|edge| edge.input_id == node_id)
+                .copied()
+                .collect::<Vec<Edge>>();
+            
+            // Ensure that all nodes are ready to be processed.
+            for edge in &edges {
+                let node_state = live_graph.node_state(edge.output_id);
+
+                match node_state {
+                    Ok(node_state) => {
+                        if node_state != NodeState::Clean {
+                            continue;
+                        }
+                    },
+                    Err(e) => {
+                        match e {
+                            TexProError::InvalidNodeId => {
+                                // Assuming the node has been deleted.
+                                continue;
+                            }
+                            _ => {
+                                // At time of writing there is only the `InvalidNodeId` error.
+                                println!("unexpected error");
+                                tex_pro.shutdown.store(true, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if let Ok(node_state) = live_graph.node_state_mut(node_id) {
+                *node_state = NodeState::Processing;
+            } else {
+                continue;
+            }
 
             let node = live_graph.node_graph.node(node_id).unwrap();
 
@@ -196,16 +250,9 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                 .map(Arc::clone)
                 .collect();
 
-            let edges = live_graph
-                .edges()
-                .iter()
-                .filter(|edge| edge.input_id == node_id)
-                .copied()
-                .collect::<Vec<Edge>>();
-
             let input_data = {
                 let mut input_data = Vec::new();
-                for edge in edges.iter() {
+                for edge in &edges {
                     if let Ok(slot_data) = live_graph.slot_data(edge.output_id, edge.output_slot) {
                         input_data.push(Arc::clone(slot_data));
                     } else {

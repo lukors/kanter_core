@@ -2,7 +2,7 @@ use std::sync::{atomic::Ordering, Arc, RwLock};
 extern crate num_cpus;
 
 use crate::{
-    error::Result,
+    error::{Result, TexProError},
     live_graph::{LiveGraph, NodeState},
     node_graph::NodeId,
     priority::Priority,
@@ -28,7 +28,7 @@ impl ProcessPackManager {
         }
     }
 
-    /// Gets a vec of `ProcessPacks` and returns all the new `ProcessPacks` that fit within the
+    /// Gets a vec of `ProcessPack`s and returns all the new `ProcessPacks` that fit within the
     /// `max_count` limit.
     pub fn update(&mut self, mut process_packs: Vec<ProcessPack>) -> Result<Vec<ProcessPack>> {
         let mut output_packs = Vec::new();
@@ -42,7 +42,13 @@ impl ProcessPackManager {
             let process_pack = process_packs.pop().expect("Unfailable");
 
             if self.process_packs.len() < self.max_count {
-                self.insert_by_priority(process_pack.clone())?;
+                if let Err(e) = self.insert_by_priority(process_pack.clone()) {
+                    if let TexProError::InvalidNodeId = e {
+                        // Assuming the node has been deleted.
+                        continue;
+                    }
+                }
+
                 output_packs.push(process_pack);
             } else if process_pack.priority.propagated_priority()
                 > self
@@ -52,15 +58,33 @@ impl ProcessPackManager {
                     .priority
                     .propagated_priority()
             {
-                self.insert_by_priority(process_pack.clone())?;
+                if let Err(e) = self.insert_by_priority(process_pack.clone()) {
+                    if let TexProError::InvalidNodeId = e {
+                        // Assuming the node has been deleted.
+                        continue;
+                    }
+                }
 
-                let removed_pack = self.process_packs.remove(0);
-                removed_pack
-                    .live_graph
-                    .read()?
-                    .node(removed_pack.node_id)?
-                    .cancel
-                    .store(true, Ordering::Relaxed);
+                {
+                    let removed_pack = self.process_packs.remove(0);
+                    let node = removed_pack.live_graph.read()?.node(removed_pack.node_id);
+
+                    match node {
+                        Ok(node) => node.cancel.store(true, Ordering::Relaxed),
+                        Err(e) => {
+                            match e {
+                                TexProError::InvalidNodeId => {
+                                    // Assuming the node has been removed.
+                                    continue;
+                                },
+                                _ => {
+                                    println!("Unexpected error");
+                                    return Err(e);
+                                }
+                            }
+                        }
+                    }
+                }
 
                 output_packs.push(process_pack);
             } else {
@@ -73,13 +97,21 @@ impl ProcessPackManager {
 
     fn remove_clean(&mut self) -> Result<()> {
         for i in (0..self.process_packs.len()).rev() {
-            if self.process_packs[i]
+            let node_state = self.process_packs[i]
                 .live_graph
                 .read()?
-                .node_state(self.process_packs[i].node_id)?
-                == NodeState::Clean
-            {
-                self.process_packs.remove(i);
+                .node_state(self.process_packs[i].node_id);
+            
+            match node_state {
+                Ok(node_state) => {
+                    if node_state == NodeState::Clean {
+                        self.process_packs.remove(i);
+                    }
+                },
+                Err(_) => {
+                    // Assuming the node has been deleted.
+                    self.process_packs.remove(i);
+                },
             }
         }
 
@@ -87,6 +119,8 @@ impl ProcessPackManager {
     }
 
     fn insert_by_priority(&mut self, process_pack: ProcessPack) -> Result<()> {
+        // We cancel nodes that are too low priority to make room for higher priority nodes. This
+        // line ensures a previously cancelled node is un-cancelled so it can be processed.
         process_pack
             .live_graph
             .read()?
