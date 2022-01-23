@@ -14,7 +14,7 @@ use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     thread,
-    time::Duration,
+    time::Duration, fmt::Display,
 };
 
 /// Indicates what is going on with the node.
@@ -33,6 +33,23 @@ pub enum NodeState {
     // Some input or setting was changed while the node was being processed, it will be processed
     // again when it's finished.
     ProcessingDirty,
+}
+
+impl Display for NodeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Clean => "Clean",
+                Self::Dirty => "Dirty",
+                Self::Requested => "Requested",
+                Self::Prioritised => "Prioritised",
+                Self::Processing => "Processing",
+                Self::ProcessingDirty => "ProcessingDirty",
+            }
+        )
+    }
 }
 
 impl Default for NodeState {
