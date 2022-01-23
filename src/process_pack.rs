@@ -76,7 +76,7 @@ impl ProcessPackManager {
                                 TexProError::InvalidNodeId => {
                                     // Assuming the node has been removed.
                                     continue;
-                                },
+                                }
                                 _ => {
                                     println!("Unexpected error");
                                     return Err(e);
@@ -101,17 +101,17 @@ impl ProcessPackManager {
                 .live_graph
                 .read()?
                 .node_state(self.process_packs[i].node_id);
-            
+
             match node_state {
                 Ok(node_state) => {
                     if node_state == NodeState::Clean {
                         self.process_packs.remove(i);
                     }
-                },
+                }
                 Err(_) => {
                     // Assuming the node has been deleted.
                     self.process_packs.remove(i);
-                },
+                }
             }
         }
 

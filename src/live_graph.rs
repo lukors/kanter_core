@@ -12,9 +12,10 @@ use crate::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
+    fmt::Display,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     thread,
-    time::Duration, fmt::Display,
+    time::Duration,
 };
 
 /// Indicates what is going on with the node.

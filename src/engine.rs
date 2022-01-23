@@ -74,7 +74,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                                 }
                             }
                         }
-                        
+
                         if let Ok(node_state) = live_graph.node_state(node_id) {
                             if node_state == NodeState::ProcessingDirty {
                                 if live_graph.set_state(node_id, NodeState::Dirty).is_err() {
@@ -154,7 +154,8 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                 // Get the closest non-clean parents
                 let mut closest_processable = Vec::new();
                 for node_id in requested {
-                    closest_processable.append(&mut live_graph_write.get_closest_processable(node_id));
+                    closest_processable
+                        .append(&mut live_graph_write.get_closest_processable(node_id));
                 }
                 closest_processable.sort_unstable();
                 closest_processable.dedup();
@@ -188,13 +189,13 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                     println!("Unexpected error: {}", e);
                     tex_pro.shutdown.store(true, Ordering::Relaxed);
                     return;
-                },
+                }
             }
         };
 
         'process: for process_pack in process_packs {
             let node_id = process_pack.node_id;
-            
+
             let mut live_graph = process_pack.live_graph.write().unwrap();
 
             let edges = live_graph
@@ -203,7 +204,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                 .filter(|edge| edge.input_id == node_id)
                 .copied()
                 .collect::<Vec<Edge>>();
-            
+
             // Ensure that all nodes are ready to be processed.
             for edge in &edges {
                 let node_state = live_graph.node_state(edge.output_id);
@@ -213,7 +214,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                         if node_state != NodeState::Clean {
                             continue;
                         }
-                    },
+                    }
                     Err(e) => {
                         match e {
                             TexProError::InvalidNodeId => {
@@ -229,7 +230,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                     }
                 }
             }
-            
+
             if let Ok(node_state) = live_graph.node_state_mut(node_id) {
                 *node_state = NodeState::Processing;
             } else {
