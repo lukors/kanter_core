@@ -44,7 +44,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                 let node_id = message.node_id;
 
                 if let Ok(node) = live_graph.node(node_id) {
-                    if node.cancel.load(Ordering::Relaxed) == true {
+                    if node.cancel.load(Ordering::Relaxed) {
                         let _ = live_graph.force_state(node_id, NodeState::Dirty);
                         continue;
                     }
