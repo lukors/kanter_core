@@ -474,6 +474,17 @@ impl LiveGraph {
         Ok(edges)
     }
 
+    pub fn can_connect(
+        &self,
+        output_node_id: NodeId,
+        input_node_id: NodeId,
+        output_slot_id: SlotId,
+        input_slot_id: SlotId,
+    ) -> Result<()> {
+        self.node_graph
+            .can_connect(output_node_id, input_node_id, output_slot_id, input_slot_id)
+    }
+
     pub fn connect(
         &mut self,
         output_node: NodeId,
