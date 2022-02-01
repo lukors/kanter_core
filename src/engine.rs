@@ -92,7 +92,7 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
 
                         if let Ok(node_state) = live_graph.node_state(node_id) {
                             if node_state == NodeState::ProcessingDirty {
-                                if live_graph.set_state(node_id, NodeState::Dirty).is_err() {
+                                if live_graph.force_state(node_id, NodeState::Dirty).is_err() {
                                     // Assuming the node has been removed.
                                     continue;
                                 }
@@ -109,12 +109,9 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                     Err(e) => match e {
                         TexProError::Canceled => {
                             if let Ok(node) = live_graph.node(node_id) {
+                                let _ = live_graph.force_state(node_id, NodeState::Dirty);
                                 node.cancel.store(false, Ordering::Relaxed);
                             } else {
-                                // Assuming the node has been removed.
-                                continue;
-                            }
-                            if live_graph.set_state(node_id, NodeState::Dirty).is_err() {
                                 // Assuming the node has been removed.
                                 continue;
                             }
