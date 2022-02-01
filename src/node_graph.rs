@@ -10,6 +10,7 @@ use std::{
     io::{self},
     mem,
     path::PathBuf,
+    sync::atomic::Ordering,
 };
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
@@ -460,6 +461,9 @@ impl NodeGraph {
 
     pub fn remove_edge(&mut self, edge: Edge) -> Result<Edge> {
         if let Some(index_to_remove) = self.edges.iter().position(|edge_cmp| *edge_cmp == edge) {
+            self.node(edge.input_id)?
+                .cancel
+                .store(true, Ordering::Relaxed);
             Ok(self.edges.remove(index_to_remove))
         } else {
             Err(TexProError::InvalidEdge)
@@ -478,6 +482,7 @@ impl NodeGraph {
 
     /// Removes all `Edge`s plugged into the given `NodeId`.
     fn disconnect_node(&mut self, node_id: NodeId) -> Result<Vec<Edge>> {
+        self.node(node_id)?.cancel.store(true, Ordering::Relaxed);
         let mut removed_edges = Vec::new();
 
         for edge_index in self.edge_indices_node(node_id)?.into_iter().rev() {
@@ -494,7 +499,7 @@ impl NodeGraph {
         side: Side,
         slot_id: SlotId,
     ) -> Result<Vec<Edge>> {
-        self.has_node_with_id(node_id)?;
+        self.node(node_id)?.cancel.store(true, Ordering::Relaxed);
 
         let mut removed_edges = Vec::new();
 
