@@ -536,6 +536,9 @@ impl LiveGraph {
         Ok(())
     }
 
+    /// Both sets the state as usual, and forces the node to be in the current state. This is
+    /// uesful for instance when going from `ProcessingDirty` to `Dirty`, as that transition will
+    /// just become `ProcessingDirty` again unless forced.
     pub(crate) fn force_state(&mut self, node_id: NodeId, node_state: NodeState) -> Result<()> {
         self.set_state(node_id, node_state)?;
 
