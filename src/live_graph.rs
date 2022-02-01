@@ -619,6 +619,10 @@ impl LiveGraph {
         self.node_graph.output_ids()
     }
 
+    pub fn rename_output_node(&mut self, node_id: NodeId, new_name: &str) -> Result<String> {
+        self.node_graph.rename_output_node(node_id, new_name)
+    }
+
     pub fn node_ids(&self) -> Vec<NodeId> {
         self.node_graph.node_ids()
     }

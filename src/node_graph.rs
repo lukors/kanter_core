@@ -227,6 +227,46 @@ impl NodeGraph {
             .collect()
     }
 
+    /// Gives an Output node a new name, returning the old name.
+    pub fn rename_output_node(&mut self, node_id: NodeId, new_name: &str) -> Result<String> {
+        let name_list = self
+            .output_names()
+            .iter()
+            .map(|name| (**name).clone())
+            .collect::<Vec<String>>();
+        let mut name_list = name_list.iter().collect::<Vec<&String>>();
+
+        let mut node = self
+            .node_with_id_mut(node_id)
+            .ok_or(TexProError::InvalidNodeId)?;
+
+        let old_name = if let NodeType::OutputRgba(name) | NodeType::OutputGray(name) =
+            node.node_type.clone()
+        {
+            name
+        } else {
+            return Err(TexProError::InvalidNodeType);
+        };
+
+        let old_name_index = name_list
+            .iter()
+            .position(|name| **name == old_name)
+            .unwrap();
+        name_list.remove(old_name_index);
+
+        node.node_type = match node.node_type {
+            NodeType::OutputRgba(_) => {
+                NodeType::OutputRgba(Self::avoid_name_collision(name_list, new_name))
+            }
+            NodeType::OutputGray(_) => {
+                NodeType::OutputGray(Self::avoid_name_collision(name_list, new_name))
+            }
+            _ => return Err(TexProError::InvalidNodeType),
+        };
+
+        Ok(old_name)
+    }
+
     pub fn input_slot_id_with_name(&self, name: &str) -> Option<SlotId> {
         self.input_nodes()
             .iter()
