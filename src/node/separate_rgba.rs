@@ -1,42 +1,36 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::{
     error::Result,
+    node::pixel_buffer,
     node_graph::{NodeId, SlotId},
     slot_data::SlotData,
-    slot_image::{Buffer, SlotImage},
-    transient_buffer::{TransientBuffer, TransientBufferContainer},
+    slot_image::SlotImage,
 };
 
 use super::Node;
-
-fn black_pixel_buffer() -> Arc<TransientBufferContainer> {
-    Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
-        TransientBuffer::new(Box::new(Buffer::from_raw(1, 1, vec![0.0]).unwrap())),
-    ))))
-}
 
 fn default_output(node_id: NodeId) -> Vec<Arc<SlotData>> {
     vec![
         Arc::new(SlotData::new(
             node_id,
             SlotId(0),
-            SlotImage::Gray(black_pixel_buffer()),
+            SlotImage::Gray(pixel_buffer(0.0)),
         )),
         Arc::new(SlotData::new(
             node_id,
             SlotId(1),
-            SlotImage::Gray(black_pixel_buffer()),
+            SlotImage::Gray(pixel_buffer(0.0)),
         )),
         Arc::new(SlotData::new(
             node_id,
             SlotId(2),
-            SlotImage::Gray(black_pixel_buffer()),
+            SlotImage::Gray(pixel_buffer(0.0)),
         )),
         Arc::new(SlotData::new(
             node_id,
             SlotId(3),
-            SlotImage::Gray(black_pixel_buffer()),
+            SlotImage::Gray(pixel_buffer(0.0)),
         )),
     ]
 }

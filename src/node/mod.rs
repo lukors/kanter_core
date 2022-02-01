@@ -18,12 +18,14 @@ use crate::{
     node_graph::*,
     priority::Priority,
     slot_data::*,
+    slot_image::Buffer,
+    transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{atomic::AtomicBool, Arc, RwLock},
 };
 
 use self::node_type::NodeType;
@@ -233,6 +235,12 @@ impl Slot {
             slot_type,
         }
     }
+}
+
+fn pixel_buffer(value: ChannelPixel) -> Arc<TransientBufferContainer> {
+    Arc::new(TransientBufferContainer::new(Arc::new(RwLock::new(
+        TransientBuffer::new(Box::new(Buffer::from_raw(1, 1, vec![value]).unwrap())),
+    ))))
 }
 
 pub(crate) type SlotInput = Slot;
