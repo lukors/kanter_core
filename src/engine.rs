@@ -43,22 +43,6 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
 
                 let node_id = message.node_id;
 
-                if let Ok(node) = live_graph.node(node_id) {
-                    if node.cancel.load(Ordering::Relaxed) {
-                        let _ = live_graph.force_state(node_id, NodeState::Dirty);
-                        continue;
-                    }
-                }
-
-                if let Ok(node_state) = live_graph.node_state(node_id) {
-                    let processing_dirty = node_state == NodeState::ProcessingDirty;
-
-                    if processing_dirty {
-                        let _ = live_graph.force_state(node_id, NodeState::Dirty);
-                        continue;
-                    }
-                }
-
                 match message.slot_datas {
                     Ok(slot_datas) => {
                         for slot_data in &slot_datas {
@@ -90,30 +74,38 @@ pub(crate) fn process_loop(tex_pro: Arc<TextureProcessor>) {
                             }
                         }
 
-                        if let Ok(node_state) = live_graph.node_state(node_id) {
-                            if node_state == NodeState::ProcessingDirty {
-                                if live_graph.force_state(node_id, NodeState::Dirty).is_err() {
-                                    // Assuming the node has been removed.
-                                    continue;
-                                }
-                            } else if live_graph.set_state(node_id, NodeState::Clean).is_err() {
-                                // Assuming the node has been removed.
-                                continue;
+                        // At this point everything is done, the final thing before we mark it
+                        // clean is to check if it's been cancelled or dirtied while we worked on
+                        // it.
+                        let mut not_clean = false;
+                        if let Ok(node) = live_graph.node(node_id) {
+                            if node.cancel.compare_exchange(
+                                true,
+                                false,
+                                Ordering::SeqCst,
+                                Ordering::Acquire,
+                            ) == Ok(true)
+                                || live_graph.node_state(node_id) == Ok(NodeState::ProcessingDirty)
+                            {
+                                not_clean = true;
+                            } else {
+                                let _ = live_graph.set_state(node_id, NodeState::Clean);
                             }
                         } else {
                             // Assuming the node has been removed.
+                            not_clean = true;
+                        }
+
+                        if not_clean {
                             live_graph.remove_nodes_data(node_id);
-                            continue;
+                            let _ = live_graph.force_state(node_id, NodeState::Dirty);
                         }
                     }
                     Err(e) => match e {
                         TexProError::Canceled => {
                             if let Ok(node) = live_graph.node(node_id) {
                                 let _ = live_graph.force_state(node_id, NodeState::Dirty);
-                                node.cancel.store(false, Ordering::Relaxed);
-                            } else {
-                                // Assuming the node has been removed.
-                                continue;
+                                node.cancel.store(false, Ordering::SeqCst);
                             }
                         }
                         _ => {
