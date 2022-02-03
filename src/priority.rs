@@ -31,25 +31,25 @@ impl Priority {
     }
 
     pub fn set_priority(&self, val: i8) {
-        if self.priority.swap(val, Ordering::Relaxed) != val {
-            self.touched.store(true, Ordering::Relaxed)
+        if self.priority.swap(val, Ordering::SeqCst) != val {
+            self.touched.store(true, Ordering::SeqCst)
         }
     }
 
     pub fn propagated_priority(&self) -> i8 {
-        self.propagated_priority.load(Ordering::Relaxed)
+        self.propagated_priority.load(Ordering::SeqCst)
     }
 
     pub fn priority(&self) -> i8 {
-        self.priority.load(Ordering::Relaxed)
+        self.priority.load(Ordering::SeqCst)
     }
 
     fn untouch(&self) {
-        self.touched.store(false, Ordering::Relaxed)
+        self.touched.store(false, Ordering::SeqCst)
     }
 
     pub fn touch(&self) {
-        self.touched.store(true, Ordering::Relaxed)
+        self.touched.store(true, Ordering::SeqCst)
     }
 
     fn set_max_prio(
@@ -72,7 +72,7 @@ impl Priority {
             .max()
             .unwrap_or(i8::MIN);
         let prio = max_child_prio.max(self.priority());
-        self.propagated_priority.store(prio, Ordering::Relaxed);
+        self.propagated_priority.store(prio, Ordering::SeqCst);
         prio
     }
 }
@@ -105,7 +105,7 @@ impl PriorityPropagator {
         for (node_id, priority) in self
             .priorities
             .iter()
-            .filter(|(_, priority)| priority.touched.load(Ordering::Relaxed))
+            .filter(|(_, priority)| priority.touched.load(Ordering::SeqCst))
             .rev()
         {
             let new_prio = priority.set_max_prio(self, node_graph, *node_id);
@@ -124,8 +124,8 @@ impl PriorityPropagator {
     fn sort_by_priority(priorities: &mut Vec<(NodeId, Arc<Priority>)>) {
         priorities.sort_unstable_by(|a, b| {
             a.1.priority
-                .load(Ordering::Relaxed)
-                .cmp(&b.1.priority.load(Ordering::Relaxed))
+                .load(Ordering::SeqCst)
+                .cmp(&b.1.priority.load(Ordering::SeqCst))
         });
     }
 
@@ -145,7 +145,7 @@ impl PriorityPropagator {
             if let Some((parent_node_id, parent_prio)) = self.prio_of_node_id(parent) {
                 match parent_prio
                     .propagated_priority
-                    .fetch_max(this_propagated_priority, Ordering::Relaxed)
+                    .fetch_max(this_propagated_priority, Ordering::SeqCst)
                     .cmp(&this_propagated_priority)
                 {
                     std::cmp::Ordering::Less => {
@@ -246,7 +246,7 @@ mod tests {
     ) {
         assert_eq!(node_id, expected_node_id);
         assert_eq!(prio.propagated_priority(), expected_prio);
-        assert!(!prio.touched.load(Ordering::Relaxed));
+        assert!(!prio.touched.load(Ordering::SeqCst));
     }
 
     fn add_node_with_prio(
