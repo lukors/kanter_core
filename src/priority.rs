@@ -93,6 +93,11 @@ impl PriorityPropagator {
         }
     }
 
+    /// Propagates all priorities throughout the node graph.
+    ///
+    /// A node that has a high priority needs
+    /// all its parents to have the same high priority so that the actual high priority node gets
+    /// processed as soon as possible.
     pub fn update(&mut self, node_graph: &NodeGraph) {
         for i in (0..self.priorities.len()).rev() {
             if Arc::strong_count(&self.priorities[i].1) == 1 {
