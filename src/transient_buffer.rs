@@ -69,13 +69,13 @@ impl TransientBuffer {
 
     pub fn request(&self) {
         if let Self::Storage(_, _, _, requested) = self {
-            requested.store(true, Ordering::Relaxed);
+            requested.store(true, Ordering::SeqCst);
         }
     }
 
     pub fn requested(&self) -> bool {
         if let Self::Storage(_, _, _, requested) = self {
-            requested.load(Ordering::Relaxed)
+            requested.load(Ordering::SeqCst)
         } else {
             false
         }
@@ -262,7 +262,7 @@ impl Display for TransientBufferQueue {
 
         let top = format!(
             "Thres: {thr}\nTotal: {tot}\nStora: {sto}\nMemor: {mem}",
-            thr = self.memory_threshold.load(Ordering::Relaxed),
+            thr = self.memory_threshold.load(Ordering::SeqCst),
             tot = bytes_total,
             mem = bytes_memory,
             sto = bytes_storage
@@ -385,7 +385,7 @@ impl TransientBufferQueue {
                     }
                 }
 
-                let memory_threshold = tbc.memory_threshold.load(Ordering::Relaxed);
+                let memory_threshold = tbc.memory_threshold.load(Ordering::SeqCst);
                 let mut i: usize = 0;
                 while bytes_in_memory > memory_threshold {
                     if let Some(tbuf_container) = tbc.queue.get(i) {
