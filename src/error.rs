@@ -26,6 +26,12 @@ pub enum TexProError {
     InvalidName,
 }
 
+impl PartialEq for TexProError {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
 impl Error for TexProError {}
 
 impl fmt::Display for TexProError {
