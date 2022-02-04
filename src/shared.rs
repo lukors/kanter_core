@@ -227,13 +227,11 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
                 buffers
                     .pop()
                     .or_else(|| {
-                        Some(Box::new(
-                            ImageBuffer::from_raw(
-                                width,
-                                height,
-                                vec![default; (width * height) as usize],
-                            )?,
-                        ))
+                        Some(Box::new(ImageBuffer::from_raw(
+                            width,
+                            height,
+                            vec![default; (width * height) as usize],
+                        )?))
                     })
                     .unwrap(),
             ),
