@@ -232,8 +232,7 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
                                 width,
                                 height,
                                 vec![default; (width * height) as usize],
-                            )
-                            .unwrap(),
+                            )?,
                         ))
                     })
                     .unwrap(),
