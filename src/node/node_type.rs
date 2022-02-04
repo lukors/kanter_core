@@ -109,7 +109,7 @@ fn process_node_internal(
         NodeType::InputGray(_) => input_gray::process(&node, input_slot_datas),
         NodeType::OutputRgba(_) | NodeType::OutputGray(_) => output::process(slot_datas, &node),
         NodeType::Graph(ref node_graph) => graph::process(slot_datas, &node, node_graph, tex_pro)?,
-        NodeType::Image(ref path) => read::process(&node, path)?,
+        NodeType::Image(ref path) => image::process(&node, path)?,
         NodeType::Embed(embedded_node_data_id) => {
             embed::process(&node, embedded_slot_datas, embedded_node_data_id)?
         }

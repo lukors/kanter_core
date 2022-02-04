@@ -8,7 +8,7 @@ pub mod mix;
 pub mod node_type;
 pub mod output;
 pub mod process_shared;
-pub mod read;
+pub mod image;
 pub mod separate_rgba;
 pub mod value;
 pub mod write;
@@ -21,7 +21,7 @@ use crate::{
     slot_image::Buffer,
     transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
-use image::imageops::FilterType;
+use ::image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,

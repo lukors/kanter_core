@@ -5,7 +5,7 @@ use crate::{
     transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 use crate::{node::*, slot_data::*};
-use image::{imageops, DynamicImage, ImageBuffer};
+use ::image::{imageops, DynamicImage, ImageBuffer};
 use std::{
     cmp::{max, min},
     path::Path,
@@ -241,7 +241,7 @@ pub fn read_slot_image<P: AsRef<Path>>(path: P) -> Result<SlotImage> {
         ))))
     }
 
-    let image = image::open(path)?;
+    let image = ::image::open(path)?;
     let mut buffers = deconstruct_image(&image);
     let width = buffers[0].width();
     let height = buffers[0].height();
