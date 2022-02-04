@@ -5,7 +5,7 @@ use crate::{
     transient_buffer::{TransientBuffer, TransientBufferContainer},
 };
 use crate::{node::*, slot_data::*};
-use image::{imageops, DynamicImage, GenericImageView, ImageBuffer};
+use image::{imageops, DynamicImage, ImageBuffer};
 use std::{
     cmp::{max, min},
     path::Path,
