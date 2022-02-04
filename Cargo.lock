@@ -273,19 +273,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kanter_core"
-version = "0.9.5"
-dependencies = [
- "image",
- "nalgebra",
- "ntest",
- "num_cpus",
- "rand",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -683,6 +670,19 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
+
+[[package]]
+name = "vismut_core"
+version = "0.9.5"
+dependencies = [
+ "image",
+ "nalgebra",
+ "ntest",
+ "num_cpus",
+ "rand",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "wasi"

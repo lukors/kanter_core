@@ -1,4 +1,4 @@
-use kanter_core::{
+use vismut_core::{
     live_graph::{LiveGraph, NodeState},
     node::{
         embed::EmbeddedSlotDataId, mix::MixType, node_type::NodeType, Node, ResizeFilter,

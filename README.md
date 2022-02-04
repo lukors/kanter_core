@@ -1,5 +1,5 @@
-# Kanter Core
-This is a library for node based image editing created for use in [Kanter](https://github.com/lukors/kanter).
+# Vismut Core
+This is a library for node based image editing created for use in [Vismut](https://github.com/lukors/kanter).
 
 It's not meant to be used yet, but you can use it and it should be easy to see how it works by looking at the tests in `tests/integration_tests.rs`.
 
