@@ -1,3 +1,6 @@
+# THIS REPOSITORY HAS MOVED
+New location: https://gitlab.com/vismutorg/vismut
+
 # Vismut Core
 This is a library for node based image editing created for use in [Vismut](https://github.com/lukors/kanter).
 
